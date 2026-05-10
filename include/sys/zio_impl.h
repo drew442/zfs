@@ -76,9 +76,9 @@ extern "C" {
  * the supported transformations:
  *
  * Compression:
- * ZFS supports five different flavors of compression -- gzip, lzjb, lz4, zle,
- * and zstd. Compression occurs as part of the write pipeline and is
- * performed in the ZIO_STAGE_WRITE_BP_INIT stage.
+ * ZFS supports six different flavors of compression -- gzip, lzjb, lz4, zle,
+ * zstd, and qat-deflate. Compression occurs as part of the write pipeline and
+ * is performed in the ZIO_STAGE_WRITE_BP_INIT stage.
  *
  * Block cloning:
  * The block cloning functionality introduces ZIO_STAGE_BRT_FREE stage which

@@ -146,6 +146,7 @@ extern qat_stats_t qat_stats;
 extern int zfs_qat_compress_disable;
 extern int zfs_qat_checksum_disable;
 extern int zfs_qat_encrypt_disable;
+extern int zfs_qat_deflate_depth;
 
 /* inlined for performance */
 static inline struct page *

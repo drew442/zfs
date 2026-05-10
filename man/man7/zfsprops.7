@@ -811,7 +811,8 @@ for more information on these algorithms.
 Changing this property affects only newly-written data.
 .It Xo
 .Sy compression Ns = Ns Sy on Ns | Ns Sy off Ns | Ns Sy gzip Ns | Ns
-.Sy gzip- Ns Ar N Ns | Ns Sy lz4 Ns | Ns Sy lzjb Ns | Ns Sy zle Ns | Ns Sy zstd Ns | Ns
+.Sy gzip- Ns Ar N Ns | Ns Sy lz4 Ns | Ns Sy lzjb Ns | Ns Sy zle Ns | Ns
+.Sy qat-deflate Ns | Ns Sy zstd Ns | Ns
 .Sy zstd- Ns Ar N Ns | Ns Sy zstd-fast Ns | Ns Sy zstd-fast- Ns Ar N
 .Xc
 Controls the compression algorithm used for this dataset.
@@ -917,6 +918,14 @@ provides the fastest compression and lowest compression ratio.
 .Sy zstd-fast
 is equivalent to
 .Sy zstd-fast- Ns Ar 1 .
+.Pp
+The
+.Sy qat-deflate
+compression algorithm uses Intel QuickAssist Technology deflate acceleration
+when available and falls back to software gzip-compatible deflate.
+Pools containing blocks written with
+.Sy qat-deflate
+require OpenZFS builds that support this fork-local compression type.
 .Pp
 The
 .Sy zle

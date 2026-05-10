@@ -292,6 +292,7 @@ SRCS+=	abd.c \
 	edonr_zfs.c \
 	fm.c \
 	gzip.c \
+	qat_deflate.c \
 	lz4.c \
 	lz4_zfs.c \
 	lzjb.c \

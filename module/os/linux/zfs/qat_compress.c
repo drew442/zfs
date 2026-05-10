@@ -51,6 +51,7 @@ static Cpa16U num_inst = 0;
 static Cpa32U inst_num = 0;
 static boolean_t qat_dc_init_done = B_FALSE;
 int zfs_qat_compress_disable = 0;
+int zfs_qat_deflate_depth = 1;
 
 boolean_t
 qat_dc_use_accel(size_t s_len)
@@ -59,6 +60,23 @@ qat_dc_use_accel(size_t s_len)
 	    qat_dc_init_done &&
 	    s_len >= QAT_MIN_BUF_SIZE &&
 	    s_len <= QAT_MAX_BUF_SIZE);
+}
+
+static CpaDcCompLvl
+qat_dc_comp_level_from_depth(void)
+{
+	switch (zfs_qat_deflate_depth) {
+	case 1:
+		return (CPA_DC_L1);
+	case 4:
+		return (CPA_DC_L2);
+	case 8:
+		return (CPA_DC_L3);
+	case 16:
+		return (CPA_DC_L4);
+	default:
+		return (CPA_DC_L1);
+	}
 }
 
 static void
@@ -189,7 +207,7 @@ qat_dc_init(void)
 		if (status != CPA_STATUS_SUCCESS)
 			goto fail;
 
-		sd.compLevel = CPA_DC_L1;
+		sd.compLevel = qat_dc_comp_level_from_depth();
 		sd.compType = CPA_DC_DEFLATE;
 		sd.huffType = CPA_DC_HT_FULL_DYNAMIC;
 		sd.sessDirection = CPA_DC_DIR_COMBINED;
@@ -546,8 +564,44 @@ param_set_qat_compress(const char *val, zfs_kernel_param_t *kp)
 	return (ret);
 }
 
+static boolean_t
+qat_dc_valid_deflate_depth(int depth)
+{
+	return (depth == 1 || depth == 4 || depth == 8 || depth == 16);
+}
+
+static int
+param_set_qat_deflate_depth(const char *val, zfs_kernel_param_t *kp)
+{
+	int ret;
+	int old_value;
+	int *pvalue = kp->arg;
+
+	old_value = *pvalue;
+	ret = param_set_int(val, kp);
+	if (ret != 0)
+		return (ret);
+
+	if (!qat_dc_valid_deflate_depth(*pvalue)) {
+		*pvalue = old_value;
+		return (-EINVAL);
+	}
+
+	if (qat_dc_init_done && *pvalue != old_value) {
+		*pvalue = old_value;
+		return (-EBUSY);
+	}
+
+	return (0);
+}
+
 module_param_call(zfs_qat_compress_disable, param_set_qat_compress,
     param_get_int, &zfs_qat_compress_disable, 0644);
 MODULE_PARM_DESC(zfs_qat_compress_disable, "Enable/Disable QAT compression");
+
+module_param_call(zfs_qat_deflate_depth, param_set_qat_deflate_depth,
+    param_get_int, &zfs_qat_deflate_depth, 0644);
+MODULE_PARM_DESC(zfs_qat_deflate_depth,
+    "QAT 1.7/1.8 deflate depth: 1, 4, 8, or 16");
 
 #endif

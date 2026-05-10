@@ -71,6 +71,8 @@ zio_compress_info_t zio_compress_table[ZIO_COMPRESS_FUNCTIONS] = {
 	    zfs_lz4_compress,	zfs_lz4_decompress, NULL},
 	{"zstd",	ZIO_ZSTD_LEVEL_DEFAULT,
 	    zfs_zstd_compress,	zfs_zstd_decompress, zfs_zstd_decompress_level},
+	{"qat-deflate", 0,
+	    zfs_qat_deflate_compress, zfs_qat_deflate_decompress, NULL},
 };
 
 uint8_t
