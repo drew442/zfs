@@ -42,6 +42,10 @@
 !udev/**
 
 !.editorconfig
+!.codex
+!.codex/skills
+!.codex/skills/openzfs-qat
+!.codex/skills/openzfs-qat/**
 !.cirrus.yml
 !.gitignore
 !.gitmodules
