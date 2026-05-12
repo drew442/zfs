@@ -25,6 +25,7 @@
   - Compression and decompression implementation.
   - Contains a fixed static cap: `QAT_DC_MAX_INSTANCES = 48`.
   - Owns `zfs_qat_compress_disable`, `zfs_qat_cpa_dc_level`, and the lazy re-enable path via the module parameter setter.
+  - Uses stack page-pointer arrays for per-request QAT mapping cleanup; QAT metadata and buffer-list storage are still allocated per request.
 - `module/os/linux/zfs/qat_crypt.c`
   - AES-GCM encryption/decryption and SHA256 checksum offload.
   - Owns `zfs_qat_encrypt_disable` and `zfs_qat_checksum_disable`.

@@ -214,5 +214,5 @@ Acceptance:
 
 1. Document and, if needed, improve the boot ordering between `qat.service` and early ZFS module load.
 2. Extend phase 5 host validation with repeatable benchmark scripts and read-after-reboot checks.
-3. Evaluate per-request allocation and mapping reductions in `qat_compress_impl()` as a focused follow-up if QAT throughput remains important.
+3. Evaluate scratch-buffer allocation, non-serializing QAT metadata reuse, and NUMA placement as focused follow-ups if QAT throughput remains important.
 4. Defer checksum and encryption policy changes until compression behavior is stable.

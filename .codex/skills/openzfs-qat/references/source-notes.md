@@ -70,6 +70,7 @@ These notes capture stable, primary-source details useful when reviewing this fo
 - Intel documents NUMA locality and memory-channel population as performance factors. Do not encode universal performance thresholds from a single machine or forum report.
 - Intel documents SVM for QAT 2.0 and DMA-able/pinned memory requirements when SVM is not enabled. SVM is out of scope for this QAT 1.x-focused project; review allocation/copy costs in the current physically contiguous allocation path before lowering offload thresholds.
 - Phase 4 host data on dh895xcc/QAT 4.28 showed 4 KiB gzip offload produced QAT DC failures, so compression now starts at 8 KiB while crypto/checksum retain the shared 4 KiB minimum.
+- A phase 4 per-instance workspace experiment reduced metadata/list allocations but regressed elapsed time because it serialized requests behind per-instance locks. Do not reintroduce that shape without a concurrency-aware design and before/after data.
 
 ## Community Links From `ReferenceLinks.txt`
 

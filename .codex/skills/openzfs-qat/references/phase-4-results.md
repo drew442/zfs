@@ -35,6 +35,8 @@ Raw benchmark CSV:
 
 ```text
 /root/zfs-qat-phase4-20260512-170610.csv
+/root/zfs-qat-phase4-alloc-20260513-084514.csv
+/root/zfs-qat-phase4-workspace-20260513-085342.csv
 ```
 
 Host DKMS source backup created before installing the phase 4 patch:
@@ -42,6 +44,8 @@ Host DKMS source backup created before installing the phase 4 patch:
 ```text
 /root/zfs-2.4.99.pre-phase4.20260512T215440Z
 /root/zfs-2.4.99.pre-phase4.latest -> /root/zfs-2.4.99.pre-phase4.20260512T215440Z
+/root/zfs-2.4.99.pre-phase4-stack-final.20260512T225518Z
+/root/zfs-2.4.99.pre-phase4-stack-final.latest -> /root/zfs-2.4.99.pre-phase4-stack-final.20260512T225518Z
 ```
 
 ## Benchmark Method
@@ -129,6 +133,18 @@ All file comparisons passed.
 
 `module/os/linux/zfs/qat_compress.c` now uses the compression-specific bounds in `qat_dc_use_accel()` and intermediate buffer sizing.
 
+Follow-up allocation tuning removed three per-request heap allocations by replacing the temporary source, destination, and scratch page-pointer arrays with fixed stack arrays sized by `QAT_DC_MAX_PAGES`. The QAT API metadata buffers and `CpaBufferList` storage still use per-request allocations.
+
+A deeper per-instance workspace experiment was built and benchmarked but abandoned. It preallocated QAT metadata/list storage under a per-instance mutex, but the host measurements regressed:
+
+```text
+variant              128K QAT elapsed_s       8K QAT elapsed_s
+stack arrays only    0.338-0.442              0.591
+workspace attempt    0.524-0.574              1.357
+```
+
+The workspace attempt was removed from the final patch because it serialized enough of the compression path to outweigh the saved allocations.
+
 The patch was built and installed on `pve.drewnet.online` with DKMS, followed by `update-initramfs -u -k 7.0.0-3-pve` and reboot. No dracut package operation was performed.
 
 Loaded module after reboot:
@@ -136,7 +152,7 @@ Loaded module after reboot:
 ```text
 zfs-kmod-2.4.99-1
 filename: /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko
-srcversion: E2AA354E54E58F2FA7A7545
+srcversion: 5F988487C81FC03543DBBFA
 depends: spl,qat_api
 ```
 
@@ -150,8 +166,16 @@ recordsize comp_requests comp_in comp_out dc_fails compressratio used  sha_ok
 
 This confirms 4 KiB gzip records now use software gzip without QAT failures, while 8 KiB records still use QAT compression successfully.
 
+Post-allocation-tuning validation after reinstalling the final stack-array build:
+
+```text
+recordsize comp_requests comp_in    comp_out dc_fails compressratio used  sha_ok
+8K         23358         191348736 6279760  0        4.43x         55.3M yes
+4K         0             0         0        0        5.57x         45.0M yes
+```
+
 ## Follow-Up
 
-- If QAT compression throughput remains important, next work should focus on reducing per-request allocation and mapping costs in `qat_compress_impl()`.
+- If QAT compression throughput remains important, next work should focus on the larger remaining costs: scratch-buffer allocation, QAT metadata/list allocation without serializing requests, and NUMA placement.
 - If larger-record QAT compression is considered later, test it explicitly against software gzip with correctness checks and QAT failure counters before raising `QAT_DC_MAX_BUF_SIZE`.
 - NUMA-aware benchmarking should pin workload generation and inspect where ZFS compression work actually runs before drawing broad throughput conclusions.

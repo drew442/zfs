@@ -37,6 +37,7 @@
  * QAT driver's configuration file.
  */
 #define	QAT_DC_MAX_INSTANCES	48
+#define	QAT_DC_MAX_PAGES	((QAT_DC_MAX_BUF_SIZE >> PAGE_SHIFT) + 2)
 
 /*
  * ZLIB head and foot size
@@ -280,13 +281,15 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	Cpa32U num_dst_buf = (dst_len >> PAGE_SHIFT) + 2;
 	Cpa32U num_add_buf = (add_len >> PAGE_SHIFT) + 2;
 	Cpa32U bytes_left;
+	Cpa32U src_pages = 0;
 	Cpa32U dst_pages = 0;
+	Cpa32U add_pages = 0;
 	Cpa32U adler32 = 0;
 	char *data;
 	struct page *page;
-	struct page **in_pages = NULL;
-	struct page **out_pages = NULL;
-	struct page **add_pages = NULL;
+	struct page *in_pages[QAT_DC_MAX_PAGES];
+	struct page *out_pages[QAT_DC_MAX_PAGES];
+	struct page *scratch_pages[QAT_DC_MAX_PAGES];
 	Cpa32U page_off = 0;
 	struct completion complete;
 	Cpa32U page_num = 0;
@@ -302,19 +305,8 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	Cpa32U dst_buffer_list_mem_size = sizeof (CpaBufferList) +
 	    ((num_dst_buf + num_add_buf) * sizeof (CpaFlatBuffer));
 
-	status = QAT_PHYS_CONTIG_ALLOC(&in_pages,
-	    num_src_buf * sizeof (struct page *));
-	if (status != CPA_STATUS_SUCCESS)
-		goto fail;
-
-	status = QAT_PHYS_CONTIG_ALLOC(&out_pages,
-	    num_dst_buf * sizeof (struct page *));
-	if (status != CPA_STATUS_SUCCESS)
-		goto fail;
-
-	status = QAT_PHYS_CONTIG_ALLOC(&add_pages,
-	    num_add_buf * sizeof (struct page *));
-	if (status != CPA_STATUS_SUCCESS)
+	if (num_src_buf > QAT_DC_MAX_PAGES || num_dst_buf > QAT_DC_MAX_PAGES ||
+	    num_add_buf > QAT_DC_MAX_PAGES)
 		goto fail;
 
 	i = (Cpa32U)atomic_inc_32_nv(&inst_num) % num_inst;
@@ -333,22 +325,18 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	if (status != CPA_STATUS_SUCCESS)
 		goto fail;
 
-	/* build source buffer list */
 	status = QAT_PHYS_CONTIG_ALLOC(&buf_list_src, src_buffer_list_mem_size);
 	if (status != CPA_STATUS_SUCCESS)
 		goto fail;
 
 	flat_buf_src = (CpaFlatBuffer *)(buf_list_src + 1);
-
 	buf_list_src->pBuffers = flat_buf_src; /* always point to first one */
 
-	/* build destination buffer list */
 	status = QAT_PHYS_CONTIG_ALLOC(&buf_list_dst, dst_buffer_list_mem_size);
 	if (status != CPA_STATUS_SUCCESS)
 		goto fail;
 
 	flat_buf_dst = (CpaFlatBuffer *)(buf_list_dst + 1);
-
 	buf_list_dst->pBuffers = flat_buf_dst; /* always point to first one */
 
 	buf_list_src->numBuffers = 0;
@@ -370,6 +358,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		buf_list_src->numBuffers++;
 		page_num++;
 	}
+	src_pages = page_num;
 
 	buf_list_dst->numBuffers = 0;
 	buf_list_dst->pPrivateMetaData = buffer_meta_dst;
@@ -389,8 +378,8 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		flat_buf_dst++;
 		buf_list_dst->numBuffers++;
 		page_num++;
-		dst_pages++;
 	}
+	dst_pages = page_num;
 
 	/* map additional scratch pages into the destination buffer list */
 	bytes_left = add_len;
@@ -400,7 +389,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		page_off = ((long)data & ~PAGE_MASK);
 		page = qat_mem_to_page(data);
 		flat_buf_dst->pData = kmap(page) + page_off;
-		add_pages[page_num] = page;
+		scratch_pages[page_num] = page;
 		flat_buf_dst->dataLenInBytes =
 		    min((long)PAGE_SIZE - page_off, (long)bytes_left);
 
@@ -410,6 +399,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		buf_list_dst->numBuffers++;
 		page_num++;
 	}
+	add_pages = page_num;
 
 	init_completion(&complete);
 
@@ -488,30 +478,14 @@ fail:
 	if (status != CPA_STATUS_SUCCESS && status != CPA_STATUS_INCOMPRESSIBLE)
 		QAT_STAT_BUMP(dc_fails);
 
-	if (in_pages) {
-		for (page_num = 0;
-		    page_num < buf_list_src->numBuffers;
-		    page_num++) {
-			kunmap(in_pages[page_num]);
-		}
-		QAT_PHYS_CONTIG_FREE(in_pages);
-	}
+	for (page_num = 0; page_num < src_pages; page_num++)
+		kunmap(in_pages[page_num]);
 
-	if (out_pages) {
-		for (page_num = 0; page_num < dst_pages; page_num++) {
-			kunmap(out_pages[page_num]);
-		}
-		QAT_PHYS_CONTIG_FREE(out_pages);
-	}
+	for (page_num = 0; page_num < dst_pages; page_num++)
+		kunmap(out_pages[page_num]);
 
-	if (add_pages) {
-		for (page_num = 0;
-		    page_num < buf_list_dst->numBuffers - dst_pages;
-		    page_num++) {
-			kunmap(add_pages[page_num]);
-		}
-		QAT_PHYS_CONTIG_FREE(add_pages);
-	}
+	for (page_num = 0; page_num < add_pages; page_num++)
+		kunmap(scratch_pages[page_num]);
 
 	QAT_PHYS_CONTIG_FREE(buffer_meta_src);
 	QAT_PHYS_CONTIG_FREE(buffer_meta_dst);
