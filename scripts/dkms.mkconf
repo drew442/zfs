@@ -24,6 +24,10 @@ exec cat >"${filename}" <<EOF
 PACKAGE_NAME="${pkgname}"
 PACKAGE_VERSION="${pkgver}"
 PACKAGE_CONFIG="${pkgcfg}"
+$(
+  [ -n "${ICP_ROOT:-}" ] && \
+    echo "ICP_ROOT=\"\${ICP_ROOT:-${ICP_ROOT}}\""
+)
 NO_WEAK_MODULES="yes"
 PRE_BUILD="configure
   --disable-dependency-tracking

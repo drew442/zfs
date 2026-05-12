@@ -589,20 +589,29 @@ AC_DEFUN([ZFS_AC_QAT], [
 	])
 
 	dnl #
-	dnl # Detect the name used for the QAT Module.symvers file.
+	dnl # Detect the QAT Module.symvers files.  The access layer symbols
+	dnl # are required because ZFS links against qat_api exports such as
+	dnl # cpaDcGetNumInstances().  Some QAT 4.x trees also provide a driver
+	dnl # Module.symvers under quickassist/qat; include it when present.
 	dnl #
 	AS_IF([test ! -z "${qatsrc}"], [
 		AC_MSG_CHECKING([qat file for module symbols])
-		QAT_SYMBOLS=$QAT_SRC/lookaside/access_layer/src/Module.symvers
+		QAT_API_SYMBOLS=$QAT_SRC/lookaside/access_layer/src/Module.symvers
+		QAT_DRV_SYMBOLS=$QAT_SRC/qat/Module.symvers
 
-		AS_IF([test -r $QAT_SYMBOLS], [
+		AS_IF([test -r "$QAT_API_SYMBOLS" && grep -q cpaDcGetNumInstances "$QAT_API_SYMBOLS"], [
+			QAT_SYMBOLS=$QAT_API_SYMBOLS
+			AS_IF([test -r "$QAT_DRV_SYMBOLS"], [
+				QAT_SYMBOLS="$QAT_SYMBOLS $QAT_DRV_SYMBOLS"
+			])
 			AC_MSG_RESULT([$QAT_SYMBOLS])
 			AC_SUBST(QAT_SYMBOLS)
 		],[
 			AC_MSG_ERROR([
 	*** Please make sure the qat driver is installed then try again.
-	*** Failed to find Module.symvers in:
-	$QAT_SYMBOLS
+	*** Failed to find a readable QAT access layer Module.symvers
+	*** containing qat_api CPA exports in:
+	$QAT_API_SYMBOLS
 			])
 		])
 	])

@@ -30,6 +30,8 @@ This plan defines the proposed work needed to make QAT support useful, testable,
 
 Purpose: establish a clean baseline before changing behavior.
 
+Status: completed for the 2026-05-12 pass. See `phase-0-1-results.md`.
+
 Work:
 
 - Capture local repo branch, commit, and diff.
@@ -48,6 +50,8 @@ Acceptance:
 ## Phase 1: Build Integration
 
 Purpose: make QAT detection work predictably with the QAT 4.28 tree used by the project.
+
+Status: completed for the 2026-05-12 pass. See `phase-0-1-results.md`.
 
 Work:
 

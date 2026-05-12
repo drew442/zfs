@@ -6,11 +6,12 @@
   - `ZFS_AC_QAT` defines `--with-qat=PATH` and `--with-qat-obj=PATH`.
   - Build detection expects `${qatsrc}/quickassist/include/cpa.h`.
   - Object detection expects `icp_qa_al.ko` or `qat_api.ko`.
-  - Symbol detection expects `lookaside/access_layer/src/Module.symvers`.
+  - Symbol detection requires `lookaside/access_layer/src/Module.symvers` with CPA API exports and also includes `qat/Module.symvers` when present.
 - `config/zfs-build.m4`
   - Carries the `CONFIG_QAT` automake conditional.
 - `scripts/dkms.mkconf`
   - Propagates `--with-qat="${ICP_ROOT}"` into DKMS config generation.
+  - When `ICP_ROOT` is set while generating `dkms.conf`, bakes that path in as the default for later DKMS rebuilds.
 - `include/sys/qat.h`
   - Public QAT-facing header for this tree.
   - Declares compile-time gate `HAVE_QAT`, shared stats, disable tunables, accel predicates, and the public QAT entry points.
