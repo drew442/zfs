@@ -19,7 +19,8 @@ Use this skill for QAT-specific work in this fork. It is meant for design review
 2. For driver/API questions, check `references/source-notes.md` before relying on community posts or old comments.
 3. For host testing on `pve.drewnet.online`, read `references/pve-drewnet-online.md` before making changes or running benchmarks.
 4. For project sequencing, use `references/work-plan.md`.
-5. Confirm which layer the task touches before editing:
+5. For completed implementation passes, check `references/phase-0-1-results.md` and `references/phase-2-3-results.md`.
+6. Confirm which layer the task touches before editing:
    - Build integration and static configuration
    - Runtime tunables and initialization
    - Compression, checksum, or encryption call sites

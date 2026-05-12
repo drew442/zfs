@@ -1,6 +1,6 @@
 # pve.drewnet.online QAT/ZFS Host Notes
 
-Last inspected: 2026-05-11 via read-only SSH as `root@pve.drewnet.online`.
+Last inspected: 2026-05-12 via SSH as `root@pve.drewnet.online`.
 Operator context updated: 2026-05-12.
 
 These notes document the observed QAT-enabled OpenZFS deployment on the Proxmox host. Machine IDs, product UUIDs, serial numbers, and full disk identifiers are intentionally omitted.
@@ -195,7 +195,7 @@ NumProcesses = 1
 LimitDevAccess = 0
 ```
 
-Observation: `adf_ctl` and the kernel report the device up, and ZFS QAT module flags are enabled. Do not infer from that alone that ZFS has processed QAT-accelerated I/O; the ZFS QAT kstats were zero during inspection.
+Observation: `adf_ctl` and the kernel can report the device up while ZFS QAT kstats remain at zero. Do not infer from driver state alone that ZFS has processed QAT-accelerated I/O.
 
 Relevant commands:
 
@@ -219,7 +219,7 @@ ZFS versions:
 
 ```text
 zfs-2.4.99-563_g5dd912192
-zfs-kmod-2.4.99-563_g5dd912192
+zfs-kmod-2.4.99-1
 ```
 
 DKMS status:
@@ -228,13 +228,21 @@ DKMS status:
 zfs/2.4.99, 7.0.0-3-pve, x86_64: installed (Original modules exist)
 ```
 
-Loaded module:
+Loaded module before the phase 2/3 install pass:
 
 ```text
 /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko
 version: 2.4.99-563_g5dd912192
 depends: spl,qat_api
 vermagic: 7.0.0-3-pve SMP preempt mod_unload modversions
+```
+
+Loaded module after the phase 2/3 install pass:
+
+```text
+filename: /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko
+version: 2.4.99-1
+depends: spl,qat_api
 ```
 
 DKMS source/config evidence:
@@ -282,23 +290,23 @@ Observed module parameters:
 ```text
 zfs_qat_checksum_disable=0
 zfs_qat_compress_disable=0
+zfs_qat_cpa_dc_level=4
 zfs_qat_encrypt_disable=0
 ```
 
 `/etc/modprobe.d/zfs-qat.conf` contains:
 
 ```text
-options zfs zfs_qat_compress_disable=0 zfs_qat_checksum_disable=0 zfs_qat_deflate_depth=16
+options zfs zfs_qat_compress_disable=0 zfs_qat_checksum_disable=0 zfs_qat_cpa_dc_level=4
 ```
 
-Important discrepancy:
+Historical note:
 
-- `modinfo zfs` advertises `zfs_qat_deflate_depth`.
-- `/etc/modprobe.d/zfs-qat.conf` sets `zfs_qat_deflate_depth=16`.
-- `/sys/module/zfs/parameters/` did not expose `zfs_qat_deflate_depth` during inspection.
-- No boot log entry was found for an unknown `zfs_qat_deflate_depth` parameter.
+- `zfs_qat_deflate_depth` was part of an abandoned experimental patch and should not be carried forward.
+- Current work should use `zfs_qat_cpa_dc_level` for the global QAT compression level.
+- `zfs_qat_deflate_depth` was removed from the host modprobe configuration during the phase 2/3 pass.
 
-Observed QAT kstats at inspection time:
+Initial QAT kstats before the phase 2/3 validation workload:
 
 ```text
 comp_requests=0
@@ -313,10 +321,20 @@ cksum_fails=0
 
 Interpretation: QAT support is compiled in and runtime enable flags are set to enabled, but the observed kstats do not prove that QAT has accelerated any ZFS workload since module load.
 
+Phase 2/3 validation showed a boot-order caveat: after reboot, the first controlled gzip workload did not move QAT compression kstats. Re-writing `0` to `/sys/module/zfs/parameters/zfs_qat_compress_disable` after `qat.service` was up triggered the lazy initialization path, and a repeat gzip workload moved `comp_requests` from `0` to `1460` with `dc_fails=0`.
+
+Operational check after boot:
+
+```bash
+echo 0 > /sys/module/zfs/parameters/zfs_qat_compress_disable
+cat /proc/spl/kstat/zfs/qat
+```
+
 Relevant commands:
 
 ```bash
 cat /sys/module/zfs/parameters/zfs_qat_compress_disable
+cat /sys/module/zfs/parameters/zfs_qat_cpa_dc_level
 cat /sys/module/zfs/parameters/zfs_qat_checksum_disable
 cat /sys/module/zfs/parameters/zfs_qat_encrypt_disable
 ls -l /sys/module/zfs/parameters | grep -E 'qat|deflate'
@@ -407,10 +425,7 @@ No `qzip` binary was found in `PATH` during inspection. `ldconfig` shows QAT lib
 
 ## Follow-Up Checks
 
-- Confirm why `zfs_qat_deflate_depth` is advertised by `modinfo` but not exposed in `/sys/module/zfs/parameters/`.
-- Run a controlled gzip workload and compare `/proc/spl/kstat/zfs/qat` before/after to prove actual ZFS QAT offload.
-- Review the systemd ordering cycle if QAT must be initialized before ZFS import/mount for future boot behavior.
+- Review the systemd ordering cycle if QAT should initialize before ZFS import/mount without a manual lazy re-enable.
+- Run controlled gzip workloads and compare `/proc/spl/kstat/zfs/qat` before/after to prove actual ZFS QAT offload for each benchmark.
 - Review NUMA placement if benchmarking QAT, because the QAT device is on node `2` and logs show remote-node access.
 - Consider whether `rpool` should remain feature-lagged or be upgraded; this is operationally separate from QAT.
-
-No write workload, benchmark, service restart, pool change, or module reload was performed during this inspection.

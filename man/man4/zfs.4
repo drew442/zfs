@@ -2103,6 +2103,12 @@ Disable QAT hardware acceleration for gzip compression.
 May be unset after the ZFS modules have been loaded to initialize the QAT
 hardware as long as support is compiled in and the QAT driver is present.
 .
+.It Sy zfs_qat_cpa_dc_level Ns = Ns Sy 1 Ns | Ns 2 Ns | Ns 3 Ns | Ns 4 Pq int
+QAT compression level for gzip compression.
+This is a global QAT data-compression session setting, not a per-dataset
+setting.
+It must be set before QAT compression sessions are initialized.
+.
 .It Sy zfs_qat_encrypt_disable Ns = Ns Sy 0 Ns | Ns 1 Pq int
 Disable QAT hardware acceleration for AES-GCM encryption.
 May be unset after the ZFS modules have been loaded to initialize the QAT

@@ -73,12 +73,14 @@ Acceptance:
 
 Purpose: make QAT state obvious and controllable after module load.
 
+Status: completed for the 2026-05-12 pass. See `phase-2-3-results.md`.
+
 Work:
 
 - Review `module/os/linux/zfs/qat.c`, `qat_compress.c`, `qat_crypt.c`, and `include/sys/qat.h`.
 - Verify initialization behavior when compression or crypto instances are absent.
 - Preserve lazy re-enable behavior through module parameters.
-- Confirm why the host build advertised `zfs_qat_deflate_depth` in `modinfo` but did not expose it under `/sys/module/zfs/parameters/`.
+- Do not carry forward the abandoned `zfs_qat_deflate_depth` experimental patch.
 - Add or adjust module parameters only if they are visible, documented, and safe to change.
 - Document runtime commands for disable flags and kstat inspection.
 
@@ -91,9 +93,11 @@ Acceptance:
 
 ## Phase 3: Compression Level Semantics
 
-Purpose: remove the current static `CPA_DC_L1` behavior and align QAT compression with ZFS gzip intent on QAT 1.x hardware.
+Purpose: remove the static `CPA_DC_L1` behavior and make the QAT compression level explicit on QAT 1.x hardware.
 
-Current issue:
+Status: completed for the 2026-05-12 pass. See `phase-2-3-results.md`.
+
+Original issue:
 
 - `module/os/linux/zfs/qat_compress.c` sets `sd.compLevel = CPA_DC_L1`.
 - `module/zfs/gzip.c` receives the ZFS gzip level as `n`, but calls `qat_compress()` without passing that level.
@@ -102,22 +106,21 @@ Current issue:
 Work:
 
 - Verify which `CPA_DC_L*` levels are supported by dh895x/C620 with QAT 4.28.
-- Decide whether compression level should be selected per ZFS gzip level, by module parameter, or both.
-- Prefer per-request mapping from ZFS gzip level to QAT compression level if QAT 1.x supports it reliably, because this preserves dataset-level semantics better than a global tunable.
+- Use a global module parameter for compression level because the QAT compression level is a hardware/session setting.
 - Keep decompression independent of compression-level selection.
 - Ensure unsupported QAT levels fall back safely to a lower QAT level or software gzip.
 - Document any unavoidable mismatch between ZFS gzip levels 1-9 and QAT 1.x levels.
 
 Likely implementation shape:
 
-- Extend `qat_compress()` or add a compression-specific setup path that receives the ZFS gzip level.
-- Map supported ZFS gzip levels to QAT 1.x `CPA_DC_L*` values after confirming hardware/API behavior.
+- Add `zfs_qat_cpa_dc_level` as a global module parameter.
+- Limit the accepted values to QAT 1.x-safe `CPA_DC_L1` through `CPA_DC_L4`.
 - Keep `CPA_DC_DEFLATE`, `CPA_DC_HT_FULL_DYNAMIC`, `CPA_DC_DIR_COMBINED`, `CPA_DC_STATELESS`, `CPA_DC_ADLER32`, and `CPA_DC_FLUSH_FINAL` unless evidence requires a QAT 1.x-safe change.
 - Update `man/man4/zfs.4` for any new or changed tunables.
 
 Acceptance:
 
-- A dataset set to `gzip-1` and a dataset set to a higher gzip level no longer silently use the same hardcoded QAT compression level unless explicitly documented as a hardware limitation.
+- QAT compression no longer silently uses hardcoded `CPA_DC_L1`; the global `zfs_qat_cpa_dc_level` module parameter controls the session level.
 - QAT compression kstats increase during controlled writes to gzip datasets.
 - Incompressible or failed QAT jobs preserve existing software fallback behavior.
 - Decompression succeeds for data written before and after the change.
@@ -207,8 +210,7 @@ Acceptance:
 
 ## Immediate Next Steps
 
-1. Re-baseline the host DKMS source from the repository before applying new patches.
-2. Fix QAT 4.28 build-symbol detection in `config/kernel.m4`.
-3. Implement and validate QAT 1.x-safe compression-level handling.
-4. Run controlled host tests proving QAT compression kstats move and data remains readable.
-5. Only then tune thresholds, instance handling, and allocation behavior.
+1. Document and, if needed, improve the boot ordering between `qat.service` and early ZFS module load.
+2. Start phase 4 threshold, allocation, instance, and NUMA measurement work using controlled before/after tests.
+3. Extend phase 5 host validation with repeatable benchmark scripts and read-after-reboot checks.
+4. Defer checksum and encryption policy changes until compression behavior is stable.

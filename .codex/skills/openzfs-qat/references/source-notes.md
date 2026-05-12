@@ -49,6 +49,7 @@ These notes capture stable, primary-source details useful when reviewing this fo
 
 - This repository currently initializes compression with `CPA_DC_DEFLATE`, `CPA_DC_HT_FULL_DYNAMIC`, `CPA_DC_DIR_COMBINED`, `CPA_DC_STATELESS`, `CPA_DC_ADLER32`, and `CPA_DC_L1`.
 - Intel's compression guide maps `CPA_DC_L1` to the lowest exposed compression level. Higher levels exist in the API, but support varies by hardware generation and can be rejected by the API.
+- For QAT 1.x work in this fork, `zfs_qat_cpa_dc_level` is the global compression-level control and is intentionally limited to `CPA_DC_L1` through `CPA_DC_L4`.
 - Intel documents `CPA_DC_FLUSH_FINAL` as the final-request flush flag for stateless Deflate compression and decompression. This matches the current `qat_compress.c` call pattern.
 - Intel documents QAT compression status in `CpaDcRqResults.status`; `CPA_DC_OVERFLOW` is not necessarily a fatal hardware error and may require a larger destination buffer.
 - Intel recommends Compress-and-Verify for compression integrity and does not support disabling it in current docs. Be cautious with patches that bypass verification or hide CnV/CnVnR outcomes.

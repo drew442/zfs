@@ -23,7 +23,7 @@
 - `module/os/linux/zfs/qat_compress.c`
   - Compression and decompression implementation.
   - Contains a fixed static cap: `QAT_DC_MAX_INSTANCES = 48`.
-  - Owns `zfs_qat_compress_disable` and the lazy re-enable path via the module parameter setter.
+  - Owns `zfs_qat_compress_disable`, `zfs_qat_cpa_dc_level`, and the lazy re-enable path via the module parameter setter.
 - `module/os/linux/zfs/qat_crypt.c`
   - AES-GCM encryption/decryption and SHA256 checksum offload.
   - Owns `zfs_qat_encrypt_disable` and `zfs_qat_checksum_disable`.
@@ -42,10 +42,11 @@
 ## Current runtime controls
 
 - `zfs_qat_compress_disable`
+- `zfs_qat_cpa_dc_level`
 - `zfs_qat_checksum_disable`
 - `zfs_qat_encrypt_disable`
 
-These are documented as disable flags, but setting them back to `0` also acts as a lazy initialization trigger when support was compiled in and the external QAT driver is present.
+The disable flags are documented as disable flags, but setting them back to `0` also acts as a lazy initialization trigger when support was compiled in and the external QAT driver is present. `zfs_qat_cpa_dc_level` is a global QAT data-compression session setting and must be set before QAT compression initializes.
 
 ## Current behavioral constraints
 
