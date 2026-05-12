@@ -129,9 +129,11 @@ Acceptance:
 
 Purpose: tune only after correctness and observability are proven.
 
+Status: completed for the 2026-05-12 pass. See `phase-4-results.md`.
+
 Work:
 
-- Re-evaluate the current `4 KiB` to `128 KiB` offload window for QAT 1.x and ZFS record sizes.
+- Re-evaluate the compression offload window for QAT 1.x and ZFS record sizes.
 - Measure failed offload attempts and software fallback frequency.
 - Review allocation and copy costs in `qat_compress_impl()`, especially buffer-list metadata and scratch buffers.
 - Evaluate whether the fixed `QAT_DC_MAX_INSTANCES = 48` and `QAT_CRYPT_MAX_INSTANCES = 48` caps are harmless for dh895x/C620 or should be made dynamic.
@@ -211,6 +213,6 @@ Acceptance:
 ## Immediate Next Steps
 
 1. Document and, if needed, improve the boot ordering between `qat.service` and early ZFS module load.
-2. Start phase 4 threshold, allocation, instance, and NUMA measurement work using controlled before/after tests.
-3. Extend phase 5 host validation with repeatable benchmark scripts and read-after-reboot checks.
+2. Extend phase 5 host validation with repeatable benchmark scripts and read-after-reboot checks.
+3. Evaluate per-request allocation and mapping reductions in `qat_compress_impl()` as a focused follow-up if QAT throughput remains important.
 4. Defer checksum and encryption policy changes until compression behavior is stable.

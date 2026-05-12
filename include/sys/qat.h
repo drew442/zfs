@@ -42,12 +42,19 @@ typedef enum qat_encrypt_dir {
 #include "lac/cpa_cy_sym.h"
 
 /*
- * The minimal and maximal buffer size which are not restricted
- * in the QAT hardware, but with the input buffer size between 4KB
- * and 128KB the hardware can provide the optimal performance.
+ * QAT hardware can process outside these sizes, but these bounds avoid
+ * cases where offload setup costs or failures dominate observed benefit.
  */
 #define	QAT_MIN_BUF_SIZE	(4*1024)
 #define	QAT_MAX_BUF_SIZE	(128*1024)
+
+/*
+ * Compression uses a higher minimum than crypto/checksum. Phase 4 testing
+ * on dh895xcc with QAT 4.28 showed 4 KiB gzip records produced QAT DC
+ * failures, while 8 KiB and larger records did not.
+ */
+#define	QAT_DC_MIN_BUF_SIZE	(8*1024)
+#define	QAT_DC_MAX_BUF_SIZE	QAT_MAX_BUF_SIZE
 
 /*
  * Used for QAT kstat.

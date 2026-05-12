@@ -15,7 +15,8 @@
 - `include/sys/qat.h`
   - Public QAT-facing header for this tree.
   - Declares compile-time gate `HAVE_QAT`, shared stats, disable tunables, accel predicates, and the public QAT entry points.
-  - Defines the current "good offload window" as `QAT_MIN_BUF_SIZE = 4 KiB` and `QAT_MAX_BUF_SIZE = 128 KiB`.
+  - Defines the shared crypto/checksum offload window as `QAT_MIN_BUF_SIZE = 4 KiB` and `QAT_MAX_BUF_SIZE = 128 KiB`.
+  - Defines the compression offload window as `QAT_DC_MIN_BUF_SIZE = 8 KiB` and `QAT_DC_MAX_BUF_SIZE = 128 KiB`.
 - `module/os/linux/zfs/qat.c`
   - Shared initialization and teardown.
   - Creates the `zfs/qat` kstat set.
@@ -50,7 +51,8 @@ The disable flags are documented as disable flags, but setting them back to `0` 
 
 ## Current behavioral constraints
 
-- Compression offload is only considered within the `4 KiB` to `128 KiB` window from `include/sys/qat.h`.
+- Compression offload is only considered within the `8 KiB` to `128 KiB` window from `include/sys/qat.h`.
+- Crypto/checksum offload still uses the shared `4 KiB` to `128 KiB` window.
 - Compression code uses a fixed maximum instance count of `48`.
 - Encryption offload in `zio_crypt.c` is intentionally skipped for `DMU_OT_INTENT_LOG` and `DMU_OT_DNODE`.
 - Most call sites attempt QAT first and then fall back to software if the accelerator path returns an error.
@@ -62,7 +64,7 @@ The disable flags are documented as disable flags, but setting them back to `0` 
   - Are configure errors specific enough to tell the user what is missing?
 - Static configuration
   - Does a fixed cap like `QAT_DC_MAX_INSTANCES = 48` still make sense?
-  - Are the `4 KiB` to `128 KiB` thresholds defensible for current hardware and workloads?
+  - Are the compression-specific `8 KiB` to `128 KiB` thresholds defensible for current hardware and workloads?
 - Runtime usability
   - Do the disable flags behave predictably when initialization fails once and later succeeds?
   - Is there enough visibility through kstats and module parameters?

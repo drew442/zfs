@@ -58,8 +58,8 @@ qat_dc_use_accel(size_t s_len)
 {
 	return (!zfs_qat_compress_disable &&
 	    qat_dc_init_done &&
-	    s_len >= QAT_MIN_BUF_SIZE &&
-	    s_len <= QAT_MAX_BUF_SIZE);
+	    s_len >= QAT_DC_MIN_BUF_SIZE &&
+	    s_len <= QAT_DC_MAX_BUF_SIZE);
 }
 
 static boolean_t
@@ -196,13 +196,13 @@ qat_dc_init(void)
 				 */
 				status = QAT_PHYS_CONTIG_ALLOC(
 				    &buffer_array[i][buff_num]->pBuffers->
-				    pData, 2 * QAT_MAX_BUF_SIZE);
+				    pData, 2 * QAT_DC_MAX_BUF_SIZE);
 				if (status != CPA_STATUS_SUCCESS)
 					goto fail;
 
 				buffer_array[i][buff_num]->numBuffers = 1;
 				buffer_array[i][buff_num]->pBuffers->
-				    dataLenInBytes = 2 * QAT_MAX_BUF_SIZE;
+				    dataLenInBytes = 2 * QAT_DC_MAX_BUF_SIZE;
 			}
 		}
 
