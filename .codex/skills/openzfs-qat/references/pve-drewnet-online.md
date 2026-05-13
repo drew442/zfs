@@ -195,6 +195,11 @@ NumProcesses = 1
 LimitDevAccess = 0
 ```
 
+Performance experiment note: a temporary `[KERNEL_QAT]` split of
+`NumberCyInstances = 2` and `NumberDcInstances = 4` was tested on 2026-05-13.
+The result was mixed, so the host was restored to the original
+`NumberCyInstances = 4` and `NumberDcInstances = 2` split.
+
 Observation: `adf_ctl` and the kernel can report the device up while ZFS QAT kstats remain at zero. Do not infer from driver state alone that ZFS has processed QAT-accelerated I/O.
 
 Boot ordering caveat observed on 2026-05-13: systemd may delete the

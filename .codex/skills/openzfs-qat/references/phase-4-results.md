@@ -354,6 +354,72 @@ Conclusion:
 - The next tuning target should be QAT DC concurrency and instance allocation,
   not scratch reuse.
 
+## QAT DC Instance Split Follow-Up
+
+Run date: 2026-05-13.
+
+The host QAT driver configuration was temporarily changed from the default
+`[KERNEL_QAT]` split:
+
+```text
+NumberCyInstances = 4
+NumberDcInstances = 2
+```
+
+to a DC-biased split:
+
+```text
+NumberCyInstances = 2
+NumberDcInstances = 4
+```
+
+Two additional DC entries were added:
+
+```text
+Dc2Name = "IPComp2"
+Dc2IsPolled = 0
+Dc2CoreAffinity = 7
+Dc3Name = "IPComp3"
+Dc3IsPolled = 0
+Dc3CoreAffinity = 8
+```
+
+The total kernel QAT instance count remained six. The QAT service accepted the
+config file but reported `device busy` when restarted with active ZFS QAT
+handles, so the host was rebooted before benchmarking.
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-dc2-jobs4-timing-20260513.csv
+/root/zfs-qat-phase4-dc4-jobs4-timing-v2-20260513.csv
+/root/zfs-qat-phase4-dc2-restore-smoke-20260513.csv
+```
+
+The phase 4 benchmark harness now records the active QAT driver
+`qat_kernel_cy_instances` and `qat_kernel_dc_instances` columns so future CSVs
+identify the driver instance split directly.
+
+```text
+record dc_instances avg_ms MiB_s comp_wait_us_req result
+128K   2            1323.1 551.7 3007.8           baseline
+128K   4            1354.2 539.0 3210.6           2.4% slower
+256K   2            1282.8 569.1 6831.6           baseline
+256K   4            1235.7 590.7 6699.4           3.7% faster
+1M     2            1243.2 587.1 27455.4          baseline
+1M     4            1239.1 589.2 26847.6          0.3% faster
+```
+
+Conclusion:
+
+- The DC-biased split is not a clear win.
+- The `256 KiB` workload improved modestly, but `128 KiB` regressed and `1 MiB`
+  was effectively flat.
+- The host was restored to the original `NumberCyInstances=4` and
+  `NumberDcInstances=2` split after the test.
+- The next performance target should move away from driver instance count and
+  toward the synchronous wait model or separate read/write offload policy.
+
 ## Large-Record Parameter Follow-Up
 
 Run date: 2026-05-13.

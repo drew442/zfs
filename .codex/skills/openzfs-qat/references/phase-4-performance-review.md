@@ -88,6 +88,7 @@ service time.
 | Concurrent harness | Added `JOBS` support to run multiple copy/verify streams per iteration. | 4-job tests showed software gzip still faster, despite QAT using much less system CPU. |
 | Timing kstats | Added per-phase QAT DC nanosecond counters to identify latency sources. | Compression wait time dominates; scratch allocation is not the primary bottleneck. |
 | Level comparison | Compared QAT level 1 and level 4 with the timing counters. | Level 1 helps larger records but lowers ratio and does not resolve the latency gap. |
+| DC instance split | Tested a DC-biased QAT driver split: 2 crypto / 4 compression instead of 4 crypto / 2 compression. | Mixed result; 256K improved modestly, 128K regressed, 1M was effectively flat. Host was restored to 4 crypto / 2 compression. |
 
 ## Current Fair Comparison
 
@@ -342,6 +343,46 @@ Host observation: `/etc/dh895xcc_dev0.conf` currently exposes only two
 NumberCyInstances = 4
 NumberDcInstances = 2
 ```
+
+## DC Instance Split Test
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-dc2-jobs4-timing-20260513.csv
+/root/zfs-qat-phase4-dc4-jobs4-timing-v2-20260513.csv
+```
+
+The test changed the QAT driver `[KERNEL_QAT]` split from:
+
+```text
+NumberCyInstances = 4
+NumberDcInstances = 2
+```
+
+to:
+
+```text
+NumberCyInstances = 2
+NumberDcInstances = 4
+```
+
+The total kernel QAT instance count stayed at six, matching the six accelerators
+reported by `adf_ctl status` for the dh895xcc device. The host was restored to
+the original 4 crypto / 2 compression split after the test because the result
+was mixed and not strong enough to justify reducing crypto/checksum capacity.
+
+| Record | DC=2 Latency | DC=4 Latency | Latency Change | DC=2 Throughput | DC=4 Throughput | Throughput Change | DC=2 Comp Wait / Request | DC=4 Comp Wait / Request |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 128K | 1323.1 ms | 1354.2 ms | 2.4% slower | 551.7 MiB/s | 539.0 MiB/s | 2.3% lower | 3007.8 us | 3210.6 us |
+| 256K | 1282.8 ms | 1235.7 ms | 3.7% faster | 569.1 MiB/s | 590.7 MiB/s | 3.8% higher | 6831.6 us | 6699.4 us |
+| 1M | 1243.2 ms | 1239.1 ms | 0.3% faster | 587.1 MiB/s | 589.2 MiB/s | 0.4% higher | 27455.4 us | 26847.6 us |
+
+Interpretation:
+
+- More DC instances did not materially change the high-latency conclusion.
+- The `256 KiB` case improved modestly, but the `128 KiB` regression and flat `1 MiB` result make this unsuitable as a default recommendation.
+- The bottleneck still appears to be synchronous QAT completion wait, not simply too few DC instances.
 
 ## Earlier Phase 4 Measurements
 
