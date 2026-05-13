@@ -192,6 +192,7 @@ typedef struct qat_stats {
 
 extern qat_stats_t qat_stats;
 extern int zfs_qat_compress_disable;
+extern int zfs_qat_decompress_disable;
 extern int zfs_qat_cpa_dc_level;
 extern int zfs_qat_dc_max_buf_size;
 extern int zfs_qat_dc_max_instances;
@@ -226,7 +227,8 @@ extern void qat_fini(void);
 /* fake CpaStatus used to indicate data was not compressible */
 #define	CPA_STATUS_INCOMPRESSIBLE		(-127)
 
-extern boolean_t qat_dc_use_accel(size_t s_len);
+extern boolean_t qat_dc_compress_use_accel(size_t s_len);
+extern boolean_t qat_dc_decompress_use_accel(size_t s_len);
 extern boolean_t qat_crypt_use_accel(size_t s_len);
 extern boolean_t qat_checksum_use_accel(size_t s_len);
 extern int qat_compress(qat_compress_dir_t dir, char *src, int src_len,
@@ -241,7 +243,8 @@ extern int qat_checksum(uint64_t cksum, uint8_t *buf, uint64_t size,
 #define	CPA_STATUS_INCOMPRESSIBLE		(-127)
 #define	qat_init()
 #define	qat_fini()
-#define	qat_dc_use_accel(s_len)			((void) sizeof (s_len), 0)
+#define	qat_dc_compress_use_accel(s_len)	((void) sizeof (s_len), 0)
+#define	qat_dc_decompress_use_accel(s_len)	((void) sizeof (s_len), 0)
 #define	qat_crypt_use_accel(s_len)		((void) sizeof (s_len), 0)
 #define	qat_checksum_use_accel(s_len)		((void) sizeof (s_len), 0)
 #define	qat_compress(dir, s, sl, d, dl, cl)			\

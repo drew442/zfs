@@ -89,6 +89,7 @@ service time.
 | Timing kstats | Added per-phase QAT DC nanosecond counters to identify latency sources. | Compression wait time dominates; scratch allocation is not the primary bottleneck. |
 | Level comparison | Compared QAT level 1 and level 4 with the timing counters. | Level 1 helps larger records but lowers ratio and does not resolve the latency gap. |
 | DC instance split | Tested a DC-biased QAT driver split: 2 crypto / 4 compression instead of 4 crypto / 2 compression. | Mixed result; 256K improved modestly, 128K regressed, 1M was effectively flat. Host was restored to 4 crypto / 2 compression. |
+| Decompression policy | Added `zfs_qat_decompress_disable` and benchmarked QAT writes with software readback. | Improved 128K/256K latency, but QAT remained slower than full software and 1M did not benefit consistently. |
 
 ## Current Fair Comparison
 
@@ -383,6 +384,47 @@ Interpretation:
 - More DC instances did not materially change the high-latency conclusion.
 - The `256 KiB` case improved modestly, but the `128 KiB` regression and flat `1 MiB` result make this unsuitable as a default recommendation.
 - The bottleneck still appears to be synchronous QAT completion wait, not simply too few DC instances.
+
+## Decompression Policy Test
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-qwrite-qread-v2-20260513.csv
+/root/zfs-qat-phase4-qwrite-swread-v2-20260513.csv
+/root/zfs-qat-phase4-sw-baseline-decompress-policy-v2-20260513.csv
+/root/zfs-qat-phase4-qwrite-qread-jobs4-v2-20260513.csv
+/root/zfs-qat-phase4-qwrite-swread-jobs4-v2-20260513.csv
+/root/zfs-qat-phase4-sw-baseline-decompress-policy-jobs4-v2-20260513.csv
+```
+
+The test added a separate `zfs_qat_decompress_disable` policy so QAT gzip
+compression can remain enabled while gzip decompression falls back to software.
+The benchmark harness now accepts `VERIFY_MODE=qat|sw|same` and records
+`verify_mode` plus `zfs_qat_decompress_disable`.
+
+Single-job result:
+
+| Record | QAT Read | Software Read | Software Baseline | SW Read vs QAT Read | QAT SW Read vs SW Baseline | QAT SW Read System CPU | SW Baseline System CPU |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 128K | 835.0 ms | 794.8 ms | 745.1 ms | 4.8% faster | 6.7% slower | 1.59% | 4.01% |
+| 256K | 687.6 ms | 709.3 ms | 667.4 ms | 3.2% slower | 6.3% slower | 1.55% | 4.52% |
+| 1M | 620.2 ms | 635.0 ms | 583.1 ms | 2.4% slower | 8.9% slower | 1.30% | 4.49% |
+
+Four-job result:
+
+| Record | QAT Read | Software Read | Software Baseline | SW Read vs QAT Read | QAT SW Read vs SW Baseline | QAT SW Read System CPU | SW Baseline System CPU |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 128K | 1335.0 ms | 1232.4 ms | 1075.3 ms | 7.7% faster | 14.6% slower | 4.44% | 12.67% |
+| 256K | 1284.8 ms | 1193.9 ms | 989.7 ms | 7.1% faster | 20.6% slower | 3.57% | 13.30% |
+| 1M | 1207.8 ms | 1183.2 ms | 921.5 ms | 2.0% faster | 28.4% slower | 3.31% | 13.22% |
+
+Interpretation:
+
+- Software readback removes QAT decompression requests as intended.
+- It is useful for four-job latency across the tested record sizes, but it does not close the gap to full software gzip.
+- It is not a universal default: single-job 256K and 1M latency regressed with software readback in the rerun.
+- The parameter should remain a tunable policy option rather than a default change.
 
 ## Earlier Phase 4 Measurements
 

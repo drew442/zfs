@@ -58,7 +58,7 @@ zfs_gzip_compress_buf(void *s_start, void *d_start, size_t s_len,
 	ASSERT(d_len <= s_len);
 
 	/* check if hardware accelerator can be used */
-	if (qat_dc_use_accel(s_len)) {
+	if (qat_dc_compress_use_accel(s_len)) {
 		ret = qat_compress(QAT_COMPRESS, s_start, s_len, d_start,
 		    d_len, &dstlen);
 		if (ret == CPA_STATUS_SUCCESS) {
@@ -94,7 +94,7 @@ zfs_gzip_decompress_buf(void *s_start, void *d_start, size_t s_len,
 	ASSERT(d_len >= s_len);
 
 	/* check if hardware accelerator can be used */
-	if (qat_dc_use_accel(d_len)) {
+	if (qat_dc_decompress_use_accel(d_len)) {
 		if (qat_compress(QAT_DECOMPRESS, s_start, s_len,
 		    d_start, d_len, &dstlen) == CPA_STATUS_SUCCESS)
 			return (0);

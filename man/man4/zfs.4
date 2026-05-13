@@ -2099,9 +2099,19 @@ May be unset after the ZFS modules have been loaded to initialize the QAT
 hardware as long as support is compiled in and the QAT driver is present.
 .
 .It Sy zfs_qat_compress_disable Ns = Ns Sy 0 Ns | Ns 1 Pq int
-Disable QAT hardware acceleration for gzip compression.
+Disable QAT hardware acceleration for gzip compression and decompression.
 May be unset after the ZFS modules have been loaded to initialize the QAT
 hardware as long as support is compiled in and the QAT driver is present.
+.
+.It Sy zfs_qat_decompress_disable Ns = Ns Sy 0 Ns | Ns 1 Pq int
+Disable QAT hardware acceleration for gzip decompression while leaving QAT
+compression eligible.
+This option is useful when QAT write-side compression saves CPU, but synchronous
+QAT read-side decompression adds too much latency.
+The
+.Sy zfs_qat_compress_disable
+setting remains the master QAT data-compression disable and overrides this
+option.
 .
 .It Sy zfs_qat_cpa_dc_level Ns = Ns Sy 1 Ns | Ns 2 Ns | Ns 3 Ns | Ns 4 Pq int
 QAT compression level for gzip compression.

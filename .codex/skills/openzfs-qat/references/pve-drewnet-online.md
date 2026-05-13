@@ -309,6 +309,7 @@ Observed module parameters:
 ```text
 zfs_qat_checksum_disable=0
 zfs_qat_compress_disable=0
+zfs_qat_decompress_disable=0
 zfs_qat_cpa_dc_level=4
 zfs_qat_dc_max_buf_size=1048576
 zfs_qat_dc_max_instances=48
@@ -327,6 +328,7 @@ Historical note:
 - `zfs_qat_deflate_depth` was part of an abandoned experimental patch and should not be carried forward.
 - Current work should use `zfs_qat_cpa_dc_level` for the global QAT compression level.
 - `zfs_qat_deflate_depth` was removed from the host modprobe configuration during the phase 2/3 pass.
+- `zfs_qat_decompress_disable=1` disables QAT gzip decompression while leaving QAT gzip compression eligible. Phase 4 testing showed this can improve some QAT-write readback workloads, especially the four-job test, but it did not make QAT faster than full software gzip and the single-job result was mixed.
 
 Initial QAT kstats before the phase 2/3 validation workload:
 

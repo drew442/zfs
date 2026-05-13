@@ -9,6 +9,7 @@ RECORDS="${RECORDS:-8K 16K 32K 64K 128K 256K 1M}"
 MODES="${MODES:-qat sw}"
 ITERS="${ITERS:-3}"
 JOBS="${JOBS:-1}"
+VERIFY_MODE="${VERIFY_MODE:-same}"
 OUT="${OUT:-/root/zfs-qat-phase4-$(date +%Y%m%d-%H%M%S).csv}"
 
 require_cmd() {
@@ -152,6 +153,38 @@ set_mode() {
 	esac
 }
 
+set_decompress_mode() {
+	local mode="$1"
+	local param="$QAT_PARAM_DIR/zfs_qat_decompress_disable"
+
+	if [[ ! -w "$param" ]]; then
+		return
+	fi
+
+	case "$mode" in
+	qat)
+		echo 0 > "$param"
+		;;
+	sw)
+		echo 1 > "$param"
+		;;
+	*)
+		echo "Unknown decompression mode: $mode" >&2
+		exit 1
+		;;
+	esac
+}
+
+effective_verify_mode() {
+	local mode="$1"
+
+	if [[ "$VERIFY_MODE" == "same" ]]; then
+		printf "%s" "$mode"
+	else
+		printf "%s" "$VERIFY_MODE"
+	fi
+}
+
 percentiles_csv() {
 	local file="$1"
 
@@ -246,6 +279,8 @@ run_one() {
 	local logicalused
 	local sha_ok="yes"
 	local total_bytes
+	local verify_mode
+	local decompress_disable
 	local pids=()
 
 	cleanup_ds "$ds"
@@ -255,6 +290,7 @@ run_one() {
 	total_bytes=$((SOURCE_BYTES * JOBS))
 
 	drop_caches
+	set_decompress_mode "$mode"
 	comp_before="$(statv comp_requests)"
 	comp_in_before="$(statv comp_total_in_bytes)"
 	comp_out_before="$(statv comp_total_out_bytes)"
@@ -288,6 +324,10 @@ run_one() {
 
 	sync
 	zpool sync "$POOL" || true
+
+	verify_mode="$(effective_verify_mode "$mode")"
+	set_decompress_mode "$verify_mode"
+	decompress_disable="$(read_param zfs_qat_decompress_disable)"
 
 	pids=()
 	for job in $(seq 1 "$JOBS"); do
@@ -335,8 +375,9 @@ run_one() {
 	used="$(zfs get -H -o value used "$ds")"
 	logicalused="$(zfs get -H -o value logicalused "$ds")"
 
-	printf "raw,%s,%s,%s,%s,%s,%s,%s,,,,,,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" \
-	    "$mode" "$record" "$iter" "$JOBS" "$SOURCE_LABEL" "$total_bytes" \
+	printf "raw,%s,%s,%s,%s,%s,%s,%s,%s,,,,,,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" \
+	    "$mode" "$verify_mode" "$record" "$iter" "$JOBS" \
+	    "$SOURCE_LABEL" "$total_bytes" \
 	    "$elapsed_ms" "$mib_s" "$cpu_csv" "$ratio" "$used" "$logicalused" \
 	    "$((comp_after - comp_before))" \
 	    "$((comp_in_after - comp_in_before))" \
@@ -358,7 +399,8 @@ run_one() {
 	    "$((decomp_wait_after - decomp_wait_before))" \
 	    "$((decomp_cleanup_after - decomp_cleanup_before))" \
 	    "$sha_ok" "$QAT_DC_LEVEL" "$QAT_DC_MAX_BUF_SIZE" \
-	    "$QAT_DC_MAX_INSTANCES" "$QAT_KERNEL_CY_INSTANCES" \
+	    "$QAT_DC_MAX_INSTANCES" "$decompress_disable" \
+	    "$QAT_KERNEL_CY_INSTANCES" \
 	    "$QAT_KERNEL_DC_INSTANCES" "$ZFS_SRCVERSION" |
 	    tee -a "$OUT"
 
@@ -372,7 +414,8 @@ run_one() {
 }
 
 ORIG_COMPRESS_DISABLE="$(read_param zfs_qat_compress_disable)"
-trap 'if [[ "$ORIG_COMPRESS_DISABLE" != "na" ]]; then echo "$ORIG_COMPRESS_DISABLE" > "$QAT_PARAM_DIR/zfs_qat_compress_disable" || true; fi' EXIT
+ORIG_DECOMPRESS_DISABLE="$(read_param zfs_qat_decompress_disable)"
+trap 'if [[ "$ORIG_COMPRESS_DISABLE" != "na" ]]; then echo "$ORIG_COMPRESS_DISABLE" > "$QAT_PARAM_DIR/zfs_qat_compress_disable" || true; fi; if [[ "$ORIG_DECOMPRESS_DISABLE" != "na" ]]; then echo "$ORIG_DECOMPRESS_DISABLE" > "$QAT_PARAM_DIR/zfs_qat_decompress_disable" || true; fi' EXIT
 
 SOURCE_BYTES="$(stat -c %s "$SOURCE")"
 QAT_DC_LEVEL="$(read_param zfs_qat_cpa_dc_level)"
@@ -383,11 +426,12 @@ QAT_KERNEL_DC_INSTANCES="$(qat_conf_value NumberDcInstances)"
 ZFS_SRCVERSION="$(modinfo zfs | awk '$1 == "srcversion:" { print $2 }')"
 
 mkdir -p "$(dirname "$OUT")"
-printf "row_type,mode,recordsize,iter,jobs,source_label,source_bytes,elapsed_ms,latency_avg_ms,latency_p50_ms,latency_p95_ms,latency_p99_ms,latency_max_ms,write_bw_mib_s,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct,compressratio,used,logicalused,comp_requests_delta,comp_in_delta,comp_out_delta,decomp_requests_delta,decomp_in_delta,decomp_out_delta,dc_fails_delta,dc_buffer_reuse_hits_delta,dc_buffer_reuse_misses_delta,dc_compress_scratch_alloc_ns_delta,dc_compress_scratch_free_ns_delta,dc_compress_setup_ns_delta,dc_compress_submit_ns_delta,dc_compress_wait_ns_delta,dc_compress_cleanup_ns_delta,dc_decompress_setup_ns_delta,dc_decompress_submit_ns_delta,dc_decompress_wait_ns_delta,dc_decompress_cleanup_ns_delta,sha_ok,zfs_qat_cpa_dc_level,zfs_qat_dc_max_buf_size,zfs_qat_dc_max_instances,qat_kernel_cy_instances,qat_kernel_dc_instances,zfs_srcversion\n" > "$OUT"
+printf "row_type,mode,verify_mode,recordsize,iter,jobs,source_label,source_bytes,elapsed_ms,latency_avg_ms,latency_p50_ms,latency_p95_ms,latency_p99_ms,latency_max_ms,write_bw_mib_s,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct,compressratio,used,logicalused,comp_requests_delta,comp_in_delta,comp_out_delta,decomp_requests_delta,decomp_in_delta,decomp_out_delta,dc_fails_delta,dc_buffer_reuse_hits_delta,dc_buffer_reuse_misses_delta,dc_compress_scratch_alloc_ns_delta,dc_compress_scratch_free_ns_delta,dc_compress_setup_ns_delta,dc_compress_submit_ns_delta,dc_compress_wait_ns_delta,dc_compress_cleanup_ns_delta,dc_decompress_setup_ns_delta,dc_decompress_submit_ns_delta,dc_decompress_wait_ns_delta,dc_decompress_cleanup_ns_delta,sha_ok,zfs_qat_cpa_dc_level,zfs_qat_dc_max_buf_size,zfs_qat_dc_max_instances,zfs_qat_decompress_disable,qat_kernel_cy_instances,qat_kernel_dc_instances,zfs_srcversion\n" > "$OUT"
 
 echo "Results: $OUT" >&2
 echo "Source: $SOURCE ($SOURCE_BYTES bytes)" >&2
 echo "Modes: $MODES" >&2
+echo "Verify mode: $VERIFY_MODE" >&2
 echo "Records: $RECORDS" >&2
 echo "Iterations: $ITERS" >&2
 echo "Jobs: $JOBS" >&2
@@ -404,12 +448,13 @@ for mode in $MODES; do
 		rm -f "$LATENCY_FILE"
 		IFS=, read -r latency_avg latency_p50 latency_p95 \
 		    latency_p99 latency_max <<< "$latency_csv"
-		summary_row=(summary "$mode" "$record" "" "$JOBS" "$SOURCE_LABEL"
-		    "$((SOURCE_BYTES * JOBS))" "" "$latency_avg" "$latency_p50"
+		verify_mode="$(effective_verify_mode "$mode")"
+		summary_row=(summary "$mode" "$verify_mode" "$record" "" "$JOBS"
+		    "$SOURCE_LABEL" "$((SOURCE_BYTES * JOBS))" "" "$latency_avg" "$latency_p50"
 		    "$latency_p95" "$latency_p99" "$latency_max" "" "" "" ""
 		    "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" ""
 		    "" "" "" "" "" "$QAT_DC_LEVEL"
-		    "$QAT_DC_MAX_BUF_SIZE" "$QAT_DC_MAX_INSTANCES"
+		    "$QAT_DC_MAX_BUF_SIZE" "$QAT_DC_MAX_INSTANCES" ""
 		    "$QAT_KERNEL_CY_INSTANCES" "$QAT_KERNEL_DC_INSTANCES"
 		    "$ZFS_SRCVERSION")
 		(IFS=,; printf "%s\n" "${summary_row[*]}") | tee -a "$OUT"

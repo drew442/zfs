@@ -76,14 +76,25 @@ static Cpa16U num_inst = 0;
 static Cpa32U inst_num = 0;
 static boolean_t qat_dc_init_done = B_FALSE;
 int zfs_qat_compress_disable = 0;
+int zfs_qat_decompress_disable = 0;
 int zfs_qat_cpa_dc_level = 1;
 int zfs_qat_dc_max_buf_size = QAT_DC_DEFAULT_MAX_BUF_SIZE;
 int zfs_qat_dc_max_instances = QAT_DC_MAX_INSTANCES;
 
 boolean_t
-qat_dc_use_accel(size_t s_len)
+qat_dc_compress_use_accel(size_t s_len)
 {
 	return (!zfs_qat_compress_disable &&
+	    qat_dc_init_done &&
+	    s_len >= QAT_DC_MIN_BUF_SIZE &&
+	    s_len <= zfs_qat_dc_max_buf_size);
+}
+
+boolean_t
+qat_dc_decompress_use_accel(size_t s_len)
+{
+	return (!zfs_qat_compress_disable &&
+	    !zfs_qat_decompress_disable &&
 	    qat_dc_init_done &&
 	    s_len >= QAT_DC_MIN_BUF_SIZE &&
 	    s_len <= zfs_qat_dc_max_buf_size);
@@ -787,14 +798,38 @@ param_set_qat_compress(const char *val, zfs_kernel_param_t *kp)
 {
 	int ret;
 	int *pvalue = kp->arg;
+
 	ret = param_set_int(val, kp);
 	if (ret)
 		return (ret);
 	/*
-	 * zfs_qat_compress_disable = 0: enable qat compress
-	 * try to initialize qat instance if it has not been done
+	 * zfs_qat_compress_disable = 0: enable the master QAT DC path.
+	 * Try to initialize QAT DC instances if they have not been initialized.
 	 */
 	if (*pvalue == 0 && !qat_dc_init_done) {
+		ret = qat_dc_init();
+		if (ret != 0) {
+			zfs_qat_compress_disable = 1;
+			return (ret);
+		}
+	}
+	return (ret);
+}
+
+static int
+param_set_qat_decompress(const char *val, zfs_kernel_param_t *kp)
+{
+	int ret;
+	int *pvalue = kp->arg;
+
+	ret = param_set_int(val, kp);
+	if (ret)
+		return (ret);
+	/*
+	 * zfs_qat_decompress_disable = 0: enable QAT decompression policy.
+	 * The master compression disable still gates all QAT DC use.
+	 */
+	if (*pvalue == 0 && !zfs_qat_compress_disable && !qat_dc_init_done) {
 		ret = qat_dc_init();
 		if (ret != 0) {
 			zfs_qat_compress_disable = 1;
@@ -881,7 +916,13 @@ param_set_qat_dc_max_buf_size(const char *val, zfs_kernel_param_t *kp)
 
 module_param_call(zfs_qat_compress_disable, param_set_qat_compress,
     param_get_int, &zfs_qat_compress_disable, 0644);
-MODULE_PARM_DESC(zfs_qat_compress_disable, "Enable/Disable QAT compression");
+MODULE_PARM_DESC(zfs_qat_compress_disable,
+    "Enable/Disable QAT compression and decompression");
+
+module_param_call(zfs_qat_decompress_disable, param_set_qat_decompress,
+    param_get_int, &zfs_qat_decompress_disable, 0644);
+MODULE_PARM_DESC(zfs_qat_decompress_disable,
+    "Enable/Disable QAT decompression");
 
 module_param_call(zfs_qat_cpa_dc_level, param_set_qat_cpa_dc_level,
     param_get_int, &zfs_qat_cpa_dc_level, 0644);

@@ -420,6 +420,93 @@ Conclusion:
 - The next performance target should move away from driver instance count and
   toward the synchronous wait model or separate read/write offload policy.
 
+## QAT Decompression Policy Follow-Up
+
+Run date: 2026-05-13.
+
+The repo now exposes:
+
+```text
+zfs_qat_decompress_disable=0
+```
+
+This disables QAT gzip decompression independently from QAT gzip compression.
+`zfs_qat_compress_disable` remains the master QAT DC disable and overrides the
+decompression policy.
+
+Host source backup before installing the decompression-policy build:
+
+```text
+/root/zfs-2.4.99.pre-decompress-policy.20260513T112711Z
+/root/zfs-2.4.99.pre-decompress-policy.latest -> /root/zfs-2.4.99.pre-decompress-policy.20260513T112711Z
+```
+
+Build and install logs:
+
+```text
+/root/zfs-qat-decompress-policy-dkms-build-20260513.log
+/root/zfs-qat-decompress-policy-dkms-install-20260513.log
+/root/zfs-qat-decompress-policy-initramfs-20260513.log
+```
+
+Loaded module after DKMS install, `update-initramfs -u -k 7.0.0-3-pve`, and
+reboot:
+
+```text
+srcversion: D872F247984AF9A2B7E42CC
+parm: zfs_qat_decompress_disable:Enable/Disable QAT decompression
+```
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-qwrite-qread-v2-20260513.csv
+/root/zfs-qat-phase4-qwrite-swread-v2-20260513.csv
+/root/zfs-qat-phase4-sw-baseline-decompress-policy-v2-20260513.csv
+/root/zfs-qat-phase4-qwrite-qread-jobs4-v2-20260513.csv
+/root/zfs-qat-phase4-qwrite-swread-jobs4-v2-20260513.csv
+/root/zfs-qat-phase4-sw-baseline-decompress-policy-jobs4-v2-20260513.csv
+/root/zfs-qat-phase4-decompress-policy-harness-smoke-20260513.csv
+```
+
+The benchmark harness now supports:
+
+```text
+VERIFY_MODE=same
+VERIFY_MODE=qat
+VERIFY_MODE=sw
+```
+
+It also records `verify_mode` and `zfs_qat_decompress_disable` in the CSV.
+
+Single-job summary:
+
+```text
+record qwrite_qread_ms qwrite_swread_ms sw_ms swread_vs_qread swread_vs_sw
+128K   835.0           794.8            745.1 -4.8%           +6.7%
+256K   687.6           709.3            667.4 +3.2%           +6.3%
+1M     620.2           635.0            583.1 +2.4%           +8.9%
+```
+
+Four-job summary:
+
+```text
+record qwrite_qread_ms qwrite_swread_ms sw_ms  swread_vs_qread swread_vs_sw
+128K   1335.0          1232.4           1075.3 -7.7%           +14.6%
+256K   1284.8          1193.9           989.7  -7.1%           +20.6%
+1M     1207.8          1183.2           921.5  -2.0%           +28.4%
+```
+
+Conclusion:
+
+- `zfs_qat_decompress_disable=1` works as intended: QAT compression counters
+  still move and QAT decompression counters stay at zero during readback.
+- Software readback improves the four-job latency results relative to QAT
+  readback, but the single-job result is mixed.
+- Software readback does not make QAT faster than full software gzip on this
+  workload.
+- This should remain an operator tuning option rather than the default policy.
+
 ## Large-Record Parameter Follow-Up
 
 Run date: 2026-05-13.
