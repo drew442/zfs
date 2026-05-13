@@ -410,6 +410,7 @@ The root home directory contains QAT/ZFS benchmark scripts and CSV outputs. Thes
 /root/zfs-qat-bench-realdata-v2.sh
 /root/zfs-qat-bench-realworld-v2.sh
 /root/zfs-qat-bench-realworld.sh
+/root/qat-phase4-benchmark.sh
 /root/zfs-qat-*.csv
 ```
 

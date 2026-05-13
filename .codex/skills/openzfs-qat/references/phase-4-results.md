@@ -324,6 +324,38 @@ write=524288 before=1048576 rc=1 after=1048576 err=Device or resource busy
 write=12345 before=1048576 rc=1 after=1048576 err=Invalid argument
 ```
 
+## Benchmark Harness Follow-Up
+
+Run date: 2026-05-13.
+
+Added repo-tracked harness:
+
+```text
+.codex/skills/openzfs-qat/scripts/qat-phase4-benchmark.sh
+```
+
+The harness creates temporary datasets under `test-hdd-pool/bench`, toggles QAT
+compression on or off per mode, writes a source file into a gzip-1 dataset,
+validates the copy with `cmp`, destroys the temporary dataset, and emits CSV
+rows with:
+
+- Raw per-iteration elapsed time and throughput.
+- Summary latency columns: average, p50, p95, p99, and max.
+- CPU user/system/iowait/idle percentages.
+- Compression ratio, used space, and logical used space.
+- QAT compression/decompression kstat deltas and DC failure deltas.
+- `zfs_qat_cpa_dc_level`, `zfs_qat_dc_max_buf_size`, `zfs_qat_dc_max_instances`, and loaded module `srcversion`.
+
+Smoke test:
+
+```text
+ITERS=1 RECORDS=256K MODES=qat OUT=/root/zfs-qat-phase4-harness-smoke-20260513-r3.csv /root/qat-phase4-benchmark.sh
+```
+
+The smoke CSV had 32 columns for header, raw, and summary rows, moved QAT
+compression counters for the 256 KiB TIFF workload, and completed without
+leaving a `qat-phase4` temporary dataset behind.
+
 ## Follow-Up
 
 - Continue phase 4 with throughput and latency as first-class requirements. Future benchmark output should include throughput, p50/p95/p99/max latency, CPU cost, compression ratio, QAT kstats, and failure counters.
