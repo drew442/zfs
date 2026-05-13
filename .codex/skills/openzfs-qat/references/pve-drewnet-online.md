@@ -124,7 +124,7 @@ QAT service:
 Unit: qat.service
 Loaded from: /etc/systemd/system/qat.service
 ExecStart: /etc/init.d/qat_service start
-State observed: active (exited)
+State observed: active (exited) when started successfully
 Enabled: yes
 ```
 
@@ -196,6 +196,20 @@ LimitDevAccess = 0
 ```
 
 Observation: `adf_ctl` and the kernel can report the device up while ZFS QAT kstats remain at zero. Do not infer from driver state alone that ZFS has processed QAT-accelerated I/O.
+
+Boot ordering caveat observed on 2026-05-13: systemd may delete the
+`qat.service` start job to break a ZFS import ordering cycle. In that state
+`adf_ctl status` can still report `qat_dev0` as up, but ZFS QAT compression may
+not be initialized and benchmark runs will show `comp_requests=0`. If this
+happens, start QAT explicitly and re-enable ZFS QAT compression:
+
+```bash
+systemctl start qat
+echo 1 > /sys/module/zfs/parameters/zfs_qat_compress_disable
+echo 0 > /sys/module/zfs/parameters/zfs_qat_compress_disable
+```
+
+Then confirm a QAT-mode benchmark moves `/proc/spl/kstat/zfs/qat` counters.
 
 Relevant commands:
 

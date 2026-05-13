@@ -467,6 +467,9 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	struct completion complete;
 	Cpa32U page_num = 0;
 	Cpa16U i;
+	hrtime_t op_start = gethrtime();
+	hrtime_t phase_start;
+	hrtime_t phase_end;
 
 	/*
 	 * We increment num_src_buf and num_dst_buf by 2 to allow
@@ -619,17 +622,25 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		    buf_list_dst->pBuffers, &hdr_sz);
 		buf_list_dst->pBuffers->pData += hdr_sz;
 		buf_list_dst->pBuffers->dataLenInBytes -= hdr_sz;
+		phase_end = gethrtime();
+		QAT_STAT_ADD_TIME(dc_compress_setup_ns, op_start, phase_end);
+		phase_start = gethrtime();
 		status = cpaDcCompressData(
 		    dc_inst_handle, session_handle,
 		    buf_list_src, buf_list_dst,
 		    &dc_results, CPA_DC_FLUSH_FINAL,
 		    &complete);
+		phase_end = gethrtime();
+		QAT_STAT_ADD_TIME(dc_compress_submit_ns, phase_start, phase_end);
 		if (status != CPA_STATUS_SUCCESS) {
 			goto fail;
 		}
 
 		/* we now wait until the completion of the operation. */
+		phase_start = gethrtime();
 		wait_for_completion(&complete);
+		phase_end = gethrtime();
+		QAT_STAT_ADD_TIME(dc_compress_wait_ns, phase_start, phase_end);
 
 		if (dc_results.status != CPA_STATUS_SUCCESS) {
 			status = CPA_STATUS_FAIL;
@@ -655,9 +666,14 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 
 		buf_list_src->pBuffers->pData += ZLIB_HEAD_SZ;
 		buf_list_src->pBuffers->dataLenInBytes -= ZLIB_HEAD_SZ;
+		phase_end = gethrtime();
+		QAT_STAT_ADD_TIME(dc_decompress_setup_ns, op_start, phase_end);
+		phase_start = gethrtime();
 		status = cpaDcDecompressData(dc_inst_handle, session_handle,
 		    buf_list_src, buf_list_dst, &dc_results, CPA_DC_FLUSH_FINAL,
 		    &complete);
+		phase_end = gethrtime();
+		QAT_STAT_ADD_TIME(dc_decompress_submit_ns, phase_start, phase_end);
 
 		if (CPA_STATUS_SUCCESS != status) {
 			status = CPA_STATUS_FAIL;
@@ -665,7 +681,10 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		}
 
 		/* we now wait until the completion of the operation. */
+		phase_start = gethrtime();
 		wait_for_completion(&complete);
+		phase_end = gethrtime();
+		QAT_STAT_ADD_TIME(dc_decompress_wait_ns, phase_start, phase_end);
 
 		if (dc_results.status != CPA_STATUS_SUCCESS) {
 			status = CPA_STATUS_FAIL;
@@ -683,6 +702,8 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	}
 
 fail:
+	phase_start = gethrtime();
+
 	if (status != CPA_STATUS_SUCCESS && status != CPA_STATUS_INCOMPRESSIBLE)
 		QAT_STAT_BUMP(dc_fails);
 
@@ -713,6 +734,15 @@ fail:
 	if (scratch_pages != NULL)
 		kmem_free(scratch_pages, scratch_pages_size);
 
+	phase_end = gethrtime();
+	if (dir == QAT_COMPRESS) {
+		QAT_STAT_ADD_TIME(dc_compress_cleanup_ns, phase_start,
+		    phase_end);
+	} else {
+		QAT_STAT_ADD_TIME(dc_decompress_cleanup_ns, phase_start,
+		    phase_end);
+	}
+
 	return (status);
 }
 
@@ -726,17 +756,28 @@ qat_compress(qat_compress_dir_t dir, char *src, int src_len,
 	int ret;
 	size_t add_len = 0;
 	void *add = NULL;
+	hrtime_t scratch_start;
+	hrtime_t scratch_end;
 
 	if (dir == QAT_COMPRESS) {
 		add_len = dst_len;
+		scratch_start = gethrtime();
 		add = zio_data_buf_alloc(add_len);
+		scratch_end = gethrtime();
+		QAT_STAT_ADD_TIME(dc_compress_scratch_alloc_ns, scratch_start,
+		    scratch_end);
 	}
 
 	ret = qat_compress_impl(dir, src, src_len, dst,
 	    dst_len, add, add_len, c_len);
 
-	if (dir == QAT_COMPRESS)
+	if (dir == QAT_COMPRESS) {
+		scratch_start = gethrtime();
 		zio_data_buf_free(add, add_len);
+		scratch_end = gethrtime();
+		QAT_STAT_ADD_TIME(dc_compress_scratch_free_ns, scratch_start,
+		    scratch_end);
+	}
 
 	return (ret);
 }

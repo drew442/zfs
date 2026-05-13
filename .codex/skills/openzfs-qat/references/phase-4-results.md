@@ -10,6 +10,7 @@ Scope:
 - Re-evaluate QAT compression offload eligibility for QAT 1.x.
 - Measure QAT/software behavior across ZFS record sizes.
 - Review instance caps, allocation costs, and failure counters.
+- Instrument QAT DC latency phases before making deeper tuning changes.
 
 ## Source Baseline
 
@@ -253,6 +254,105 @@ used=55.3M
 
 The copied file compared cleanly with `cmp`, the temporary validation dataset was
 destroyed, `qat_dev0` was up, and `zpool status -x` reported all pools healthy.
+
+## Latency Instrumentation Follow-Up
+
+Run date: 2026-05-13.
+
+The QAT DC path now exposes cumulative nanosecond kstats for these phases:
+
+```text
+dc_compress_scratch_alloc_ns
+dc_compress_scratch_free_ns
+dc_compress_setup_ns
+dc_compress_submit_ns
+dc_compress_wait_ns
+dc_compress_cleanup_ns
+dc_decompress_setup_ns
+dc_decompress_submit_ns
+dc_decompress_wait_ns
+dc_decompress_cleanup_ns
+```
+
+The phase 4 benchmark harness records each value as a per-run delta. These
+counters are intended to identify whether high latency is dominated by OpenZFS
+wrapper overhead, scratch allocation, QAT API submission, hardware/queue wait
+time, or cleanup.
+
+Host source backup before installing the timing-kstat build:
+
+```text
+/root/zfs-2.4.99.pre-latency-kstats.20260513T093615Z
+/root/zfs-2.4.99.pre-latency-kstats.latest -> /root/zfs-2.4.99.pre-latency-kstats.20260513T093615Z
+```
+
+Build and install logs:
+
+```text
+/root/zfs-qat-latency-kstats-dkms-build-20260513.log
+/root/zfs-qat-latency-kstats-dkms-install-20260513.log
+/root/zfs-qat-latency-kstats-initramfs-20260513.log
+/root/zfs-qat-latency-kstats-dkms-build-20260513-r2.log
+/root/zfs-qat-latency-kstats-dkms-install-20260513-r2.log
+/root/zfs-qat-latency-kstats-initramfs-20260513-r2.log
+```
+
+Loaded module after DKMS install, `update-initramfs -u -k 7.0.0-3-pve`, and
+reboot:
+
+```text
+filename: /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko
+version: 2.4.99-1
+srcversion: 9005FF9E36B658359545E79
+depends: spl,qat_api
+```
+
+Timing smoke CSV:
+
+```text
+/root/zfs-qat-phase4-latency-kstats-smoke-20260513.csv
+/root/zfs-qat-phase4-latency-kstats-final-smoke-r3-20260513.csv
+```
+
+The smoke test used `ITERS=1 JOBS=1 RECORDS="128K" MODES="qat"`.
+The copied file compared cleanly, `dc_fails=0`, and the new timing kstats
+advanced from zero.
+
+After one reboot, `qat.service` was inactive because systemd deleted the start
+job to break a ZFS import ordering cycle. In that state a QAT-mode benchmark
+showed `comp_requests=0` even though `adf_ctl status` reported the device up.
+Starting `qat.service` explicitly and toggling `zfs_qat_compress_disable` from
+`1` back to `0` restored ZFS QAT compression; the final smoke CSV above moved
+QAT counters again.
+
+Level comparison CSVs:
+
+```text
+/root/zfs-qat-phase4-level1-timing-20260513.csv
+/root/zfs-qat-phase4-level4-timing-20260513.csv
+```
+
+The host was temporarily booted with `zfs_qat_cpa_dc_level=1`, benchmarked, then
+returned to `zfs_qat_cpa_dc_level=4`.
+
+```text
+record level avg_ms MiB_s ratio  comp_wait_us_req decomp_wait_us_req
+128K   1     859.8  212.8 16.88x 1346.1           185.4
+128K   4     831.4  220.1 17.11x 1579.8           172.8
+256K   1     688.9  265.4 21.63x 2679.8           317.6
+256K   4     707.6  258.2 21.90x 3327.6           307.2
+1M     1     586.9  311.0 25.15x 10612.6          1128.3
+1M     4     617.7  295.5 25.45x 13790.5          1080.3
+```
+
+Conclusion:
+
+- Compression wait time dominates the measured QAT path.
+- Scratch allocation is not the primary latency source in these runs.
+- QAT level 1 improves larger-record latency, but reduces ratio and does not
+  close the software gzip gap.
+- The next tuning target should be QAT DC concurrency and instance allocation,
+  not scratch reuse.
 
 ## Large-Record Parameter Follow-Up
 

@@ -41,6 +41,38 @@ Important comparability note:
 - Larger records now actually use QAT. Before the large-record work, `256 KiB` and `1 MiB` records silently used software fallback.
 - Compression ratio is slightly better with QAT in the latest run, likely because QAT is using level 4.
 
+## Current Latency Diagnosis
+
+Hardware acceleration is not automatically faster for this path because OpenZFS
+currently calls QAT as a synchronous per-block coprocessor. Each gzip block
+builds QAT buffer metadata, maps source and destination pages, allocates
+compression scratch space, submits one request, waits for completion, then
+unmaps and cleans up before ZFS can continue.
+
+Likely contributors to the observed latency:
+
+- The compression and decompression paths wait immediately after each QAT submit, so the hardware does not get much queue depth from a single ZFS worker.
+- Per-block setup overhead is high relative to 128 KiB through 1 MiB records: scatter/gather construction, page mapping, zlib header/footer handling, callback completion, and cleanup all happen for every block.
+- Compression still allocates and frees a destination-sized scratch buffer for every offloaded request.
+- The metadata reuse pool is active, but reuse misses still occur under concurrent workloads, so some requests still fall back to per-request allocation.
+- The host QAT driver configuration appears to expose limited DC parallelism to the kernel, while software gzip can spread naturally across many EPYC cores.
+- Current tests use `zfs_qat_cpa_dc_level=4`; software comparisons use ZFS `gzip-1`. QAT's slightly better compression ratio suggests it may be doing more work than the software baseline.
+- The latest harness includes `cmp` readback, so QAT decompression latency is included. Earlier write-only tests were also behind software at larger records, so readback is not the only cause.
+
+This is a measurement problem before it is a tuning problem. The next code pass
+adds phase timing counters so benchmarks can separate wrapper overhead from QAT
+service time.
+
+## Recommended Continuation Plan
+
+1. Add timing kstats around QAT scratch allocation, request setup, API submit, completion wait, and cleanup.
+2. Reuse compression scratch buffers, not only QAT buffer-list metadata, if timing shows scratch allocation is material.
+3. Tune or expose the reuse-slot count after measuring hit and miss rates against memory cost.
+4. Benchmark `zfs_qat_cpa_dc_level=1` against level 4 to determine whether the current ratio gain is costing too much latency.
+5. Inspect and tune QAT driver DC instance allocation if the hardware and QAT 1.x driver configuration allow more kernel DC concurrency.
+6. Measure compression and decompression separately, then consider separate offload thresholds or disable policies for reads and writes.
+7. Consider a larger asynchronous ZIO integration only after the cheaper tuning work is exhausted; that is the most likely route to full hardware utilization, but it is much more invasive.
+
 ## Phase 4 Change Timeline
 
 | Step | Basic Change | Result |
@@ -54,6 +86,8 @@ Important comparability note:
 | Benchmark harness | Added repeatable CSV harness with latency summaries and QAT counters. | Current comparisons include latency, throughput, CPU, ratio, offload counters, and correctness. |
 | Reuse pool | Added lock-free per-instance buffer metadata reuse with fallback allocation. | Reuse is active, but fallback allocations still happen under concurrent work. |
 | Concurrent harness | Added `JOBS` support to run multiple copy/verify streams per iteration. | 4-job tests showed software gzip still faster, despite QAT using much less system CPU. |
+| Timing kstats | Added per-phase QAT DC nanosecond counters to identify latency sources. | Compression wait time dominates; scratch allocation is not the primary bottleneck. |
+| Level comparison | Compared QAT level 1 and level 4 with the timing counters. | Level 1 helps larger records but lowers ratio and does not resolve the latency gap. |
 
 ## Current Fair Comparison
 
@@ -262,6 +296,53 @@ Result: QAT remained correct under four parallel copy/verify jobs, but it did
 not become faster than software gzip. The likely practical benefit is CPU
 offload, not wall-clock speed, for this workload on this host.
 
+## Timing Counter Results
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-level1-timing-20260513.csv
+/root/zfs-qat-phase4-level4-timing-20260513.csv
+```
+
+These runs used the same instrumented module and the same source file. The host
+was returned to `zfs_qat_cpa_dc_level=4` after the level 1 test.
+
+### Level 1 vs Level 4
+
+| Record | Level | Avg Latency | Throughput | Ratio | Compression Wait / Request |
+|---|---:|---:|---:|---:|---:|
+| 128K | 1 | 859.8 ms | 212.8 MiB/s | 16.88x | 1346.1 us |
+| 128K | 4 | 831.4 ms | 220.1 MiB/s | 17.11x | 1579.8 us |
+| 256K | 1 | 688.9 ms | 265.4 MiB/s | 21.63x | 2679.8 us |
+| 256K | 4 | 707.6 ms | 258.2 MiB/s | 21.90x | 3327.6 us |
+| 1M | 1 | 586.9 ms | 311.0 MiB/s | 25.15x | 10612.6 us |
+| 1M | 4 | 617.7 ms | 295.5 MiB/s | 25.45x | 13790.5 us |
+
+Interpretation:
+
+- Compression wait time is the dominant measured phase by a large margin.
+- Scratch allocation is not currently the primary bottleneck. In the same runs it averaged roughly `2-58 us` per compression request depending on record size.
+- Setup and submit overhead are visible but much smaller than completion wait. They were roughly `7-44 us` and `8-42 us` per compression request respectively.
+- Level 1 reduces compression wait at `256 KiB` and `1 MiB`, but the improvement is not enough to beat software gzip and it reduces compression ratio.
+- The `128 KiB` result is noisy: level 1 had lower per-request compression wait but worse wall-clock latency in this run.
+
+### Current Direction
+
+The timing evidence does not justify prioritizing scratch-buffer reuse as the
+next change. It remains a useful cleanup, but the larger issue is that QAT
+requests spend most of their cumulative time waiting for completion. The next
+high-value work is to test QAT DC instance/concurrency limits and, if that is
+insufficient, plan the larger asynchronous ZIO integration.
+
+Host observation: `/etc/dh895xcc_dev0.conf` currently exposes only two
+`[KERNEL_QAT]` DC instances:
+
+```text
+NumberCyInstances = 4
+NumberDcInstances = 2
+```
+
 ## Earlier Phase 4 Measurements
 
 ### Initial 128 KiB Baseline
@@ -353,6 +434,7 @@ Current QAT state:
 
 Next performance question:
 
-The 4-job test did not show a speed win. The next useful benchmark should test
-whether QAT helps when the host is CPU-constrained by other work, or whether
-remaining QAT setup/wait costs dominate even when software gzip CPU use rises.
+The timing counters show QAT completion wait dominates. The next useful
+benchmark should test whether the QAT 1.x driver can expose more useful DC
+concurrency to the kernel. If it cannot, the realistic speed path is likely a
+larger asynchronous ZIO integration rather than more small allocation cleanup.

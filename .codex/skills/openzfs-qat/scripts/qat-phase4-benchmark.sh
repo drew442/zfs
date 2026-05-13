@@ -201,6 +201,26 @@ run_one() {
 	local reuse_hits_after
 	local reuse_misses_before
 	local reuse_misses_after
+	local comp_scratch_alloc_before
+	local comp_scratch_alloc_after
+	local comp_scratch_free_before
+	local comp_scratch_free_after
+	local comp_setup_before
+	local comp_setup_after
+	local comp_submit_before
+	local comp_submit_after
+	local comp_wait_before
+	local comp_wait_after
+	local comp_cleanup_before
+	local comp_cleanup_after
+	local decomp_setup_before
+	local decomp_setup_after
+	local decomp_submit_before
+	local decomp_submit_after
+	local decomp_wait_before
+	local decomp_wait_after
+	local decomp_cleanup_before
+	local decomp_cleanup_after
 	local ratio
 	local used
 	local logicalused
@@ -224,6 +244,16 @@ run_one() {
 	fails_before="$(statv dc_fails)"
 	reuse_hits_before="$(statv dc_buffer_reuse_hits)"
 	reuse_misses_before="$(statv dc_buffer_reuse_misses)"
+	comp_scratch_alloc_before="$(statv dc_compress_scratch_alloc_ns)"
+	comp_scratch_free_before="$(statv dc_compress_scratch_free_ns)"
+	comp_setup_before="$(statv dc_compress_setup_ns)"
+	comp_submit_before="$(statv dc_compress_submit_ns)"
+	comp_wait_before="$(statv dc_compress_wait_ns)"
+	comp_cleanup_before="$(statv dc_compress_cleanup_ns)"
+	decomp_setup_before="$(statv dc_decompress_setup_ns)"
+	decomp_submit_before="$(statv dc_decompress_submit_ns)"
+	decomp_wait_before="$(statv dc_decompress_wait_ns)"
+	decomp_cleanup_before="$(statv dc_decompress_cleanup_ns)"
 	cpu_before="$(read_cpu)"
 	start_ns="$(date +%s%N)"
 
@@ -262,6 +292,16 @@ run_one() {
 	fails_after="$(statv dc_fails)"
 	reuse_hits_after="$(statv dc_buffer_reuse_hits)"
 	reuse_misses_after="$(statv dc_buffer_reuse_misses)"
+	comp_scratch_alloc_after="$(statv dc_compress_scratch_alloc_ns)"
+	comp_scratch_free_after="$(statv dc_compress_scratch_free_ns)"
+	comp_setup_after="$(statv dc_compress_setup_ns)"
+	comp_submit_after="$(statv dc_compress_submit_ns)"
+	comp_wait_after="$(statv dc_compress_wait_ns)"
+	comp_cleanup_after="$(statv dc_compress_cleanup_ns)"
+	decomp_setup_after="$(statv dc_decompress_setup_ns)"
+	decomp_submit_after="$(statv dc_decompress_submit_ns)"
+	decomp_wait_after="$(statv dc_decompress_wait_ns)"
+	decomp_cleanup_after="$(statv dc_decompress_cleanup_ns)"
 
 	elapsed_ms="$(awk -v s="$start_ns" -v e="$end_ns" \
 	    'BEGIN { printf "%.3f", (e - s) / 1000000 }')"
@@ -275,7 +315,7 @@ run_one() {
 	used="$(zfs get -H -o value used "$ds")"
 	logicalused="$(zfs get -H -o value logicalused "$ds")"
 
-	printf "raw,%s,%s,%s,%s,%s,%s,%s,,,,,,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" \
+	printf "raw,%s,%s,%s,%s,%s,%s,%s,,,,,,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" \
 	    "$mode" "$record" "$iter" "$JOBS" "$SOURCE_LABEL" "$total_bytes" \
 	    "$elapsed_ms" "$mib_s" "$cpu_csv" "$ratio" "$used" "$logicalused" \
 	    "$((comp_after - comp_before))" \
@@ -287,6 +327,16 @@ run_one() {
 	    "$((fails_after - fails_before))" \
 	    "$((reuse_hits_after - reuse_hits_before))" \
 	    "$((reuse_misses_after - reuse_misses_before))" \
+	    "$((comp_scratch_alloc_after - comp_scratch_alloc_before))" \
+	    "$((comp_scratch_free_after - comp_scratch_free_before))" \
+	    "$((comp_setup_after - comp_setup_before))" \
+	    "$((comp_submit_after - comp_submit_before))" \
+	    "$((comp_wait_after - comp_wait_before))" \
+	    "$((comp_cleanup_after - comp_cleanup_before))" \
+	    "$((decomp_setup_after - decomp_setup_before))" \
+	    "$((decomp_submit_after - decomp_submit_before))" \
+	    "$((decomp_wait_after - decomp_wait_before))" \
+	    "$((decomp_cleanup_after - decomp_cleanup_before))" \
 	    "$sha_ok" "$QAT_DC_LEVEL" "$QAT_DC_MAX_BUF_SIZE" \
 	    "$QAT_DC_MAX_INSTANCES" "$ZFS_SRCVERSION" |
 	    tee -a "$OUT"
@@ -310,7 +360,7 @@ QAT_DC_MAX_INSTANCES="$(read_param zfs_qat_dc_max_instances)"
 ZFS_SRCVERSION="$(modinfo zfs | awk '$1 == "srcversion:" { print $2 }')"
 
 mkdir -p "$(dirname "$OUT")"
-printf "row_type,mode,recordsize,iter,jobs,source_label,source_bytes,elapsed_ms,latency_avg_ms,latency_p50_ms,latency_p95_ms,latency_p99_ms,latency_max_ms,write_bw_mib_s,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct,compressratio,used,logicalused,comp_requests_delta,comp_in_delta,comp_out_delta,decomp_requests_delta,decomp_in_delta,decomp_out_delta,dc_fails_delta,dc_buffer_reuse_hits_delta,dc_buffer_reuse_misses_delta,sha_ok,zfs_qat_cpa_dc_level,zfs_qat_dc_max_buf_size,zfs_qat_dc_max_instances,zfs_srcversion\n" > "$OUT"
+printf "row_type,mode,recordsize,iter,jobs,source_label,source_bytes,elapsed_ms,latency_avg_ms,latency_p50_ms,latency_p95_ms,latency_p99_ms,latency_max_ms,write_bw_mib_s,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct,compressratio,used,logicalused,comp_requests_delta,comp_in_delta,comp_out_delta,decomp_requests_delta,decomp_in_delta,decomp_out_delta,dc_fails_delta,dc_buffer_reuse_hits_delta,dc_buffer_reuse_misses_delta,dc_compress_scratch_alloc_ns_delta,dc_compress_scratch_free_ns_delta,dc_compress_setup_ns_delta,dc_compress_submit_ns_delta,dc_compress_wait_ns_delta,dc_compress_cleanup_ns_delta,dc_decompress_setup_ns_delta,dc_decompress_submit_ns_delta,dc_decompress_wait_ns_delta,dc_decompress_cleanup_ns_delta,sha_ok,zfs_qat_cpa_dc_level,zfs_qat_dc_max_buf_size,zfs_qat_dc_max_instances,zfs_srcversion\n" > "$OUT"
 
 echo "Results: $OUT" >&2
 echo "Source: $SOURCE ($SOURCE_BYTES bytes)" >&2
@@ -334,7 +384,8 @@ for mode in $MODES; do
 		summary_row=(summary "$mode" "$record" "" "$JOBS" "$SOURCE_LABEL"
 		    "$((SOURCE_BYTES * JOBS))" "" "$latency_avg" "$latency_p50"
 		    "$latency_p95" "$latency_p99" "$latency_max" "" "" "" ""
-		    "" "" "" "" "" "" "" "" "" "" "" "" "" "" "$QAT_DC_LEVEL"
+		    "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" ""
+		    "" "" "" "" "" "$QAT_DC_LEVEL"
 		    "$QAT_DC_MAX_BUF_SIZE" "$QAT_DC_MAX_INSTANCES" "$ZFS_SRCVERSION")
 		(IFS=,; printf "%s\n" "${summary_row[*]}") | tee -a "$OUT"
 	done

@@ -104,6 +104,28 @@ typedef struct qat_stats {
 	 * buffer-list metadata allocation.
 	 */
 	kstat_named_t dc_buffer_reuse_misses;
+	/*
+	 * Cumulative nanoseconds spent allocating and freeing QAT compression
+	 * scratch buffers.
+	 */
+	kstat_named_t dc_compress_scratch_alloc_ns;
+	kstat_named_t dc_compress_scratch_free_ns;
+	/*
+	 * Cumulative nanoseconds spent in QAT compression setup, submit, wait,
+	 * and cleanup phases.
+	 */
+	kstat_named_t dc_compress_setup_ns;
+	kstat_named_t dc_compress_submit_ns;
+	kstat_named_t dc_compress_wait_ns;
+	kstat_named_t dc_compress_cleanup_ns;
+	/*
+	 * Cumulative nanoseconds spent in QAT decompression setup, submit, wait,
+	 * and cleanup phases.
+	 */
+	kstat_named_t dc_decompress_setup_ns;
+	kstat_named_t dc_decompress_submit_ns;
+	kstat_named_t dc_decompress_wait_ns;
+	kstat_named_t dc_decompress_cleanup_ns;
 
 	/*
 	 * Number of jobs submitted to QAT encryption engine.
@@ -159,6 +181,14 @@ typedef struct qat_stats {
 	atomic_add_64(&qat_stats.stat.value.ui64, (val))
 #define	QAT_STAT_BUMP(stat) \
 	QAT_STAT_INCR(stat, 1)
+#define	QAT_STAT_ADD_TIME(stat, start, end) \
+	do { \
+		uint64_t qat_stat_start__ = (uint64_t)(start); \
+		uint64_t qat_stat_end__ = (uint64_t)(end); \
+		if (qat_stat_end__ > qat_stat_start__) \
+			QAT_STAT_INCR(stat, \
+			    qat_stat_end__ - qat_stat_start__); \
+	} while (0)
 
 extern qat_stats_t qat_stats;
 extern int zfs_qat_compress_disable;
