@@ -196,6 +196,10 @@ run_one() {
 	local decomp_out_after
 	local fails_before
 	local fails_after
+	local reuse_hits_before
+	local reuse_hits_after
+	local reuse_misses_before
+	local reuse_misses_after
 	local ratio
 	local used
 	local logicalused
@@ -215,6 +219,8 @@ run_one() {
 	decomp_in_before="$(statv decomp_total_in_bytes)"
 	decomp_out_before="$(statv decomp_total_out_bytes)"
 	fails_before="$(statv dc_fails)"
+	reuse_hits_before="$(statv dc_buffer_reuse_hits)"
+	reuse_misses_before="$(statv dc_buffer_reuse_misses)"
 	cpu_before="$(read_cpu)"
 	start_ns="$(date +%s%N)"
 
@@ -235,6 +241,8 @@ run_one() {
 	decomp_in_after="$(statv decomp_total_in_bytes)"
 	decomp_out_after="$(statv decomp_total_out_bytes)"
 	fails_after="$(statv dc_fails)"
+	reuse_hits_after="$(statv dc_buffer_reuse_hits)"
+	reuse_misses_after="$(statv dc_buffer_reuse_misses)"
 
 	elapsed_ms="$(awk -v s="$start_ns" -v e="$end_ns" \
 	    'BEGIN { printf "%.3f", (e - s) / 1000000 }')"
@@ -248,7 +256,7 @@ run_one() {
 	used="$(zfs get -H -o value used "$ds")"
 	logicalused="$(zfs get -H -o value logicalused "$ds")"
 
-	printf "raw,%s,%s,%s,%s,%s,%s,,,,,,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" \
+	printf "raw,%s,%s,%s,%s,%s,%s,,,,,,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" \
 	    "$mode" "$record" "$iter" "$SOURCE_LABEL" "$SOURCE_BYTES" \
 	    "$elapsed_ms" "$mib_s" "$cpu_csv" "$ratio" "$used" "$logicalused" \
 	    "$((comp_after - comp_before))" \
@@ -257,8 +265,11 @@ run_one() {
 	    "$((decomp_after - decomp_before))" \
 	    "$((decomp_in_after - decomp_in_before))" \
 	    "$((decomp_out_after - decomp_out_before))" \
-	    "$((fails_after - fails_before))" "$sha_ok" "$QAT_DC_LEVEL" \
-	    "$QAT_DC_MAX_BUF_SIZE" "$QAT_DC_MAX_INSTANCES" "$ZFS_SRCVERSION" |
+	    "$((fails_after - fails_before))" \
+	    "$((reuse_hits_after - reuse_hits_before))" \
+	    "$((reuse_misses_after - reuse_misses_before))" \
+	    "$sha_ok" "$QAT_DC_LEVEL" "$QAT_DC_MAX_BUF_SIZE" \
+	    "$QAT_DC_MAX_INSTANCES" "$ZFS_SRCVERSION" |
 	    tee -a "$OUT"
 
 	printf "%s\n" "$elapsed_ms" >> "$LATENCY_FILE"
@@ -280,7 +291,7 @@ QAT_DC_MAX_INSTANCES="$(read_param zfs_qat_dc_max_instances)"
 ZFS_SRCVERSION="$(modinfo zfs | awk '$1 == "srcversion:" { print $2 }')"
 
 mkdir -p "$(dirname "$OUT")"
-printf "row_type,mode,recordsize,iter,source_label,source_bytes,elapsed_ms,latency_avg_ms,latency_p50_ms,latency_p95_ms,latency_p99_ms,latency_max_ms,write_bw_mib_s,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct,compressratio,used,logicalused,comp_requests_delta,comp_in_delta,comp_out_delta,decomp_requests_delta,decomp_in_delta,decomp_out_delta,dc_fails_delta,sha_ok,zfs_qat_cpa_dc_level,zfs_qat_dc_max_buf_size,zfs_qat_dc_max_instances,zfs_srcversion\n" > "$OUT"
+	printf "row_type,mode,recordsize,iter,source_label,source_bytes,elapsed_ms,latency_avg_ms,latency_p50_ms,latency_p95_ms,latency_p99_ms,latency_max_ms,write_bw_mib_s,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct,compressratio,used,logicalused,comp_requests_delta,comp_in_delta,comp_out_delta,decomp_requests_delta,decomp_in_delta,decomp_out_delta,dc_fails_delta,dc_buffer_reuse_hits_delta,dc_buffer_reuse_misses_delta,sha_ok,zfs_qat_cpa_dc_level,zfs_qat_dc_max_buf_size,zfs_qat_dc_max_instances,zfs_srcversion\n" > "$OUT"
 
 echo "Results: $OUT" >&2
 echo "Source: $SOURCE ($SOURCE_BYTES bytes)" >&2
@@ -303,9 +314,8 @@ for mode in $MODES; do
 		summary_row=(summary "$mode" "$record" "" "$SOURCE_LABEL"
 		    "$SOURCE_BYTES" "" "$latency_avg" "$latency_p50"
 		    "$latency_p95" "$latency_p99" "$latency_max" "" "" "" ""
-		    "" "" "" "" "" "" "" "" "" "" "" "" "$QAT_DC_LEVEL"
-		    "$QAT_DC_MAX_BUF_SIZE" "$QAT_DC_MAX_INSTANCES"
-		    "$ZFS_SRCVERSION")
+		    "" "" "" "" "" "" "" "" "" "" "" "" "" "" "$QAT_DC_LEVEL"
+		    "$QAT_DC_MAX_BUF_SIZE" "$QAT_DC_MAX_INSTANCES" "$ZFS_SRCVERSION")
 		(IFS=,; printf "%s\n" "${summary_row[*]}") | tee -a "$OUT"
 	done
 done

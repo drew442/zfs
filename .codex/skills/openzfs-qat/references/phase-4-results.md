@@ -352,9 +352,71 @@ Smoke test:
 ITERS=1 RECORDS=256K MODES=qat OUT=/root/zfs-qat-phase4-harness-smoke-20260513-r3.csv /root/qat-phase4-benchmark.sh
 ```
 
-The smoke CSV had 32 columns for header, raw, and summary rows, moved QAT
-compression counters for the 256 KiB TIFF workload, and completed without
-leaving a `qat-phase4` temporary dataset behind.
+The initial smoke CSV had 32 columns for header, raw, and summary rows, moved
+QAT compression counters for the 256 KiB TIFF workload, and completed without
+leaving a `qat-phase4` temporary dataset behind. Later reuse counters expanded
+the harness output to 34 columns.
+
+## Non-Serializing Reuse Follow-Up
+
+Run date: 2026-05-13.
+
+The compression path now preallocates a small lock-free reuse pool per active DC
+instance for QAT buffer-list metadata and `CpaBufferList`/`CpaFlatBuffer`
+storage. Each request attempts to claim a slot with `test_and_set_bit()`.
+If all slots are busy, the request falls back to the existing per-request
+allocation path. This avoids the previously abandoned mutex-protected workspace
+shape.
+
+New QAT kstats:
+
+```text
+dc_buffer_reuse_hits
+dc_buffer_reuse_misses
+```
+
+Host backup before refreshing `/usr/src/zfs-2.4.99/`:
+
+```text
+/root/zfs-2.4.99.pre-dc-reuse.20260513T044340Z
+/root/zfs-2.4.99.pre-dc-reuse.latest -> /root/zfs-2.4.99.pre-dc-reuse.20260513T044340Z
+```
+
+Build and install logs:
+
+```text
+/root/zfs-qat-dc-reuse-dkms-build-20260513.log
+/root/zfs-qat-dc-reuse-dkms-install-20260513.log
+/root/zfs-qat-dc-reuse-initramfs-20260513.log
+```
+
+Loaded module after DKMS install, `update-initramfs -u -k 7.0.0-3-pve`, and reboot:
+
+```text
+filename: /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko
+version: 2.4.99-1
+srcversion: 3A6C45EADEB1E3DF1D6F3C9
+depends: spl,qat_api
+```
+
+Smoke command:
+
+```text
+ITERS=1 RECORDS="256K 1M" MODES=qat OUT=/root/zfs-qat-phase4-reuse-smoke-20260513.csv /root/qat-phase4-benchmark.sh
+```
+
+Smoke results:
+
+```text
+record comp_req decomp_req dc_fails reuse_hits reuse_misses sha_ok
+256K   730      578        0        818        490           yes
+1M     183      153        0        214        122           yes
+```
+
+The smoke CSV had 34 columns for header, raw, and summary rows. Temporary
+datasets were destroyed and `zpool status -x` reported all pools healthy.
+The misses are expected when all reuse slots are busy or the pool cannot satisfy
+a request; they are fallback allocations, not QAT failures.
 
 ## Follow-Up
 

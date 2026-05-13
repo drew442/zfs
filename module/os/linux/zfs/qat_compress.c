@@ -21,6 +21,7 @@
  */
 
 #if defined(_KERNEL) && defined(HAVE_QAT)
+#include <linux/bitops.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/pagemap.h>
@@ -40,6 +41,7 @@
 #define	QAT_DC_STACK_MAX_PAGES	\
 	((QAT_DC_DEFAULT_MAX_BUF_SIZE >> PAGE_SHIFT) + 2)
 #define	QAT_DC_ABS_MAX_PAGES	((QAT_DC_ABS_MAX_BUF_SIZE >> PAGE_SHIFT) + 2)
+#define	QAT_DC_BUFFER_REUSE_SLOTS	4
 
 /*
  * ZLIB head and foot size
@@ -47,9 +49,29 @@
 #define	ZLIB_HEAD_SZ		2
 #define	ZLIB_FOOT_SZ		4
 
+typedef struct qat_dc_buffer_slot {
+	Cpa8U *buffer_meta_src;
+	Cpa8U *buffer_meta_dst;
+	CpaBufferList *buf_list_src;
+	CpaBufferList *buf_list_dst;
+} qat_dc_buffer_slot_t;
+
+typedef struct qat_dc_buffer_pool {
+	qat_dc_buffer_slot_t slots[QAT_DC_BUFFER_REUSE_SLOTS];
+	unsigned long busy;
+	Cpa32U max_src_bufs;
+	Cpa32U max_dst_bufs;
+	Cpa32U src_meta_size;
+	Cpa32U dst_meta_size;
+	Cpa32U src_list_size;
+	Cpa32U dst_list_size;
+	boolean_t initialized;
+} qat_dc_buffer_pool_t;
+
 static CpaInstanceHandle dc_inst_handles[QAT_DC_MAX_INSTANCES];
 static CpaDcSessionHandle session_handles[QAT_DC_MAX_INSTANCES];
 static CpaBufferList **buffer_array[QAT_DC_MAX_INSTANCES];
+static qat_dc_buffer_pool_t buffer_pools[QAT_DC_MAX_INSTANCES];
 static Cpa16U num_inst = 0;
 static Cpa32U inst_num = 0;
 static boolean_t qat_dc_init_done = B_FALSE;
@@ -116,6 +138,108 @@ qat_dc_callback(void *p_callback, CpaStatus status)
 }
 
 static void
+qat_dc_buffer_pool_clean(Cpa16U inst)
+{
+	qat_dc_buffer_pool_t *pool = &buffer_pools[inst];
+
+	for (int i = 0; i < QAT_DC_BUFFER_REUSE_SLOTS; i++) {
+		qat_dc_buffer_slot_t *slot = &pool->slots[i];
+
+		QAT_PHYS_CONTIG_FREE(slot->buffer_meta_src);
+		QAT_PHYS_CONTIG_FREE(slot->buffer_meta_dst);
+		QAT_PHYS_CONTIG_FREE(slot->buf_list_src);
+		QAT_PHYS_CONTIG_FREE(slot->buf_list_dst);
+	}
+
+	memset(pool, 0, sizeof (*pool));
+}
+
+static void
+qat_dc_buffer_pool_init(Cpa16U inst, CpaInstanceHandle dc_inst_handle,
+    Cpa32U max_src_bufs, Cpa32U max_dst_bufs)
+{
+	qat_dc_buffer_pool_t *pool = &buffer_pools[inst];
+	CpaStatus status = CPA_STATUS_SUCCESS;
+
+	qat_dc_buffer_pool_clean(inst);
+
+	pool->max_src_bufs = max_src_bufs;
+	pool->max_dst_bufs = max_dst_bufs;
+	pool->src_list_size = sizeof (CpaBufferList) +
+	    (max_src_bufs * sizeof (CpaFlatBuffer));
+	pool->dst_list_size = sizeof (CpaBufferList) +
+	    (max_dst_bufs * sizeof (CpaFlatBuffer));
+
+	status = cpaDcBufferListGetMetaSize(dc_inst_handle, max_src_bufs,
+	    &pool->src_meta_size);
+	if (status == CPA_STATUS_SUCCESS)
+		status = cpaDcBufferListGetMetaSize(dc_inst_handle,
+		    max_dst_bufs, &pool->dst_meta_size);
+	if (status != CPA_STATUS_SUCCESS)
+		goto fail;
+
+	for (int i = 0; i < QAT_DC_BUFFER_REUSE_SLOTS; i++) {
+		qat_dc_buffer_slot_t *slot = &pool->slots[i];
+
+		status = QAT_PHYS_CONTIG_ALLOC(&slot->buffer_meta_src,
+		    pool->src_meta_size);
+		if (status == CPA_STATUS_SUCCESS)
+			status = QAT_PHYS_CONTIG_ALLOC(&slot->buffer_meta_dst,
+			    pool->dst_meta_size);
+		if (status == CPA_STATUS_SUCCESS)
+			status = QAT_PHYS_CONTIG_ALLOC(&slot->buf_list_src,
+			    pool->src_list_size);
+		if (status == CPA_STATUS_SUCCESS)
+			status = QAT_PHYS_CONTIG_ALLOC(&slot->buf_list_dst,
+			    pool->dst_list_size);
+		if (status != CPA_STATUS_SUCCESS)
+			goto fail;
+	}
+
+	pool->initialized = B_TRUE;
+	return;
+
+fail:
+	qat_dc_buffer_pool_clean(inst);
+}
+
+static qat_dc_buffer_slot_t *
+qat_dc_buffer_pool_acquire(Cpa16U inst, Cpa32U num_src_buf, Cpa32U num_dst_buf)
+{
+	qat_dc_buffer_pool_t *pool = &buffer_pools[inst];
+
+	if (!pool->initialized ||
+	    num_src_buf > pool->max_src_bufs ||
+	    num_dst_buf > pool->max_dst_bufs) {
+		QAT_STAT_BUMP(dc_buffer_reuse_misses);
+		return (NULL);
+	}
+
+	for (int i = 0; i < QAT_DC_BUFFER_REUSE_SLOTS; i++) {
+		if (!test_and_set_bit(i, &pool->busy)) {
+			QAT_STAT_BUMP(dc_buffer_reuse_hits);
+			return (&pool->slots[i]);
+		}
+	}
+
+	QAT_STAT_BUMP(dc_buffer_reuse_misses);
+	return (NULL);
+}
+
+static void
+qat_dc_buffer_pool_release(Cpa16U inst, qat_dc_buffer_slot_t *slot)
+{
+	qat_dc_buffer_pool_t *pool = &buffer_pools[inst];
+
+	for (int i = 0; i < QAT_DC_BUFFER_REUSE_SLOTS; i++) {
+		if (slot == &pool->slots[i]) {
+			clear_bit(i, &pool->busy);
+			return;
+		}
+	}
+}
+
+static void
 qat_dc_clean(void)
 {
 	Cpa16U buff_num = 0;
@@ -124,6 +248,7 @@ qat_dc_clean(void)
 	for (Cpa16U i = 0; i < num_inst; i++) {
 		cpaDcStopInstance(dc_inst_handles[i]);
 		QAT_PHYS_CONTIG_FREE(session_handles[i]);
+		qat_dc_buffer_pool_clean(i);
 		/* free intermediate buffers  */
 		if (buffer_array[i] != NULL) {
 			cpaDcGetNumIntermediateBuffers(
@@ -159,6 +284,8 @@ qat_dc_init(void)
 	Cpa16U buff_num = 0;
 	Cpa16U max_inst = 0;
 	Cpa32U inter_buff_size = 0;
+	Cpa32U max_src_bufs = 0;
+	Cpa32U max_dst_bufs = 0;
 	Cpa32U buff_meta_size = 0;
 	CpaDcSessionSetupData sd = {0};
 
@@ -184,6 +311,8 @@ qat_dc_init(void)
 		num_inst = max_inst;
 
 	inter_buff_size = 2 * (Cpa32U)zfs_qat_dc_max_buf_size;
+	max_src_bufs = ((Cpa32U)zfs_qat_dc_max_buf_size >> PAGE_SHIFT) + 2;
+	max_dst_bufs = 2 * max_src_bufs;
 
 	status = cpaDcGetInstances(num_inst, &dc_inst_handles[0]);
 	if (status != CPA_STATUS_SUCCESS)
@@ -192,6 +321,9 @@ qat_dc_init(void)
 	for (Cpa16U i = 0; i < num_inst; i++) {
 		cpaDcSetAddressTranslation(dc_inst_handles[i],
 		    (void*)virt_to_phys);
+
+		qat_dc_buffer_pool_init(i, dc_inst_handles[i],
+		    max_src_bufs, max_dst_bufs);
 
 		status = cpaDcBufferListGetMetaSize(dc_inst_handles[i],
 		    1, &buff_meta_size);
@@ -303,6 +435,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	CpaDcSessionHandle session_handle;
 	CpaBufferList *buf_list_src = NULL;
 	CpaBufferList *buf_list_dst = NULL;
+	qat_dc_buffer_slot_t *buffer_slot = NULL;
 	CpaFlatBuffer *flat_buf_src = NULL;
 	CpaFlatBuffer *flat_buf_dst = NULL;
 	Cpa8U *buffer_meta_src = NULL;
@@ -375,28 +508,41 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	dc_inst_handle = dc_inst_handles[i];
 	session_handle = session_handles[i];
 
-	cpaDcBufferListGetMetaSize(dc_inst_handle, num_src_buf,
-	    &buffer_meta_size);
-	status = QAT_PHYS_CONTIG_ALLOC(&buffer_meta_src, buffer_meta_size);
-	if (status != CPA_STATUS_SUCCESS)
-		goto fail;
+	buffer_slot = qat_dc_buffer_pool_acquire(i, num_src_buf,
+	    num_dst_buf + num_add_buf);
+	if (buffer_slot != NULL) {
+		buffer_meta_src = buffer_slot->buffer_meta_src;
+		buffer_meta_dst = buffer_slot->buffer_meta_dst;
+		buf_list_src = buffer_slot->buf_list_src;
+		buf_list_dst = buffer_slot->buf_list_dst;
+	} else {
+		cpaDcBufferListGetMetaSize(dc_inst_handle, num_src_buf,
+		    &buffer_meta_size);
+		status = QAT_PHYS_CONTIG_ALLOC(&buffer_meta_src,
+		    buffer_meta_size);
+		if (status != CPA_STATUS_SUCCESS)
+			goto fail;
 
-	cpaDcBufferListGetMetaSize(dc_inst_handle, num_dst_buf + num_add_buf,
-	    &buffer_meta_size);
-	status = QAT_PHYS_CONTIG_ALLOC(&buffer_meta_dst, buffer_meta_size);
-	if (status != CPA_STATUS_SUCCESS)
-		goto fail;
+		cpaDcBufferListGetMetaSize(dc_inst_handle,
+		    num_dst_buf + num_add_buf, &buffer_meta_size);
+		status = QAT_PHYS_CONTIG_ALLOC(&buffer_meta_dst,
+		    buffer_meta_size);
+		if (status != CPA_STATUS_SUCCESS)
+			goto fail;
 
-	status = QAT_PHYS_CONTIG_ALLOC(&buf_list_src, src_buffer_list_mem_size);
-	if (status != CPA_STATUS_SUCCESS)
-		goto fail;
+		status = QAT_PHYS_CONTIG_ALLOC(&buf_list_src,
+		    src_buffer_list_mem_size);
+		if (status != CPA_STATUS_SUCCESS)
+			goto fail;
+
+		status = QAT_PHYS_CONTIG_ALLOC(&buf_list_dst,
+		    dst_buffer_list_mem_size);
+		if (status != CPA_STATUS_SUCCESS)
+			goto fail;
+	}
 
 	flat_buf_src = (CpaFlatBuffer *)(buf_list_src + 1);
 	buf_list_src->pBuffers = flat_buf_src; /* always point to first one */
-
-	status = QAT_PHYS_CONTIG_ALLOC(&buf_list_dst, dst_buffer_list_mem_size);
-	if (status != CPA_STATUS_SUCCESS)
-		goto fail;
 
 	flat_buf_dst = (CpaFlatBuffer *)(buf_list_dst + 1);
 	buf_list_dst->pBuffers = flat_buf_dst; /* always point to first one */
@@ -549,10 +695,14 @@ fail:
 	for (page_num = 0; page_num < add_pages; page_num++)
 		kunmap(scratch_pages[page_num]);
 
-	QAT_PHYS_CONTIG_FREE(buffer_meta_src);
-	QAT_PHYS_CONTIG_FREE(buffer_meta_dst);
-	QAT_PHYS_CONTIG_FREE(buf_list_src);
-	QAT_PHYS_CONTIG_FREE(buf_list_dst);
+	if (buffer_slot != NULL) {
+		qat_dc_buffer_pool_release(i, buffer_slot);
+	} else {
+		QAT_PHYS_CONTIG_FREE(buffer_meta_src);
+		QAT_PHYS_CONTIG_FREE(buffer_meta_dst);
+		QAT_PHYS_CONTIG_FREE(buf_list_src);
+		QAT_PHYS_CONTIG_FREE(buf_list_dst);
+	}
 
 	if (in_pages != in_pages_stack && in_pages != NULL)
 		kmem_free(in_pages, in_pages_size);

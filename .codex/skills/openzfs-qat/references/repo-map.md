@@ -25,7 +25,8 @@
   - Compression and decompression implementation.
   - Contains a fixed static array limit: `QAT_DC_MAX_INSTANCES = 48`.
   - Owns `zfs_qat_compress_disable`, `zfs_qat_cpa_dc_level`, `zfs_qat_dc_max_buf_size`, `zfs_qat_dc_max_instances`, and the lazy re-enable path via the module parameter setter.
-  - Uses stack page-pointer arrays for the default 128 KiB maximum and heap-allocated page-pointer arrays for opt-in larger records; QAT metadata and buffer-list storage are still allocated per request.
+  - Uses stack page-pointer arrays for the default 128 KiB maximum and heap-allocated page-pointer arrays for opt-in larger records.
+  - Preallocates a small lock-free per-instance pool for QAT buffer-list metadata and list storage; requests fall back to per-request allocation when all slots are busy or a request exceeds the pool bounds.
 - `module/os/linux/zfs/qat_crypt.c`
   - AES-GCM encryption/decryption and SHA256 checksum offload.
   - Owns `zfs_qat_encrypt_disable`, `zfs_qat_checksum_disable`, and `zfs_qat_cy_max_instances`.
@@ -114,4 +115,10 @@ Likely kstat location on Linux, inferred from `kstat_create("zfs", 0, "qat", ...
 
 ```bash
 cat /proc/spl/kstat/zfs/qat
+```
+
+Compression allocation-reuse counters:
+
+```bash
+grep -E 'dc_buffer_reuse_(hits|misses)' /proc/spl/kstat/zfs/qat
 ```

@@ -187,6 +187,8 @@ Workstream D: allocation and metadata reuse:
 - Prefer non-serializing reuse strategies, such as per-CPU or per-instance multi-slot pools, over a single mutex-protected workspace.
 - Do not keep the abandoned serialized per-instance workspace approach unless new measurements show it no longer regresses latency or throughput.
 
+Status: initial non-serializing reuse implemented for the 2026-05-13 pass. The compression path now has a small lock-free per-instance pool for QAT buffer-list metadata and list storage, with fallback to per-request allocation when slots are busy. Host validation showed reuse hits and misses under the smoke workload, so this reduces but does not eliminate allocation pressure.
+
 Workstream E: QAT instance caps:
 
 - Expose init-time module parameters for maximum DC and crypto instances, with defaults of `48` to preserve current behavior.
@@ -281,5 +283,5 @@ Acceptance:
 
 1. Document and, if needed, improve the boot ordering between `qat.service` and early ZFS module load.
 2. Extend phase 5 host validation with repeatable benchmark scripts, latency reporting, and read-after-reboot checks.
-3. Implement the remaining phase 4 extension in this order: larger-record experimental maximum, benchmark harness improvements, then non-serializing allocation reuse.
+3. Run the expanded phase 4 benchmark matrix with the new large-record and reuse instrumentation.
 4. Defer checksum and encryption policy changes until compression behavior is stable.

@@ -94,6 +94,16 @@ typedef struct qat_stats {
 	 * impacted.
 	 */
 	kstat_named_t dc_fails;
+	/*
+	 * Number of QAT compression requests that reused preallocated
+	 * per-instance buffer-list metadata.
+	 */
+	kstat_named_t dc_buffer_reuse_hits;
+	/*
+	 * Number of QAT compression requests that fell back to per-request
+	 * buffer-list metadata allocation.
+	 */
+	kstat_named_t dc_buffer_reuse_misses;
 
 	/*
 	 * Number of jobs submitted to QAT encryption engine.
