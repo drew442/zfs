@@ -171,6 +171,8 @@ Workstream B: larger-record QAT compression:
 - Avoid unsafe kernel-stack growth when supporting larger records; page-pointer arrays and metadata storage must scale without relying on large stack allocations.
 - Prove behavior on compressible and incompressible inputs before raising the default above `128 KiB`.
 
+Status: experimental enablement completed for the 2026-05-13 pass. The repo has `zfs_qat_dc_max_buf_size` with a default of `128 KiB` and opt-in values through `1 MiB`; host validation showed 256 KiB and 1 MiB records can offload on dh895xcc/QAT 4.28 with zero DC failures in the initial matrix. More throughput and latency benchmarking is still required before changing the default above `128 KiB`.
+
 Workstream C: latency-focused measurements:
 
 - Measure per-record compression latency across `8 KiB`, `16 KiB`, `32 KiB`, `64 KiB`, `128 KiB`, and larger experimental record sizes if enabled.

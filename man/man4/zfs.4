@@ -2109,6 +2109,21 @@ This is a global QAT data-compression session setting, not a per-dataset
 setting.
 It must be set before QAT compression sessions are initialized.
 .
+.It Sy zfs_qat_dc_max_buf_size Ns = Ns Sy 131072 Pq int
+Maximum buffer size eligible for QAT gzip compression and decompression.
+The default is
+.Sy 131072
+bytes
+.Pq 128 KiB .
+Experimental values
+.Sy 262144 ,
+.Sy 524288 ,
+and
+.Sy 1048576
+enable opt-in testing for larger ZFS records on QAT 1.x hardware.
+It must be set before QAT compression sessions are initialized.
+Records larger than this value use software gzip fallback.
+.
 .It Sy zfs_qat_dc_max_instances Ns = Ns Sy 48 Pq int
 Maximum number of QAT data-compression instances to use.
 The effective instance count is the smaller of this value and the number of

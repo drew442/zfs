@@ -52,6 +52,8 @@ These notes capture stable, primary-source details useful when reviewing this fo
 - For QAT 1.x work in this fork, `zfs_qat_cpa_dc_level` is the global compression-level control and is intentionally limited to `CPA_DC_L1` through `CPA_DC_L4`.
 - Intel documents `CPA_DC_FLUSH_FINAL` as the final-request flush flag for stateless Deflate compression and decompression. This matches the current `qat_compress.c` call pattern.
 - Intel documents QAT compression status in `CpaDcRqResults.status`; `CPA_DC_OVERFLOW` is not necessarily a fatal hardware error and may require a larger destination buffer.
+- The QAT 4.28 header `quickassist/include/dc/cpa_dc.h` exposes `cpaDcDeflateCompressBound()`, and the deployed access-layer `Module.symvers` exports that symbol. The implementation describes it as a synchronous helper for estimating worst-case Deflate output size to reduce overflow likelihood; it does not guarantee overflow is impossible in every exception case.
+- The QAT 4.28 headers expose Deflate/LZ4 block-size capability concepts including 64 KiB, 256 KiB, 1 MiB, and 4 MiB bitmasks. This is API capability evidence, not proof that this OpenZFS path safely benefits from records above 128 KiB on dh895x/C620 without host validation.
 - Intel recommends Compress-and-Verify for compression integrity and does not support disabling it in current docs. Be cautious with patches that bypass verification or hide CnV/CnVnR outcomes.
 - Intel notes that some compression failures should result in storing the block uncompressed or compressing with software. That aligns with preserving OpenZFS software fallback behavior.
 

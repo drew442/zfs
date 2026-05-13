@@ -291,6 +291,7 @@ Observed module parameters:
 zfs_qat_checksum_disable=0
 zfs_qat_compress_disable=0
 zfs_qat_cpa_dc_level=4
+zfs_qat_dc_max_buf_size=1048576
 zfs_qat_dc_max_instances=48
 zfs_qat_encrypt_disable=0
 zfs_qat_cy_max_instances=48
@@ -299,7 +300,7 @@ zfs_qat_cy_max_instances=48
 `/etc/modprobe.d/zfs-qat.conf` contains:
 
 ```text
-options zfs zfs_qat_compress_disable=0 zfs_qat_checksum_disable=0 zfs_qat_cpa_dc_level=4
+options zfs zfs_qat_compress_disable=0 zfs_qat_checksum_disable=0 zfs_qat_cpa_dc_level=4 zfs_qat_dc_max_buf_size=1048576
 ```
 
 Historical note:

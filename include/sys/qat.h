@@ -54,7 +54,8 @@ typedef enum qat_encrypt_dir {
  * failures, while 8 KiB and larger records did not.
  */
 #define	QAT_DC_MIN_BUF_SIZE	(8*1024)
-#define	QAT_DC_MAX_BUF_SIZE	QAT_MAX_BUF_SIZE
+#define	QAT_DC_DEFAULT_MAX_BUF_SIZE	QAT_MAX_BUF_SIZE
+#define	QAT_DC_ABS_MAX_BUF_SIZE		(1024*1024)
 
 /*
  * Used for QAT kstat.
@@ -152,6 +153,7 @@ typedef struct qat_stats {
 extern qat_stats_t qat_stats;
 extern int zfs_qat_compress_disable;
 extern int zfs_qat_cpa_dc_level;
+extern int zfs_qat_dc_max_buf_size;
 extern int zfs_qat_dc_max_instances;
 extern int zfs_qat_checksum_disable;
 extern int zfs_qat_encrypt_disable;

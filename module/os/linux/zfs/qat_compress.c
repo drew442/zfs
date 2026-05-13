@@ -37,7 +37,9 @@
  * QAT driver's configuration file.
  */
 #define	QAT_DC_MAX_INSTANCES	48
-#define	QAT_DC_MAX_PAGES	((QAT_DC_MAX_BUF_SIZE >> PAGE_SHIFT) + 2)
+#define	QAT_DC_STACK_MAX_PAGES	\
+	((QAT_DC_DEFAULT_MAX_BUF_SIZE >> PAGE_SHIFT) + 2)
+#define	QAT_DC_ABS_MAX_PAGES	((QAT_DC_ABS_MAX_BUF_SIZE >> PAGE_SHIFT) + 2)
 
 /*
  * ZLIB head and foot size
@@ -53,6 +55,7 @@ static Cpa32U inst_num = 0;
 static boolean_t qat_dc_init_done = B_FALSE;
 int zfs_qat_compress_disable = 0;
 int zfs_qat_cpa_dc_level = 1;
+int zfs_qat_dc_max_buf_size = QAT_DC_DEFAULT_MAX_BUF_SIZE;
 int zfs_qat_dc_max_instances = QAT_DC_MAX_INSTANCES;
 
 boolean_t
@@ -61,7 +64,7 @@ qat_dc_use_accel(size_t s_len)
 	return (!zfs_qat_compress_disable &&
 	    qat_dc_init_done &&
 	    s_len >= QAT_DC_MIN_BUF_SIZE &&
-	    s_len <= QAT_DC_MAX_BUF_SIZE);
+	    s_len <= zfs_qat_dc_max_buf_size);
 }
 
 static boolean_t
@@ -74,6 +77,20 @@ static boolean_t
 qat_dc_valid_max_instances(int max_instances)
 {
 	return (max_instances >= 1 && max_instances <= QAT_DC_MAX_INSTANCES);
+}
+
+static boolean_t
+qat_dc_valid_max_buf_size(int max_buf_size)
+{
+	switch (max_buf_size) {
+	case 128 * 1024:
+	case 256 * 1024:
+	case 512 * 1024:
+	case 1024 * 1024:
+		return (B_TRUE);
+	default:
+		return (B_FALSE);
+	}
 }
 
 static CpaDcCompLvl
@@ -141,6 +158,7 @@ qat_dc_init(void)
 	Cpa16U num_inter_buff_lists = 0;
 	Cpa16U buff_num = 0;
 	Cpa16U max_inst = 0;
+	Cpa32U inter_buff_size = 0;
 	Cpa32U buff_meta_size = 0;
 	CpaDcSessionSetupData sd = {0};
 
@@ -158,9 +176,14 @@ qat_dc_init(void)
 	if (!qat_dc_valid_max_instances(zfs_qat_dc_max_instances))
 		return (-1);
 
+	if (!qat_dc_valid_max_buf_size(zfs_qat_dc_max_buf_size))
+		return (-1);
+
 	max_inst = (Cpa16U)zfs_qat_dc_max_instances;
 	if (num_inst > max_inst)
 		num_inst = max_inst;
+
+	inter_buff_size = 2 * (Cpa32U)zfs_qat_dc_max_buf_size;
 
 	status = cpaDcGetInstances(num_inst, &dc_inst_handles[0]);
 	if (status != CPA_STATUS_SUCCESS)
@@ -209,13 +232,13 @@ qat_dc_init(void)
 				 */
 				status = QAT_PHYS_CONTIG_ALLOC(
 				    &buffer_array[i][buff_num]->pBuffers->
-				    pData, 2 * QAT_DC_MAX_BUF_SIZE);
+				    pData, inter_buff_size);
 				if (status != CPA_STATUS_SUCCESS)
 					goto fail;
 
 				buffer_array[i][buff_num]->numBuffers = 1;
 				buffer_array[i][buff_num]->pBuffers->
-				    dataLenInBytes = 2 * QAT_DC_MAX_BUF_SIZE;
+				    dataLenInBytes = inter_buff_size;
 			}
 		}
 
@@ -299,9 +322,14 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	Cpa32U adler32 = 0;
 	char *data;
 	struct page *page;
-	struct page *in_pages[QAT_DC_MAX_PAGES];
-	struct page *out_pages[QAT_DC_MAX_PAGES];
-	struct page *scratch_pages[QAT_DC_MAX_PAGES];
+	struct page *in_pages_stack[QAT_DC_STACK_MAX_PAGES];
+	struct page *out_pages_stack[QAT_DC_STACK_MAX_PAGES];
+	struct page **in_pages = in_pages_stack;
+	struct page **out_pages = out_pages_stack;
+	struct page **scratch_pages = NULL;
+	size_t in_pages_size = 0;
+	size_t out_pages_size = 0;
+	size_t scratch_pages_size = 0;
 	Cpa32U page_off = 0;
 	struct completion complete;
 	Cpa32U page_num = 0;
@@ -317,9 +345,31 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	Cpa32U dst_buffer_list_mem_size = sizeof (CpaBufferList) +
 	    ((num_dst_buf + num_add_buf) * sizeof (CpaFlatBuffer));
 
-	if (num_src_buf > QAT_DC_MAX_PAGES || num_dst_buf > QAT_DC_MAX_PAGES ||
-	    num_add_buf > QAT_DC_MAX_PAGES)
+	if (num_src_buf > QAT_DC_ABS_MAX_PAGES ||
+	    num_dst_buf > QAT_DC_ABS_MAX_PAGES ||
+	    num_add_buf > QAT_DC_ABS_MAX_PAGES)
 		goto fail;
+
+	if (num_src_buf > QAT_DC_STACK_MAX_PAGES) {
+		in_pages_size = num_src_buf * sizeof (*in_pages);
+		in_pages = kmem_alloc(in_pages_size, KM_SLEEP);
+		if (in_pages == NULL)
+			goto fail;
+	}
+
+	if (num_dst_buf > QAT_DC_STACK_MAX_PAGES) {
+		out_pages_size = num_dst_buf * sizeof (*out_pages);
+		out_pages = kmem_alloc(out_pages_size, KM_SLEEP);
+		if (out_pages == NULL)
+			goto fail;
+	}
+
+	if (add_len > 0) {
+		scratch_pages_size = num_add_buf * sizeof (*scratch_pages);
+		scratch_pages = kmem_alloc(scratch_pages_size, KM_SLEEP);
+		if (scratch_pages == NULL)
+			goto fail;
+	}
 
 	i = (Cpa32U)atomic_inc_32_nv(&inst_num) % num_inst;
 	dc_inst_handle = dc_inst_handles[i];
@@ -504,6 +554,15 @@ fail:
 	QAT_PHYS_CONTIG_FREE(buf_list_src);
 	QAT_PHYS_CONTIG_FREE(buf_list_dst);
 
+	if (in_pages != in_pages_stack && in_pages != NULL)
+		kmem_free(in_pages, in_pages_size);
+
+	if (out_pages != out_pages_stack && out_pages != NULL)
+		kmem_free(out_pages, out_pages_size);
+
+	if (scratch_pages != NULL)
+		kmem_free(scratch_pages, scratch_pages_size);
+
 	return (status);
 }
 
@@ -604,6 +663,31 @@ param_set_qat_dc_max_instances(const char *val, zfs_kernel_param_t *kp)
 	return (0);
 }
 
+static int
+param_set_qat_dc_max_buf_size(const char *val, zfs_kernel_param_t *kp)
+{
+	int ret;
+	int old_value;
+	int *pvalue = kp->arg;
+
+	old_value = *pvalue;
+	ret = param_set_int(val, kp);
+	if (ret != 0)
+		return (ret);
+
+	if (!qat_dc_valid_max_buf_size(*pvalue)) {
+		*pvalue = old_value;
+		return (-EINVAL);
+	}
+
+	if (qat_dc_init_done && *pvalue != old_value) {
+		*pvalue = old_value;
+		return (-EBUSY);
+	}
+
+	return (0);
+}
+
 module_param_call(zfs_qat_compress_disable, param_set_qat_compress,
     param_get_int, &zfs_qat_compress_disable, 0644);
 MODULE_PARM_DESC(zfs_qat_compress_disable, "Enable/Disable QAT compression");
@@ -612,6 +696,11 @@ module_param_call(zfs_qat_cpa_dc_level, param_set_qat_cpa_dc_level,
     param_get_int, &zfs_qat_cpa_dc_level, 0644);
 MODULE_PARM_DESC(zfs_qat_cpa_dc_level,
     "QAT compression level: 1, 2, 3, or 4");
+
+module_param_call(zfs_qat_dc_max_buf_size, param_set_qat_dc_max_buf_size,
+    param_get_int, &zfs_qat_dc_max_buf_size, 0644);
+MODULE_PARM_DESC(zfs_qat_dc_max_buf_size,
+    "Maximum QAT compression buffer size");
 
 module_param_call(zfs_qat_dc_max_instances, param_set_qat_dc_max_instances,
     param_get_int, &zfs_qat_dc_max_instances, 0644);

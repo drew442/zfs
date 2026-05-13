@@ -129,10 +129,11 @@ All file comparisons passed.
 
 ```c
 #define QAT_DC_MIN_BUF_SIZE (8*1024)
-#define QAT_DC_MAX_BUF_SIZE QAT_MAX_BUF_SIZE
+#define QAT_DC_DEFAULT_MAX_BUF_SIZE QAT_MAX_BUF_SIZE
+#define QAT_DC_ABS_MAX_BUF_SIZE (1024*1024)
 ```
 
-`module/os/linux/zfs/qat_compress.c` now uses the compression-specific bounds in `qat_dc_use_accel()` and intermediate buffer sizing.
+`module/os/linux/zfs/qat_compress.c` now uses compression-specific bounds in `qat_dc_use_accel()` and intermediate buffer sizing. The effective maximum is controlled by `zfs_qat_dc_max_buf_size`, which defaults to `128 KiB`.
 
 Follow-up allocation tuning removed three per-request heap allocations by replacing the temporary source, destination, and scratch page-pointer arrays with fixed stack arrays sized by `QAT_DC_MAX_PAGES`. The QAT API metadata buffers and `CpaBufferList` storage still use per-request allocations.
 
@@ -250,10 +251,83 @@ used=55.3M
 The copied file compared cleanly with `cmp`, the temporary validation dataset was
 destroyed, `qat_dev0` was up, and `zpool status -x` reported all pools healthy.
 
+## Large-Record Parameter Follow-Up
+
+Run date: 2026-05-13.
+
+The repo now exposes:
+
+```text
+zfs_qat_dc_max_buf_size=131072
+```
+
+The default remains `128 KiB`. Accepted values are exactly `131072`,
+`262144`, `524288`, and `1048576` bytes. The value must be set before QAT DC
+initializes; records larger than the configured value use software gzip
+fallback.
+
+The implementation keeps the default 128 KiB path stack-bounded and allocates
+page-pointer tracking dynamically when larger records are enabled. Scratch page
+tracking is heap-allocated to avoid a `-Wframe-larger-than` warning in
+`qat_compress.c`.
+
+Host backup before refreshing `/usr/src/zfs-2.4.99/`:
+
+```text
+/root/zfs-2.4.99.pre-large-records.20260513T020550Z
+/root/zfs-2.4.99.pre-large-records.latest -> /root/zfs-2.4.99.pre-large-records.20260513T020550Z
+```
+
+Build and install logs:
+
+```text
+/root/zfs-qat-large-records-dkms-build-20260513-r2.log
+/root/zfs-qat-large-records-dkms-install-20260513.log
+/root/zfs-qat-large-records-initramfs-20260513.log
+```
+
+The host was configured for opt-in large-record validation with:
+
+```text
+options zfs zfs_qat_compress_disable=0 zfs_qat_checksum_disable=0 zfs_qat_cpa_dc_level=4 zfs_qat_dc_max_buf_size=1048576
+```
+
+Loaded module after DKMS install, `update-initramfs -u -k 7.0.0-3-pve`, and reboot:
+
+```text
+filename: /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko
+version: 2.4.99-1
+srcversion: C4619ACEB8C6341E0CD1155
+depends: spl,qat_api
+zfs_qat_dc_max_buf_size=1048576
+```
+
+Large-record validation:
+
+```text
+source record bytes     elapsed_ms comp_req_delta dc_fail_delta ratio  used
+tiff   256K   191346108 776        730            0             21.89x 9.42M
+tiff   1M     191346108 680        183            0             25.45x 7.66M
+zipaes 256K   311392448 2537       1188           0             1.00x  297M
+zipaes 1M     311392448 2734       297            0             1.00x  297M
+```
+
+All copied files compared cleanly with `cmp`, temporary datasets were destroyed,
+and `zpool status -x` reported all pools healthy. The read-side `cmp` checks
+also moved decompression counters, confirming QAT decompression was used for the
+large-record test data.
+
+Post-init parameter validation:
+
+```text
+write=524288 before=1048576 rc=1 after=1048576 err=Device or resource busy
+write=12345 before=1048576 rc=1 after=1048576 err=Invalid argument
+```
+
 ## Follow-Up
 
 - Continue phase 4 with throughput and latency as first-class requirements. Future benchmark output should include throughput, p50/p95/p99/max latency, CPU cost, compression ratio, QAT kstats, and failure counters.
-- Investigate larger-record QAT compression explicitly. Today, records above `128 KiB` fall back to software because of the OpenZFS QAT implementation threshold; before raising that threshold, prove QAT 1.x behavior with compressible and incompressible data, correctness checks, and overflow/failure counters.
+- Continue larger-record benchmarking. Initial 256 KiB and 1 MiB validation proves QAT offload can work on this host, but the default should remain `128 KiB` until throughput and latency are compared against software gzip across the broader matrix.
 - Evaluate optimization bias parameters only after measurements identify real policy choices. A throughput/latency bias such as `latency`, `balanced`, and `throughput` is useful if queueing, batching, thresholds, or reuse strategies create measured tradeoffs. A performance/ratio bias such as `performance`, `balanced`, and `compressionratio` is useful if compression effort or fallback policy creates measured tradeoffs.
 - Keep explicit low-level parameters for benchmarking first. Bias parameters should later set coherent defaults across those low-level knobs; they should not be added as no-op labels before the policies are proven.
 - Park NUMA performance tuning until a true multi-socket QAT 1.x host is available.
