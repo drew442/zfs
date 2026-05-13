@@ -37,6 +37,7 @@ Important comparability note:
 - QAT is not yet faster than software gzip on the latest fair comparison.
 - Current QAT wall-clock latency is about `5%` slower than software at `128 KiB`, and about `12%` slower at `256 KiB` and `1 MiB`.
 - QAT uses much less aggregate system CPU than software gzip in the latest comparison.
+- A 4-job concurrency comparison still favored software gzip. QAT used much less CPU, but it was `25-31%` slower by wall-clock latency and `20-24%` lower in aggregate throughput.
 - Larger records now actually use QAT. Before the large-record work, `256 KiB` and `1 MiB` records silently used software fallback.
 - Compression ratio is slightly better with QAT in the latest run, likely because QAT is using level 4.
 
@@ -52,6 +53,7 @@ Important comparability note:
 | Large-record max | Added `zfs_qat_dc_max_buf_size`, opt-in up to 1 MiB. | 256 KiB and 1 MiB records now offload to QAT with zero DC failures. |
 | Benchmark harness | Added repeatable CSV harness with latency summaries and QAT counters. | Current comparisons include latency, throughput, CPU, ratio, offload counters, and correctness. |
 | Reuse pool | Added lock-free per-instance buffer metadata reuse with fallback allocation. | Reuse is active, but fallback allocations still happen under concurrent work. |
+| Concurrent harness | Added `JOBS` support to run multiple copy/verify streams per iteration. | 4-job tests showed software gzip still faster, despite QAT using much less system CPU. |
 
 ## Current Fair Comparison
 
@@ -161,6 +163,105 @@ Interpretation:
 - Reuse hits prove the new reuse pool is active.
 - Reuse misses are fallback allocations, not errors. They happen when all reuse slots are busy or the request cannot use a slot.
 
+## Concurrent Comparison
+
+Source CSV:
+
+```text
+/root/zfs-qat-phase4-concurrent-20260513.csv
+```
+
+Test command:
+
+```text
+ITERS=3 JOBS=4 RECORDS="128K 256K 1M" MODES="qat sw" OUT=/root/zfs-qat-phase4-concurrent-20260513.csv /root/qat-phase4-benchmark.sh
+```
+
+The harness wrote and verified four copies of the TIFF source in parallel for
+each iteration.
+
+### Concurrent Latency
+
+Lower is better.
+
+| Record | QAT Avg | Software Avg | QAT Status |
+|---|---:|---:|---:|
+| 128K | 1350.7 ms | 1079.1 ms | 25.2% slower |
+| 256K | 1265.3 ms | 991.0 ms | 27.7% slower |
+| 1M | 1227.3 ms | 935.8 ms | 31.2% slower |
+
+```text
+4-job latency, average ms
+128K QAT  | ####################  1350.7
+128K SW   | ################      1079.1
+256K QAT  | ###################   1265.3
+256K SW   | ###############       991.0
+1M   QAT  | ##################    1227.3
+1M   SW   | ##############        935.8
+```
+
+### Concurrent Throughput
+
+Higher is better.
+
+| Record | QAT | Software | QAT Status |
+|---|---:|---:|---:|
+| 128K | 541.8 MiB/s | 677.4 MiB/s | 20.0% lower |
+| 256K | 576.9 MiB/s | 737.7 MiB/s | 21.8% lower |
+| 1M | 594.9 MiB/s | 780.2 MiB/s | 23.7% lower |
+
+```text
+4-job throughput, MiB/s
+128K QAT  | ##############        541.8
+128K SW   | #################     677.4
+256K QAT  | ###############       576.9
+256K SW   | ###################   737.7
+1M   QAT  | ###############       594.9
+1M   SW   | ####################  780.2
+```
+
+### Concurrent CPU
+
+Lower is better.
+
+| Record | QAT System CPU | Software System CPU | Result |
+|---|---:|---:|---|
+| 128K | 2.99% | 12.50% | QAT much lower |
+| 256K | 2.41% | 13.09% | QAT much lower |
+| 1M | 1.84% | 13.67% | QAT much lower |
+
+```text
+4-job system CPU %
+128K QAT  | ####                  2.99
+128K SW   | ##################    12.50
+256K QAT  | ####                  2.41
+256K SW   | ###################   13.09
+1M   QAT  | ###                   1.84
+1M   SW   | ####################  13.67
+```
+
+### Concurrent Compression Ratio
+
+Higher is better.
+
+| Record | QAT Ratio | Software Ratio | Result |
+|---|---:|---:|---|
+| 128K | 17.16x | 16.90x | QAT slightly better |
+| 256K | 21.96x | 21.60x | QAT slightly better |
+| 1M | 25.56x | 25.26x | QAT slightly better |
+
+### Concurrent Offload Health
+
+| Record | QAT Compression Requests | DC Failures | Reuse Hits | Reuse Misses |
+|---|---:|---:|---:|---:|
+| 128K | 17520 | 0 | 20202 | 14376 |
+| 256K | 8760 | 0 | 10057 | 7191 |
+| 1M | 2196 | 0 | 2527 | 1800 |
+
+Result: QAT remained correct under four parallel copy/verify jobs, but it did
+not become faster than software gzip. The likely practical benefit is CPU
+offload, not wall-clock speed, for this workload on this host.
+
 ## Earlier Phase 4 Measurements
 
 ### Initial 128 KiB Baseline
@@ -246,9 +347,12 @@ Current QAT state:
 - Larger records offload: yes, up to the tested 1 MiB opt-in limit.
 - Faster than software gzip: no, not in the current fair single-file comparison.
 - Current gap from software gzip: about `5-12%` slower by wall-clock latency and `5-11%` lower throughput.
+- Faster under 4-job concurrency: no. The concurrent gap was about `25-31%` slower by wall-clock latency and `20-24%` lower throughput.
 - CPU benefit: substantial. QAT uses roughly one quarter or less of the aggregate system CPU used by software gzip in the current comparison.
 - Compression ratio: slightly better with QAT in the current comparison.
 
 Next performance question:
 
-The current single-file test does not show a speed win, but QAT leaves much more CPU available. The next useful benchmark should test whether that lower CPU cost turns into higher total throughput under higher concurrency or heavier mixed workloads.
+The 4-job test did not show a speed win. The next useful benchmark should test
+whether QAT helps when the host is CPU-constrained by other work, or whether
+remaining QAT setup/wait costs dominate even when software gzip CPU use rises.

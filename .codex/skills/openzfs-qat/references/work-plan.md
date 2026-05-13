@@ -179,7 +179,7 @@ Workstream C: latency-focused measurements:
 - Track queueing effects separately from service time where practical.
 - Record whether allocation reuse, instance selection, or larger batches improve throughput by adding tail latency.
 
-Status: harness implementation started. `scripts/qat-phase4-benchmark.sh` records raw iteration elapsed time, summary p50/p95/p99/max latency, throughput, CPU percentages, compression ratio, QAT kstat deltas, module settings, and `cmp` correctness for controlled single-file write/read tests.
+Status: harness implementation started. `scripts/qat-phase4-benchmark.sh` records raw iteration elapsed time, summary p50/p95/p99/max latency, throughput, CPU percentages, compression ratio, QAT kstat deltas, module settings, and `cmp` correctness for controlled write/read tests. It also supports concurrent copy/verify streams through `JOBS`.
 
 Workstream D: allocation and metadata reuse:
 

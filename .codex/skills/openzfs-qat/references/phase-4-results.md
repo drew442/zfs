@@ -343,6 +343,7 @@ validates the copy with `cmp`, destroys the temporary dataset, and emits CSV
 rows with:
 
 - Raw per-iteration elapsed time and throughput.
+- Optional concurrent copy/verify jobs through the `JOBS` environment variable.
 - Summary latency columns: average, p50, p95, p99, and max.
 - CPU user/system/iowait/idle percentages.
 - Compression ratio, used space, and logical used space.
@@ -358,7 +359,8 @@ ITERS=1 RECORDS=256K MODES=qat OUT=/root/zfs-qat-phase4-harness-smoke-20260513-r
 The initial smoke CSV had 32 columns for header, raw, and summary rows, moved
 QAT compression counters for the 256 KiB TIFF workload, and completed without
 leaving a `qat-phase4` temporary dataset behind. Later reuse counters expanded
-the harness output to 34 columns.
+the harness output to 34 columns. Later `JOBS` support expanded it to 35
+columns.
 
 ## Non-Serializing Reuse Follow-Up
 
@@ -420,6 +422,36 @@ The smoke CSV had 34 columns for header, raw, and summary rows. Temporary
 datasets were destroyed and `zpool status -x` reported all pools healthy.
 The misses are expected when all reuse slots are busy or the pool cannot satisfy
 a request; they are fallback allocations, not QAT failures.
+
+## Concurrent Benchmark Follow-Up
+
+Run date: 2026-05-13.
+
+The benchmark harness now supports concurrent copy/verify jobs:
+
+```text
+JOBS=4
+```
+
+Concurrent comparison command:
+
+```text
+ITERS=3 JOBS=4 RECORDS="128K 256K 1M" MODES="qat sw" OUT=/root/zfs-qat-phase4-concurrent-20260513.csv /root/qat-phase4-benchmark.sh
+```
+
+Summary:
+
+```text
+record qat_ms sw_ms  qat_bw sw_bw  qat_sys sw_sys dc_fails
+128K   1350.7 1079.1 541.8  677.4  2.99    12.50  0
+256K   1265.3 991.0  576.9  737.7  2.41    13.09  0
+1M     1227.3 935.8  594.9  780.2  1.84    13.67  0
+```
+
+Result: QAT remained correct and used much less system CPU, but software gzip
+remained faster under four concurrent copy/verify jobs. The 4-job QAT gap was
+about `25-31%` slower by wall-clock latency and `20-24%` lower by aggregate
+throughput.
 
 ## Follow-Up
 

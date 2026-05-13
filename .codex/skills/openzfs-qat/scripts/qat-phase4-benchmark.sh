@@ -8,6 +8,7 @@ SOURCE_LABEL="${SOURCE_LABEL:-$(basename "$SOURCE" | tr -cs '[:alnum:]_.-' '_')}
 RECORDS="${RECORDS:-8K 16K 32K 64K 128K 256K 1M}"
 MODES="${MODES:-qat sw}"
 ITERS="${ITERS:-3}"
+JOBS="${JOBS:-1}"
 OUT="${OUT:-/root/zfs-qat-phase4-$(date +%Y%m%d-%H%M%S).csv}"
 
 require_cmd() {
@@ -25,6 +26,7 @@ require_cmd modinfo
 require_cmd numfmt
 require_cmd sort
 require_cmd stat
+require_cmd seq
 require_cmd tr
 require_cmd zfs
 require_cmd zpool
@@ -174,7 +176,6 @@ run_one() {
 	local iter="$3"
 	local ds="$BENCH_ROOT/qat-phase4-${mode}-${record}-${iter}-$$"
 	local mountpoint
-	local dest
 	local cpu_before
 	local cpu_after
 	local cpu_csv
@@ -204,12 +205,14 @@ run_one() {
 	local used
 	local logicalused
 	local sha_ok="yes"
+	local total_bytes
+	local pids=()
 
 	cleanup_ds "$ds"
 	zfs create -o compression=gzip-1 -o checksum=sha256 \
 	    -o recordsize="$record" "$ds"
 	mountpoint="$(zfs get -H -o value mountpoint "$ds")"
-	dest="$mountpoint/data.bin"
+	total_bytes=$((SOURCE_BYTES * JOBS))
 
 	drop_caches
 	comp_before="$(statv comp_requests)"
@@ -224,13 +227,29 @@ run_one() {
 	cpu_before="$(read_cpu)"
 	start_ns="$(date +%s%N)"
 
-	cp "$SOURCE" "$dest"
+	for job in $(seq 1 "$JOBS"); do
+		cp "$SOURCE" "$mountpoint/data-${job}.bin" &
+		pids+=("$!")
+	done
+
+	for pid in "${pids[@]}"; do
+		wait "$pid"
+	done
+
 	sync
 	zpool sync "$POOL" || true
 
-	if ! cmp "$SOURCE" "$dest" >/dev/null 2>&1; then
-		sha_ok="no"
-	fi
+	pids=()
+	for job in $(seq 1 "$JOBS"); do
+		cmp "$SOURCE" "$mountpoint/data-${job}.bin" >/dev/null 2>&1 &
+		pids+=("$!")
+	done
+
+	for pid in "${pids[@]}"; do
+		if ! wait "$pid"; then
+			sha_ok="no"
+		fi
+	done
 
 	end_ns="$(date +%s%N)"
 	cpu_after="$(read_cpu)"
@@ -246,7 +265,7 @@ run_one() {
 
 	elapsed_ms="$(awk -v s="$start_ns" -v e="$end_ns" \
 	    'BEGIN { printf "%.3f", (e - s) / 1000000 }')"
-	mib_s="$(awk -v bytes="$SOURCE_BYTES" -v ms="$elapsed_ms" \
+	mib_s="$(awk -v bytes="$total_bytes" -v ms="$elapsed_ms" \
 	    'BEGIN {
 		    if (ms <= 0) ms = 0.001
 		    printf "%.2f", bytes / 1048576 / (ms / 1000)
@@ -256,8 +275,8 @@ run_one() {
 	used="$(zfs get -H -o value used "$ds")"
 	logicalused="$(zfs get -H -o value logicalused "$ds")"
 
-	printf "raw,%s,%s,%s,%s,%s,%s,,,,,,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" \
-	    "$mode" "$record" "$iter" "$SOURCE_LABEL" "$SOURCE_BYTES" \
+	printf "raw,%s,%s,%s,%s,%s,%s,%s,,,,,,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" \
+	    "$mode" "$record" "$iter" "$JOBS" "$SOURCE_LABEL" "$total_bytes" \
 	    "$elapsed_ms" "$mib_s" "$cpu_csv" "$ratio" "$used" "$logicalused" \
 	    "$((comp_after - comp_before))" \
 	    "$((comp_in_after - comp_in_before))" \
@@ -291,13 +310,14 @@ QAT_DC_MAX_INSTANCES="$(read_param zfs_qat_dc_max_instances)"
 ZFS_SRCVERSION="$(modinfo zfs | awk '$1 == "srcversion:" { print $2 }')"
 
 mkdir -p "$(dirname "$OUT")"
-	printf "row_type,mode,recordsize,iter,source_label,source_bytes,elapsed_ms,latency_avg_ms,latency_p50_ms,latency_p95_ms,latency_p99_ms,latency_max_ms,write_bw_mib_s,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct,compressratio,used,logicalused,comp_requests_delta,comp_in_delta,comp_out_delta,decomp_requests_delta,decomp_in_delta,decomp_out_delta,dc_fails_delta,dc_buffer_reuse_hits_delta,dc_buffer_reuse_misses_delta,sha_ok,zfs_qat_cpa_dc_level,zfs_qat_dc_max_buf_size,zfs_qat_dc_max_instances,zfs_srcversion\n" > "$OUT"
+printf "row_type,mode,recordsize,iter,jobs,source_label,source_bytes,elapsed_ms,latency_avg_ms,latency_p50_ms,latency_p95_ms,latency_p99_ms,latency_max_ms,write_bw_mib_s,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct,compressratio,used,logicalused,comp_requests_delta,comp_in_delta,comp_out_delta,decomp_requests_delta,decomp_in_delta,decomp_out_delta,dc_fails_delta,dc_buffer_reuse_hits_delta,dc_buffer_reuse_misses_delta,sha_ok,zfs_qat_cpa_dc_level,zfs_qat_dc_max_buf_size,zfs_qat_dc_max_instances,zfs_srcversion\n" > "$OUT"
 
 echo "Results: $OUT" >&2
 echo "Source: $SOURCE ($SOURCE_BYTES bytes)" >&2
 echo "Modes: $MODES" >&2
 echo "Records: $RECORDS" >&2
 echo "Iterations: $ITERS" >&2
+echo "Jobs: $JOBS" >&2
 
 for mode in $MODES; do
 	for record in $RECORDS; do
@@ -311,8 +331,8 @@ for mode in $MODES; do
 		rm -f "$LATENCY_FILE"
 		IFS=, read -r latency_avg latency_p50 latency_p95 \
 		    latency_p99 latency_max <<< "$latency_csv"
-		summary_row=(summary "$mode" "$record" "" "$SOURCE_LABEL"
-		    "$SOURCE_BYTES" "" "$latency_avg" "$latency_p50"
+		summary_row=(summary "$mode" "$record" "" "$JOBS" "$SOURCE_LABEL"
+		    "$((SOURCE_BYTES * JOBS))" "" "$latency_avg" "$latency_p50"
 		    "$latency_p95" "$latency_p99" "$latency_max" "" "" "" ""
 		    "" "" "" "" "" "" "" "" "" "" "" "" "" "" "$QAT_DC_LEVEL"
 		    "$QAT_DC_MAX_BUF_SIZE" "$QAT_DC_MAX_INSTANCES" "$ZFS_SRCVERSION")
