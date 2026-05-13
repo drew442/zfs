@@ -129,7 +129,7 @@ Acceptance:
 
 Purpose: tune only after correctness and observability are proven.
 
-Status: completed for the 2026-05-12 pass. See `phase-4-results.md`.
+Status: initial pass completed for the 2026-05-12 run. Extended phase 4 work is planned because throughput and latency are both first-class requirements, and current results do not yet show QAT gzip parity with software gzip across the target matrix. See `phase-4-results.md`.
 
 Work:
 
@@ -137,13 +137,74 @@ Work:
 - Measure failed offload attempts and software fallback frequency.
 - Review allocation and copy costs in `qat_compress_impl()`, especially buffer-list metadata and scratch buffers.
 - Evaluate whether the fixed `QAT_DC_MAX_INSTANCES = 48` and `QAT_CRYPT_MAX_INSTANCES = 48` caps are harmless for dh895x/C620 or should be made dynamic.
-- Account for NUMA placement on `pve.drewnet.online`; the QAT device is on NUMA node `2`.
+- Park NUMA performance conclusions until a true multi-socket QAT 1.x host is available. `pve.drewnet.online` is a single-socket EPYC 7551P system, so its reported NUMA topology is not a suitable basis for broad NUMA tuning decisions.
 
 Acceptance:
 
 - Any threshold or allocation change is backed by before/after host measurements.
-- Performance tests record CPU cost, throughput, compression ratio, QAT kstats, and failure counters.
+- Performance tests record CPU cost, throughput, latency distribution, compression ratio, QAT kstats, and failure counters.
 - Tuning changes do not reduce correctness or fallback safety.
+
+## Phase 4 Extension: Throughput, Latency, And Large Records
+
+Purpose: extend phase 4 from a threshold pass into an exhaustive performance pass that treats throughput, latency, and compression ratio as explicit optimization dimensions.
+
+Current facts:
+
+- QAT gzip currently offloads records from `8 KiB` through `128 KiB`.
+- Records larger than `128 KiB` currently fall back to software gzip because `qat_dc_use_accel()` rejects buffers above `QAT_DC_MAX_BUF_SIZE`.
+- The current `128 KiB` ceiling is an OpenZFS implementation threshold in this fork, not yet proven to be a QAT 1.x hardware hard limit.
+- Local QAT 4.28 headers expose deflate block-size capability concepts above `128 KiB`, but dh895x/C620 behavior must be proven with host measurements, correctness checks, and failure counters before changing defaults.
+
+Workstream A: repeatable benchmark harness:
+
+- Capture throughput, elapsed time, p50/p95/p99/max latency, CPU cost, compression ratio, QAT kstats, DC failure counters, module parameters, loaded module `srcversion`, QAT driver state, dataset settings, recordsize, and source file identity for every run.
+- Run both compressible and incompressible workloads.
+- Compare QAT-enabled and software-only gzip on identical data and dataset settings.
+- Validate written data with `cmp` or checksums, and include read-after-reboot validation for any new compressed-data format or large-record path.
+
+Workstream B: larger-record QAT compression:
+
+- Add an experimental global maximum such as `zfs_qat_dc_max_buf_size`, defaulting to the current safe `128 KiB`.
+- Allow only bounded QAT 1.x test values at first, for example `128 KiB`, `256 KiB`, `512 KiB`, and `1 MiB`.
+- Use QAT API compression-bound information where available instead of assuming the current `2 * input` intermediate-buffer rule is always sufficient for larger records.
+- Avoid unsafe kernel-stack growth when supporting larger records; page-pointer arrays and metadata storage must scale without relying on large stack allocations.
+- Prove behavior on compressible and incompressible inputs before raising the default above `128 KiB`.
+
+Workstream C: latency-focused measurements:
+
+- Measure per-record compression latency across `8 KiB`, `16 KiB`, `32 KiB`, `64 KiB`, `128 KiB`, and larger experimental record sizes if enabled.
+- Track queueing effects separately from service time where practical.
+- Record whether allocation reuse, instance selection, or larger batches improve throughput by adding tail latency.
+
+Workstream D: allocation and metadata reuse:
+
+- Continue reducing allocation and mapping overhead in `qat_compress_impl()`.
+- Prefer non-serializing reuse strategies, such as per-CPU or per-instance multi-slot pools, over a single mutex-protected workspace.
+- Do not keep the abandoned serialized per-instance workspace approach unless new measurements show it no longer regresses latency or throughput.
+
+Workstream E: QAT instance caps:
+
+- Expose init-time module parameters for maximum DC and crypto instances, with defaults of `48` to preserve current behavior.
+- Candidate names are `zfs_qat_dc_max_instances` and `zfs_qat_cy_max_instances`.
+- Treat the value as a cap: the effective instance count is the smaller of the hardware-reported count and the configured cap.
+- Reject invalid values and reject changes after the corresponding QAT path has initialized; dynamic resizing is not part of this work.
+- Document that there is normally no reason to change these from `48` unless testing a driver, firmware, or platform-specific instance-selection issue.
+
+Workstream F: optimization bias controls:
+
+- The premise is useful but should not become a no-op API. Add bias parameters only when there are multiple proven policies to select between.
+- A throughput/latency bias is valid if implementation choices create real tradeoffs, such as queue depth, batching, offload threshold, instance selection, or metadata reuse. Candidate values: `latency`, `balanced`, and `throughput`.
+- A performance/compression-ratio bias is valid if implementation choices affect compression effort or fallback policy. Candidate values: `performance`, `balanced`, and `compressionratio`.
+- Do not assume every QAT tuning knob cleanly maps to one bias. `zfs_qat_cpa_dc_level` directly affects QAT compression effort, but larger record eligibility, allocation reuse, and software fallback thresholds may affect throughput and latency without improving ratio.
+- Initial implementation should keep explicit low-level parameters available for controlled benchmarking. Bias parameters can later set coherent defaults for those lower-level knobs once measurements prove the policies.
+
+Acceptance:
+
+- QAT gzip has a documented comparison against software gzip for throughput, p50/p95/p99 latency, CPU cost, compression ratio, and correctness.
+- Large-record behavior is explicitly proven as either QAT-offloaded or software fallback for each tested record size.
+- Any default change is justified by measurements on QAT 1.x hardware, not by assumptions from QAT 2.0+ or community reports.
+- NUMA conclusions remain out of scope until testing on a true multi-socket host.
 
 ## Phase 5: Host Validation
 
@@ -213,6 +274,6 @@ Acceptance:
 ## Immediate Next Steps
 
 1. Document and, if needed, improve the boot ordering between `qat.service` and early ZFS module load.
-2. Extend phase 5 host validation with repeatable benchmark scripts and read-after-reboot checks.
-3. Evaluate scratch-buffer allocation, non-serializing QAT metadata reuse, and NUMA placement as focused follow-ups if QAT throughput remains important.
+2. Extend phase 5 host validation with repeatable benchmark scripts, latency reporting, and read-after-reboot checks.
+3. Implement the phase 4 extension in this order: instance-cap parameters, larger-record experimental maximum, benchmark harness improvements, then non-serializing allocation reuse.
 4. Defer checksum and encryption policy changes until compression behavior is stable.

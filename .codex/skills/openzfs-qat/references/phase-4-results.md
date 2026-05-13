@@ -6,7 +6,7 @@ Scope:
 
 - Re-evaluate QAT compression offload eligibility for QAT 1.x.
 - Measure QAT/software behavior across ZFS record sizes.
-- Review instance caps, allocation costs, failure counters, and NUMA constraints.
+- Review instance caps, allocation costs, and failure counters.
 
 ## Source Baseline
 
@@ -117,10 +117,11 @@ All file comparisons passed.
 - Compression offload minimum was raised from `4 KiB` to `8 KiB`.
 - The shared crypto/checksum minimum remains `4 KiB` because this phase measured compression only.
 - Compression maximum remains `128 KiB`; no data from this pass justifies extending QAT compression to larger ZFS records.
+- Records larger than `128 KiB` in this pass used software gzip fallback because the current OpenZFS QAT path rejects compression buffers above `QAT_DC_MAX_BUF_SIZE`; this result does not prove a QAT 1.x hardware maximum.
 - The fixed `QAT_DC_MAX_INSTANCES = 48` cap is harmless for this host because the active QAT configuration exposes only two DC instances.
 - The fixed `QAT_CRYPT_MAX_INSTANCES = 48` cap was reviewed but not changed because phase 4 did not benchmark crypto/checksum.
 - `qat_compress_impl()` still allocates and maps buffer-list metadata per request. This is a likely contributor to QAT not beating software gzip in elapsed time on this small single-stream matrix, but this pass did not make an allocation-cache change because that needs a separate correctness review.
-- NUMA remains a benchmark constraint: the QAT device is on node `2`, while boot logs show remote-node QAT access from other application nodes.
+- NUMA remains parked for performance conclusions. `pve.drewnet.online` is a single-socket EPYC 7551P host, so its reported NUMA topology is not a suitable basis for multi-socket QAT placement policy.
 
 ## Code Changes
 
@@ -176,6 +177,9 @@ recordsize comp_requests comp_in    comp_out dc_fails compressratio used  sha_ok
 
 ## Follow-Up
 
-- If QAT compression throughput remains important, next work should focus on the larger remaining costs: scratch-buffer allocation, QAT metadata/list allocation without serializing requests, and NUMA placement.
-- If larger-record QAT compression is considered later, test it explicitly against software gzip with correctness checks and QAT failure counters before raising `QAT_DC_MAX_BUF_SIZE`.
-- NUMA-aware benchmarking should pin workload generation and inspect where ZFS compression work actually runs before drawing broad throughput conclusions.
+- Continue phase 4 with throughput and latency as first-class requirements. Future benchmark output should include throughput, p50/p95/p99/max latency, CPU cost, compression ratio, QAT kstats, and failure counters.
+- Investigate larger-record QAT compression explicitly. Today, records above `128 KiB` fall back to software because of the OpenZFS QAT implementation threshold; before raising that threshold, prove QAT 1.x behavior with compressible and incompressible data, correctness checks, and overflow/failure counters.
+- Expose `zfs_qat_dc_max_instances` and `zfs_qat_cy_max_instances` as init-time module-parameter caps with default `48`, preserving current behavior while making the cap explicit for testing. Document that operators normally should not need to change these values.
+- Evaluate optimization bias parameters only after measurements identify real policy choices. A throughput/latency bias such as `latency`, `balanced`, and `throughput` is useful if queueing, batching, thresholds, or reuse strategies create measured tradeoffs. A performance/ratio bias such as `performance`, `balanced`, and `compressionratio` is useful if compression effort or fallback policy creates measured tradeoffs.
+- Keep explicit low-level parameters for benchmarking first. Bias parameters should later set coherent defaults across those low-level knobs; they should not be added as no-op labels before the policies are proven.
+- Park NUMA performance tuning until a true multi-socket QAT 1.x host is available.
