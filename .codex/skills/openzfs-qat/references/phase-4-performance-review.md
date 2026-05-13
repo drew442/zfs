@@ -90,6 +90,7 @@ service time.
 | Level comparison | Compared QAT level 1 and level 4 with the timing counters. | Level 1 helps larger records but lowers ratio and does not resolve the latency gap. |
 | DC instance split | Tested a DC-biased QAT driver split: 2 crypto / 4 compression instead of 4 crypto / 2 compression. | Mixed result; 256K improved modestly, 128K regressed, 1M was effectively flat. Host was restored to 4 crypto / 2 compression. |
 | Decompression policy | Added `zfs_qat_decompress_disable` and benchmarked QAT writes with software readback. | Improved 128K/256K latency, but QAT remained slower than full software and 1M did not benefit consistently. |
+| In-flight counters | Added live and peak QAT DC in-flight counters. | ZFS already drives meaningful QAT concurrency; peak compression in-flight reached 25 with one copy stream and 50 with four streams. |
 
 ## Current Fair Comparison
 
@@ -425,6 +426,55 @@ Interpretation:
 - It is useful for four-job latency across the tested record sizes, but it does not close the gap to full software gzip.
 - It is not a universal default: single-job 256K and 1M latency regressed with software readback in the rerun.
 - The parameter should remain a tunable policy option rather than a default change.
+
+## In-Flight Concurrency Test
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-inflight-jobs1-qread-v2-20260513.csv
+/root/zfs-qat-phase4-inflight-jobs1-swread-v2-20260513.csv
+/root/zfs-qat-phase4-inflight-jobs4-qread-v2-20260513.csv
+/root/zfs-qat-phase4-inflight-jobs4-swread-v2-20260513.csv
+```
+
+The test added current and peak QAT DC in-flight kstats:
+
+```text
+dc_compress_inflight
+dc_compress_inflight_max
+dc_decompress_inflight
+dc_decompress_inflight_max
+```
+
+The benchmark harness records these values so each run shows whether QAT was
+fed by concurrent ZFS workers or mostly handled one request at a time.
+
+The peak values are max counters since module load. The current counters returned
+to zero after each run, which indicates the submitted QAT requests completed and
+were not leaked.
+
+| Workload | Record | Avg Latency | Throughput | Peak Compress In-Flight | Peak Decompress In-Flight |
+|---|---:|---:|---:|---:|---:|
+| 1 job, QAT read | 128K | 855.9 ms | 213.2 MiB/s | 25 | 7 |
+| 1 job, QAT read | 256K | 737.9 ms | 247.4 MiB/s | 25 | 7 |
+| 1 job, QAT read | 1M | 627.3 ms | 291.3 MiB/s | 25 | 7 |
+| 1 job, software read | 128K | 794.7 ms | 230.6 MiB/s | 25 | prior 7 |
+| 1 job, software read | 256K | 684.7 ms | 266.7 MiB/s | 25 | prior 7 |
+| 1 job, software read | 1M | 632.4 ms | 288.5 MiB/s | 25 | prior 7 |
+| 4 jobs, QAT read | 128K | 1313.6 ms | 555.7 MiB/s | 50 | 10 |
+| 4 jobs, QAT read | 256K | 1303.3 ms | 560.1 MiB/s | 50 | 11 |
+| 4 jobs, QAT read | 1M | 1262.4 ms | 578.7 MiB/s | 50 | 12 |
+| 4 jobs, software read | 128K | 1243.5 ms | 587.0 MiB/s | 50 | prior 12 |
+| 4 jobs, software read | 256K | 1215.4 ms | 600.6 MiB/s | 50 | prior 12 |
+| 4 jobs, software read | 1M | 1160.6 ms | 629.2 MiB/s | 50 | prior 12 |
+
+Interpretation:
+
+- QAT is not limited to a single in-flight compression request in normal ZFS writeback.
+- Even one copy stream generated peak compression in-flight of 25, and four copy streams generated peak compression in-flight of 50.
+- A full asynchronous ZIO integration may reduce blocked worker time, but the evidence no longer supports "QAT is slow only because it is underfed" as the primary explanation.
+- The next performance target should focus on QAT service-time choices such as Huffman mode, compression level/bias policy, or hardware/session options, while treating a full async rewrite as a larger architectural option rather than the immediate fix.
 
 ## Earlier Phase 4 Measurements
 

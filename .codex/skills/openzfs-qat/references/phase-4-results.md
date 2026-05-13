@@ -507,6 +507,82 @@ Conclusion:
   workload.
 - This should remain an operator tuning option rather than the default policy.
 
+## QAT In-Flight Counter Follow-Up
+
+Run date: 2026-05-13.
+
+The repo now exposes these additional QAT DC kstats:
+
+```text
+dc_compress_inflight
+dc_compress_inflight_max
+dc_decompress_inflight
+dc_decompress_inflight_max
+```
+
+The current counters return to zero after a run if no QAT requests are leaked.
+The max counters show the peak since module load. The benchmark harness records
+these fields in each raw row.
+
+Host source backup before installing the in-flight-kstat build:
+
+```text
+/root/zfs-2.4.99.pre-inflight-kstats.20260513T120505Z
+/root/zfs-2.4.99.pre-inflight-kstats.latest -> /root/zfs-2.4.99.pre-inflight-kstats.20260513T120505Z
+```
+
+Build and install logs:
+
+```text
+/root/zfs-qat-inflight-kstats-dkms-build-20260513.log
+/root/zfs-qat-inflight-kstats-dkms-install-20260513.log
+/root/zfs-qat-inflight-kstats-initramfs-20260513.log
+```
+
+Loaded module after DKMS install, `update-initramfs -u -k 7.0.0-3-pve`, and
+reboot:
+
+```text
+srcversion: E99C3B2FDEE9BCBEBFDED14
+```
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-inflight-jobs1-qread-v2-20260513.csv
+/root/zfs-qat-phase4-inflight-jobs1-swread-v2-20260513.csv
+/root/zfs-qat-phase4-inflight-jobs4-qread-v2-20260513.csv
+/root/zfs-qat-phase4-inflight-jobs4-swread-v2-20260513.csv
+/root/zfs-qat-phase4-inflight-harness-smoke-20260513.csv
+```
+
+Summary:
+
+```text
+workload          record avg_ms MiB_s comp_inflight_max decomp_inflight_max
+jobs1 qread      128K   855.9  213.2 25                7
+jobs1 qread      256K   737.9  247.4 25                7
+jobs1 qread      1M     627.3  291.3 25                7
+jobs1 swread     128K   794.7  230.6 25                prior 7
+jobs1 swread     256K   684.7  266.7 25                prior 7
+jobs1 swread     1M     632.4  288.5 25                prior 7
+jobs4 qread      128K   1313.6 555.7 50                10
+jobs4 qread      256K   1303.3 560.1 50                11
+jobs4 qread      1M     1262.4 578.7 50                12
+jobs4 swread     128K   1243.5 587.0 50                prior 12
+jobs4 swread     256K   1215.4 600.6 50                prior 12
+jobs4 swread     1M     1160.6 629.2 50                prior 12
+```
+
+Conclusion:
+
+- ZFS already drives multiple QAT DC requests in parallel.
+- The high latency is not explained by QAT receiving only one synchronous
+  request at a time.
+- A full async ZIO rewrite may still reduce blocked worker time, but the next
+  lower-risk performance target should be QAT service-time policy: Huffman mode,
+  compression level, or other QAT 1.x session options.
+
 ## Large-Record Parameter Follow-Up
 
 Run date: 2026-05-13.

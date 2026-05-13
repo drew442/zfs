@@ -126,6 +126,13 @@ typedef struct qat_stats {
 	kstat_named_t dc_decompress_submit_ns;
 	kstat_named_t dc_decompress_wait_ns;
 	kstat_named_t dc_decompress_cleanup_ns;
+	/*
+	 * Current and peak in-flight QAT data-compression requests.
+	 */
+	kstat_named_t dc_compress_inflight;
+	kstat_named_t dc_compress_inflight_max;
+	kstat_named_t dc_decompress_inflight;
+	kstat_named_t dc_decompress_inflight_max;
 
 	/*
 	 * Number of jobs submitted to QAT encryption engine.

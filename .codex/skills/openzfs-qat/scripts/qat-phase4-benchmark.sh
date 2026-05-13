@@ -274,6 +274,10 @@ run_one() {
 	local decomp_wait_after
 	local decomp_cleanup_before
 	local decomp_cleanup_after
+	local comp_inflight_after
+	local comp_inflight_max_after
+	local decomp_inflight_after
+	local decomp_inflight_max_after
 	local ratio
 	local used
 	local logicalused
@@ -362,6 +366,10 @@ run_one() {
 	decomp_submit_after="$(statv dc_decompress_submit_ns)"
 	decomp_wait_after="$(statv dc_decompress_wait_ns)"
 	decomp_cleanup_after="$(statv dc_decompress_cleanup_ns)"
+	comp_inflight_after="$(statv dc_compress_inflight)"
+	comp_inflight_max_after="$(statv dc_compress_inflight_max)"
+	decomp_inflight_after="$(statv dc_decompress_inflight)"
+	decomp_inflight_max_after="$(statv dc_decompress_inflight_max)"
 
 	elapsed_ms="$(awk -v s="$start_ns" -v e="$end_ns" \
 	    'BEGIN { printf "%.3f", (e - s) / 1000000 }')"
@@ -375,7 +383,7 @@ run_one() {
 	used="$(zfs get -H -o value used "$ds")"
 	logicalused="$(zfs get -H -o value logicalused "$ds")"
 
-	printf "raw,%s,%s,%s,%s,%s,%s,%s,%s,,,,,,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" \
+	printf "raw,%s,%s,%s,%s,%s,%s,%s,%s,,,,,,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" \
 	    "$mode" "$verify_mode" "$record" "$iter" "$JOBS" \
 	    "$SOURCE_LABEL" "$total_bytes" \
 	    "$elapsed_ms" "$mib_s" "$cpu_csv" "$ratio" "$used" "$logicalused" \
@@ -398,6 +406,8 @@ run_one() {
 	    "$((decomp_submit_after - decomp_submit_before))" \
 	    "$((decomp_wait_after - decomp_wait_before))" \
 	    "$((decomp_cleanup_after - decomp_cleanup_before))" \
+	    "$comp_inflight_after" "$comp_inflight_max_after" \
+	    "$decomp_inflight_after" "$decomp_inflight_max_after" \
 	    "$sha_ok" "$QAT_DC_LEVEL" "$QAT_DC_MAX_BUF_SIZE" \
 	    "$QAT_DC_MAX_INSTANCES" "$decompress_disable" \
 	    "$QAT_KERNEL_CY_INSTANCES" \
@@ -426,7 +436,7 @@ QAT_KERNEL_DC_INSTANCES="$(qat_conf_value NumberDcInstances)"
 ZFS_SRCVERSION="$(modinfo zfs | awk '$1 == "srcversion:" { print $2 }')"
 
 mkdir -p "$(dirname "$OUT")"
-printf "row_type,mode,verify_mode,recordsize,iter,jobs,source_label,source_bytes,elapsed_ms,latency_avg_ms,latency_p50_ms,latency_p95_ms,latency_p99_ms,latency_max_ms,write_bw_mib_s,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct,compressratio,used,logicalused,comp_requests_delta,comp_in_delta,comp_out_delta,decomp_requests_delta,decomp_in_delta,decomp_out_delta,dc_fails_delta,dc_buffer_reuse_hits_delta,dc_buffer_reuse_misses_delta,dc_compress_scratch_alloc_ns_delta,dc_compress_scratch_free_ns_delta,dc_compress_setup_ns_delta,dc_compress_submit_ns_delta,dc_compress_wait_ns_delta,dc_compress_cleanup_ns_delta,dc_decompress_setup_ns_delta,dc_decompress_submit_ns_delta,dc_decompress_wait_ns_delta,dc_decompress_cleanup_ns_delta,sha_ok,zfs_qat_cpa_dc_level,zfs_qat_dc_max_buf_size,zfs_qat_dc_max_instances,zfs_qat_decompress_disable,qat_kernel_cy_instances,qat_kernel_dc_instances,zfs_srcversion\n" > "$OUT"
+printf "row_type,mode,verify_mode,recordsize,iter,jobs,source_label,source_bytes,elapsed_ms,latency_avg_ms,latency_p50_ms,latency_p95_ms,latency_p99_ms,latency_max_ms,write_bw_mib_s,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct,compressratio,used,logicalused,comp_requests_delta,comp_in_delta,comp_out_delta,decomp_requests_delta,decomp_in_delta,decomp_out_delta,dc_fails_delta,dc_buffer_reuse_hits_delta,dc_buffer_reuse_misses_delta,dc_compress_scratch_alloc_ns_delta,dc_compress_scratch_free_ns_delta,dc_compress_setup_ns_delta,dc_compress_submit_ns_delta,dc_compress_wait_ns_delta,dc_compress_cleanup_ns_delta,dc_decompress_setup_ns_delta,dc_decompress_submit_ns_delta,dc_decompress_wait_ns_delta,dc_decompress_cleanup_ns_delta,dc_compress_inflight,dc_compress_inflight_max,dc_decompress_inflight,dc_decompress_inflight_max,sha_ok,zfs_qat_cpa_dc_level,zfs_qat_dc_max_buf_size,zfs_qat_dc_max_instances,zfs_qat_decompress_disable,qat_kernel_cy_instances,qat_kernel_dc_instances,zfs_srcversion\n" > "$OUT"
 
 echo "Results: $OUT" >&2
 echo "Source: $SOURCE ($SOURCE_BYTES bytes)" >&2
@@ -453,7 +463,7 @@ for mode in $MODES; do
 		    "$SOURCE_LABEL" "$((SOURCE_BYTES * JOBS))" "" "$latency_avg" "$latency_p50"
 		    "$latency_p95" "$latency_p99" "$latency_max" "" "" "" ""
 		    "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" ""
-		    "" "" "" "" "" "$QAT_DC_LEVEL"
+		    "" "" "" "" "" "" "" "" "" "$QAT_DC_LEVEL"
 		    "$QAT_DC_MAX_BUF_SIZE" "$QAT_DC_MAX_INSTANCES" ""
 		    "$QAT_KERNEL_CY_INSTANCES" "$QAT_KERNEL_DC_INSTANCES"
 		    "$ZFS_SRCVERSION")

@@ -149,6 +149,50 @@ qat_dc_callback(void *p_callback, CpaStatus status)
 }
 
 static void
+qat_dc_update_inflight_max(kstat_named_t *max_stat, uint64_t inflight)
+{
+	uint64_t max;
+
+	for (;;) {
+		max = max_stat->value.ui64;
+		if (inflight <= max)
+			return;
+		if (atomic_cas_64(&max_stat->value.ui64, max, inflight) == max)
+			return;
+	}
+}
+
+static void
+qat_dc_inflight_enter(qat_compress_dir_t dir)
+{
+	uint64_t inflight;
+
+	if (dir == QAT_COMPRESS) {
+		inflight = atomic_inc_64_nv(
+		    &qat_stats.dc_compress_inflight.value.ui64);
+		qat_dc_update_inflight_max(&qat_stats.dc_compress_inflight_max,
+		    inflight);
+	} else {
+		inflight = atomic_inc_64_nv(
+		    &qat_stats.dc_decompress_inflight.value.ui64);
+		qat_dc_update_inflight_max(
+		    &qat_stats.dc_decompress_inflight_max, inflight);
+	}
+}
+
+static void
+qat_dc_inflight_exit(qat_compress_dir_t dir)
+{
+	if (dir == QAT_COMPRESS) {
+		(void) atomic_dec_64_nv(
+		    &qat_stats.dc_compress_inflight.value.ui64);
+	} else {
+		(void) atomic_dec_64_nv(
+		    &qat_stats.dc_decompress_inflight.value.ui64);
+	}
+}
+
+static void
 qat_dc_buffer_pool_clean(Cpa16U inst)
 {
 	qat_dc_buffer_pool_t *pool = &buffer_pools[inst];
@@ -636,6 +680,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		phase_end = gethrtime();
 		QAT_STAT_ADD_TIME(dc_compress_setup_ns, op_start, phase_end);
 		phase_start = gethrtime();
+		qat_dc_inflight_enter(dir);
 		status = cpaDcCompressData(
 		    dc_inst_handle, session_handle,
 		    buf_list_src, buf_list_dst,
@@ -644,6 +689,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		phase_end = gethrtime();
 		QAT_STAT_ADD_TIME(dc_compress_submit_ns, phase_start, phase_end);
 		if (status != CPA_STATUS_SUCCESS) {
+			qat_dc_inflight_exit(dir);
 			goto fail;
 		}
 
@@ -651,6 +697,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		phase_start = gethrtime();
 		wait_for_completion(&complete);
 		phase_end = gethrtime();
+		qat_dc_inflight_exit(dir);
 		QAT_STAT_ADD_TIME(dc_compress_wait_ns, phase_start, phase_end);
 
 		if (dc_results.status != CPA_STATUS_SUCCESS) {
@@ -680,6 +727,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		phase_end = gethrtime();
 		QAT_STAT_ADD_TIME(dc_decompress_setup_ns, op_start, phase_end);
 		phase_start = gethrtime();
+		qat_dc_inflight_enter(dir);
 		status = cpaDcDecompressData(dc_inst_handle, session_handle,
 		    buf_list_src, buf_list_dst, &dc_results, CPA_DC_FLUSH_FINAL,
 		    &complete);
@@ -687,6 +735,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		QAT_STAT_ADD_TIME(dc_decompress_submit_ns, phase_start, phase_end);
 
 		if (CPA_STATUS_SUCCESS != status) {
+			qat_dc_inflight_exit(dir);
 			status = CPA_STATUS_FAIL;
 			goto fail;
 		}
@@ -695,6 +744,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		phase_start = gethrtime();
 		wait_for_completion(&complete);
 		phase_end = gethrtime();
+		qat_dc_inflight_exit(dir);
 		QAT_STAT_ADD_TIME(dc_decompress_wait_ns, phase_start, phase_end);
 
 		if (dc_results.status != CPA_STATUS_SUCCESS) {
