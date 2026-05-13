@@ -20,14 +20,15 @@ Use this skill for QAT-specific work in this fork. It is meant for design review
 3. For host testing on `pve.drewnet.online`, read `references/pve-drewnet-online.md` before making changes or running benchmarks.
 4. For project sequencing, use `references/work-plan.md`.
 5. For completed implementation passes, check `references/phase-0-1-results.md`, `references/phase-2-3-results.md`, and `references/phase-4-results.md`.
-6. For phase 4 benchmark runs, prefer `scripts/qat-phase4-benchmark.sh` so throughput, latency summaries, CPU cost, QAT kstats, module settings, and correctness checks are captured consistently.
-7. Confirm which layer the task touches before editing:
+6. For human-review phase 4 performance charts and summary tables, use `references/phase-4-performance-review.md`.
+7. For phase 4 benchmark runs, prefer `scripts/qat-phase4-benchmark.sh` so throughput, latency summaries, CPU cost, QAT kstats, module settings, and correctness checks are captured consistently.
+8. Confirm which layer the task touches before editing:
    - Build integration and static configuration
    - Runtime tunables and initialization
    - Compression, checksum, or encryption call sites
    - Documentation or validation workflow
-8. Preserve software fallback behavior unless the task explicitly changes policy. Current QAT paths generally attempt acceleration first and then fall back to software on failure.
-9. Treat usability and performance separately:
+9. Preserve software fallback behavior unless the task explicitly changes policy. Current QAT paths generally attempt acceleration first and then fall back to software on failure.
+10. Treat usability and performance separately:
    - Usability work usually means clearer build flags, safer defaults, less surprising runtime behavior, or better observability.
    - Performance work usually means thresholding, allocation strategy, instance selection, avoiding unnecessary copies, or reducing failed offload attempts.
 

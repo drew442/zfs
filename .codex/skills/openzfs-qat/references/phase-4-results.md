@@ -2,6 +2,9 @@
 
 Run date: 2026-05-12.
 
+For human-review charts and summary tables, see
+`phase-4-performance-review.md`.
+
 Scope:
 
 - Re-evaluate QAT compression offload eligibility for QAT 1.x.
