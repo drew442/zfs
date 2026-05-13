@@ -54,11 +54,18 @@ static CpaInstanceHandle cy_inst_handles[QAT_CRYPT_MAX_INSTANCES];
 static boolean_t qat_cy_init_done = B_FALSE;
 int zfs_qat_encrypt_disable = 0;
 int zfs_qat_checksum_disable = 0;
+int zfs_qat_cy_max_instances = QAT_CRYPT_MAX_INSTANCES;
 
 typedef struct cy_callback {
 	CpaBoolean verify_result;
 	struct completion complete;
 } cy_callback_t;
+
+static boolean_t
+qat_cy_valid_max_instances(int max_instances)
+{
+	return (max_instances >= 1 && max_instances <= QAT_CRYPT_MAX_INSTANCES);
+}
 
 static void
 symcallback(void *p_callback, CpaStatus status, const CpaCySymOp operation,
@@ -91,7 +98,7 @@ qat_checksum_use_accel(size_t s_len)
 	    s_len <= QAT_MAX_BUF_SIZE);
 }
 
-void
+static void
 qat_cy_clean(void)
 {
 	for (Cpa16U i = 0; i < num_inst; i++)
@@ -105,6 +112,7 @@ int
 qat_cy_init(void)
 {
 	CpaStatus status = CPA_STATUS_FAIL;
+	Cpa16U max_inst = 0;
 
 	if (qat_cy_init_done)
 		return (0);
@@ -117,8 +125,12 @@ qat_cy_init(void)
 	if (num_inst == 0)
 		return (0);
 
-	if (num_inst > QAT_CRYPT_MAX_INSTANCES)
-		num_inst = QAT_CRYPT_MAX_INSTANCES;
+	if (!qat_cy_valid_max_instances(zfs_qat_cy_max_instances))
+		return (-1);
+
+	max_inst = (Cpa16U)zfs_qat_cy_max_instances;
+	if (num_inst > max_inst)
+		num_inst = max_inst;
 
 	status = cpaCyGetInstances(num_inst, &cy_inst_handles[0]);
 	if (status != CPA_STATUS_SUCCESS)
@@ -620,6 +632,31 @@ param_set_qat_checksum(const char *val, zfs_kernel_param_t *kp)
 	return (ret);
 }
 
+static int
+param_set_qat_cy_max_instances(const char *val, zfs_kernel_param_t *kp)
+{
+	int ret;
+	int old_value;
+	int *pvalue = kp->arg;
+
+	old_value = *pvalue;
+	ret = param_set_int(val, kp);
+	if (ret != 0)
+		return (ret);
+
+	if (!qat_cy_valid_max_instances(*pvalue)) {
+		*pvalue = old_value;
+		return (-EINVAL);
+	}
+
+	if (qat_cy_init_done && *pvalue != old_value) {
+		*pvalue = old_value;
+		return (-EBUSY);
+	}
+
+	return (0);
+}
+
 module_param_call(zfs_qat_encrypt_disable, param_set_qat_encrypt,
     param_get_int, &zfs_qat_encrypt_disable, 0644);
 MODULE_PARM_DESC(zfs_qat_encrypt_disable, "Enable/Disable QAT encryption");
@@ -627,5 +664,10 @@ MODULE_PARM_DESC(zfs_qat_encrypt_disable, "Enable/Disable QAT encryption");
 module_param_call(zfs_qat_checksum_disable, param_set_qat_checksum,
     param_get_int, &zfs_qat_checksum_disable, 0644);
 MODULE_PARM_DESC(zfs_qat_checksum_disable, "Enable/Disable QAT checksumming");
+
+module_param_call(zfs_qat_cy_max_instances, param_set_qat_cy_max_instances,
+    param_get_int, &zfs_qat_cy_max_instances, 0644);
+MODULE_PARM_DESC(zfs_qat_cy_max_instances,
+    "Maximum QAT crypto instances to use");
 
 #endif

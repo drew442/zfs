@@ -152,8 +152,10 @@ typedef struct qat_stats {
 extern qat_stats_t qat_stats;
 extern int zfs_qat_compress_disable;
 extern int zfs_qat_cpa_dc_level;
+extern int zfs_qat_dc_max_instances;
 extern int zfs_qat_checksum_disable;
 extern int zfs_qat_encrypt_disable;
+extern int zfs_qat_cy_max_instances;
 
 /* inlined for performance */
 static inline struct page *

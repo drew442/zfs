@@ -2109,6 +2109,31 @@ This is a global QAT data-compression session setting, not a per-dataset
 setting.
 It must be set before QAT compression sessions are initialized.
 .
+.It Sy zfs_qat_dc_max_instances Ns = Ns Sy 48 Pq int
+Maximum number of QAT data-compression instances to use.
+The effective instance count is the smaller of this value and the number of
+instances reported by the QAT driver.
+Valid values are from
+.Sy 1
+through
+.Sy 48 .
+It must be set before QAT compression sessions are initialized.
+There is normally no reason to change this value unless testing a
+driver, firmware, or platform-specific instance-selection issue.
+.
+.It Sy zfs_qat_cy_max_instances Ns = Ns Sy 48 Pq int
+Maximum number of QAT cryptographic instances to use for SHA256 checksum and
+AES-GCM encryption offload.
+The effective instance count is the smaller of this value and the number of
+instances reported by the QAT driver.
+Valid values are from
+.Sy 1
+through
+.Sy 48 .
+It must be set before QAT cryptographic sessions are initialized.
+There is normally no reason to change this value unless testing a
+driver, firmware, or platform-specific instance-selection issue.
+.
 .It Sy zfs_qat_encrypt_disable Ns = Ns Sy 0 Ns | Ns 1 Pq int
 Disable QAT hardware acceleration for AES-GCM encryption.
 May be unset after the ZFS modules have been loaded to initialize the QAT

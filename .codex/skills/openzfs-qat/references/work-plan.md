@@ -191,6 +191,8 @@ Workstream E: QAT instance caps:
 - Reject invalid values and reject changes after the corresponding QAT path has initialized; dynamic resizing is not part of this work.
 - Document that there is normally no reason to change these from `48` unless testing a driver, firmware, or platform-specific instance-selection issue.
 
+Status: completed for the 2026-05-13 pass. The parameters were built, installed, reboot-tested, and validated on `pve.drewnet.online`.
+
 Workstream F: optimization bias controls:
 
 - The premise is useful but should not become a no-op API. Add bias parameters only when there are multiple proven policies to select between.
@@ -275,5 +277,5 @@ Acceptance:
 
 1. Document and, if needed, improve the boot ordering between `qat.service` and early ZFS module load.
 2. Extend phase 5 host validation with repeatable benchmark scripts, latency reporting, and read-after-reboot checks.
-3. Implement the phase 4 extension in this order: instance-cap parameters, larger-record experimental maximum, benchmark harness improvements, then non-serializing allocation reuse.
+3. Implement the remaining phase 4 extension in this order: larger-record experimental maximum, benchmark harness improvements, then non-serializing allocation reuse.
 4. Defer checksum and encryption policy changes until compression behavior is stable.

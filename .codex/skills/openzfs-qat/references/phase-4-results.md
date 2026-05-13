@@ -175,11 +175,85 @@ recordsize comp_requests comp_in    comp_out dc_fails compressratio used  sha_ok
 4K         0             0         0        0        5.57x         45.0M yes
 ```
 
+## Instance-Cap Parameter Follow-Up
+
+Run date: 2026-05-13.
+
+The repo now exposes these init-time module-parameter caps:
+
+```text
+zfs_qat_dc_max_instances=48
+zfs_qat_cy_max_instances=48
+```
+
+The implementation preserves the fixed 48-entry DC and CY arrays and treats the
+new parameters as caps over the hardware-reported instance counts. Values below
+`1`, values above `48`, and changes after the relevant QAT path initializes are
+rejected.
+
+Host backup before refreshing `/usr/src/zfs-2.4.99/`:
+
+```text
+/root/zfs-2.4.99.pre-instance-caps.20260513T015308Z
+/root/zfs-2.4.99.pre-instance-caps.latest -> /root/zfs-2.4.99.pre-instance-caps.20260513T015308Z
+```
+
+Build and install logs:
+
+```text
+/root/zfs-qat-instance-caps-dkms-build-20260513-r2.log
+/root/zfs-qat-instance-caps-dkms-install-20260513.log
+/root/zfs-qat-instance-caps-initramfs-20260513.log
+```
+
+Loaded module after DKMS install, `update-initramfs -u -k 7.0.0-3-pve`, and reboot:
+
+```text
+filename: /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko
+version: 2.4.99-1
+srcversion: 7E89EEFB16FBF2CA6974715
+depends: spl,qat_api
+```
+
+`modinfo zfs` shows the new parameters:
+
+```text
+parm: zfs_qat_cy_max_instances:Maximum QAT crypto instances to use
+parm: zfs_qat_dc_max_instances:Maximum QAT compression instances to use
+```
+
+Runtime defaults after reboot:
+
+```text
+zfs_qat_compress_disable=0
+zfs_qat_cpa_dc_level=4
+zfs_qat_dc_max_instances=48
+zfs_qat_checksum_disable=0
+zfs_qat_encrypt_disable=0
+zfs_qat_cy_max_instances=48
+```
+
+After forcing the lazy init path, changing either cap from `48` to `47`
+returned `Device or resource busy` and left the value unchanged.
+
+8 KiB gzip validation after reboot:
+
+```text
+comp_requests_before=0
+comp_requests_after=23358
+dc_fails_before=0
+dc_fails_after=0
+compressratio=4.44x
+used=55.3M
+```
+
+The copied file compared cleanly with `cmp`, the temporary validation dataset was
+destroyed, `qat_dev0` was up, and `zpool status -x` reported all pools healthy.
+
 ## Follow-Up
 
 - Continue phase 4 with throughput and latency as first-class requirements. Future benchmark output should include throughput, p50/p95/p99/max latency, CPU cost, compression ratio, QAT kstats, and failure counters.
 - Investigate larger-record QAT compression explicitly. Today, records above `128 KiB` fall back to software because of the OpenZFS QAT implementation threshold; before raising that threshold, prove QAT 1.x behavior with compressible and incompressible data, correctness checks, and overflow/failure counters.
-- Expose `zfs_qat_dc_max_instances` and `zfs_qat_cy_max_instances` as init-time module-parameter caps with default `48`, preserving current behavior while making the cap explicit for testing. Document that operators normally should not need to change these values.
 - Evaluate optimization bias parameters only after measurements identify real policy choices. A throughput/latency bias such as `latency`, `balanced`, and `throughput` is useful if queueing, batching, thresholds, or reuse strategies create measured tradeoffs. A performance/ratio bias such as `performance`, `balanced`, and `compressionratio` is useful if compression effort or fallback policy creates measured tradeoffs.
 - Keep explicit low-level parameters for benchmarking first. Bias parameters should later set coherent defaults across those low-level knobs; they should not be added as no-op labels before the policies are proven.
 - Park NUMA performance tuning until a true multi-socket QAT 1.x host is available.

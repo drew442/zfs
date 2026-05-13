@@ -23,12 +23,12 @@
   - If init fails, the code disables the corresponding module parameters instead of failing module load.
 - `module/os/linux/zfs/qat_compress.c`
   - Compression and decompression implementation.
-  - Contains a fixed static cap: `QAT_DC_MAX_INSTANCES = 48`.
-  - Owns `zfs_qat_compress_disable`, `zfs_qat_cpa_dc_level`, and the lazy re-enable path via the module parameter setter.
+  - Contains a fixed static array limit: `QAT_DC_MAX_INSTANCES = 48`.
+  - Owns `zfs_qat_compress_disable`, `zfs_qat_cpa_dc_level`, `zfs_qat_dc_max_instances`, and the lazy re-enable path via the module parameter setter.
   - Uses stack page-pointer arrays for per-request QAT mapping cleanup; QAT metadata and buffer-list storage are still allocated per request.
 - `module/os/linux/zfs/qat_crypt.c`
   - AES-GCM encryption/decryption and SHA256 checksum offload.
-  - Owns `zfs_qat_encrypt_disable` and `zfs_qat_checksum_disable`.
+  - Owns `zfs_qat_encrypt_disable`, `zfs_qat_checksum_disable`, and `zfs_qat_cy_max_instances`.
   - Lazy re-enable for crypto/checksum happens through the module parameter setters.
 - `module/zfs/gzip.c`
   - Compression and decompression call sites. Falls back to software if QAT fails.
@@ -45,16 +45,19 @@
 
 - `zfs_qat_compress_disable`
 - `zfs_qat_cpa_dc_level`
+- `zfs_qat_dc_max_instances`
 - `zfs_qat_checksum_disable`
 - `zfs_qat_encrypt_disable`
+- `zfs_qat_cy_max_instances`
 
 The disable flags are documented as disable flags, but setting them back to `0` also acts as a lazy initialization trigger when support was compiled in and the external QAT driver is present. `zfs_qat_cpa_dc_level` is a global QAT data-compression session setting and must be set before QAT compression initializes.
+The max-instance parameters are init-time caps. They default to `48`, preserve the previous static cap behavior, and should normally only be changed when testing a driver, firmware, or platform-specific instance-selection issue.
 
 ## Current behavioral constraints
 
 - Compression offload is only considered within the `8 KiB` to `128 KiB` window from `include/sys/qat.h`.
 - Crypto/checksum offload still uses the shared `4 KiB` to `128 KiB` window.
-- Compression code uses a fixed maximum instance count of `48`.
+- Compression and crypto code use fixed 48-entry arrays, with runtime max-instance caps that must remain between `1` and `48`.
 - Encryption offload in `zio_crypt.c` is intentionally skipped for `DMU_OT_INTENT_LOG` and `DMU_OT_DNODE`.
 - Most call sites attempt QAT first and then fall back to software if the accelerator path returns an error.
 
@@ -64,7 +67,7 @@ The disable flags are documented as disable flags, but setting them back to `0` 
   - Are `--with-qat` and `--with-qat-obj` assumptions still valid for modern QAT packaging?
   - Are configure errors specific enough to tell the user what is missing?
 - Static configuration
-  - Does a fixed cap like `QAT_DC_MAX_INSTANCES = 48` still make sense?
+  - Do the `zfs_qat_dc_max_instances` and `zfs_qat_cy_max_instances` caps still preserve the fixed 48-entry array bounds?
   - Are the compression-specific `8 KiB` to `128 KiB` thresholds defensible for current hardware and workloads?
 - Runtime usability
   - Do the disable flags behave predictably when initialization fails once and later succeeds?
