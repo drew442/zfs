@@ -330,6 +330,7 @@ Historical note:
 - `zfs_qat_deflate_depth` was removed from the host modprobe configuration during the phase 2/3 pass.
 - `zfs_qat_decompress_disable=1` disables QAT gzip decompression while leaving QAT gzip compression eligible. Phase 4 testing showed this can improve some QAT-write readback workloads, especially the four-job test, but it did not make QAT faster than full software gzip and the single-job result was mixed.
 - Phase 4 in-flight counters showed QAT compression is not limited to one request at a time: the corrected v2 test reached peak `dc_compress_inflight_max=25` with one copy stream and `50` with four copy streams.
+- `zfs_qat_cpa_dc_hufftype=static` was tested on 2026-05-14. It was functional, but the result was mixed and compression ratio dropped; the host boot configuration was restored to the default `dynamic` behavior.
 
 Initial QAT kstats before the phase 2/3 validation workload:
 

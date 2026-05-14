@@ -201,6 +201,7 @@ extern qat_stats_t qat_stats;
 extern int zfs_qat_compress_disable;
 extern int zfs_qat_decompress_disable;
 extern int zfs_qat_cpa_dc_level;
+extern char *zfs_qat_cpa_dc_hufftype;
 extern int zfs_qat_dc_max_buf_size;
 extern int zfs_qat_dc_max_instances;
 extern int zfs_qat_checksum_disable;

@@ -91,6 +91,7 @@ service time.
 | DC instance split | Tested a DC-biased QAT driver split: 2 crypto / 4 compression instead of 4 crypto / 2 compression. | Mixed result; 256K improved modestly, 128K regressed, 1M was effectively flat. Host was restored to 4 crypto / 2 compression. |
 | Decompression policy | Added `zfs_qat_decompress_disable` and benchmarked QAT writes with software readback. | Improved 128K/256K latency, but QAT remained slower than full software and 1M did not benefit consistently. |
 | In-flight counters | Added live and peak QAT DC in-flight counters. | ZFS already drives meaningful QAT concurrency; peak compression in-flight reached 25 with one copy stream and 50 with four streams. |
+| Huffman mode | Added `zfs_qat_cpa_dc_hufftype` and compared dynamic versus static Huffman with software readback. | Static lowered accumulated QAT wait time in some larger-record cases, but elapsed results were mixed and compression ratio dropped. |
 
 ## Current Fair Comparison
 
@@ -475,6 +476,39 @@ Interpretation:
 - Even one copy stream generated peak compression in-flight of 25, and four copy streams generated peak compression in-flight of 50.
 - A full asynchronous ZIO integration may reduce blocked worker time, but the evidence no longer supports "QAT is slow only because it is underfed" as the primary explanation.
 - The next performance target should focus on QAT service-time choices such as Huffman mode, compression level/bias policy, or hardware/session options, while treating a full async rewrite as a larger architectural option rather than the immediate fix.
+
+## Huffman Mode Test
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-huff-dynamic-jobs1-swread-20260514.csv
+/root/zfs-qat-phase4-huff-static-jobs1-swread-20260514.csv
+/root/zfs-qat-phase4-huff-dynamic-jobs4-swread-20260514.csv
+/root/zfs-qat-phase4-huff-static-jobs4-swread-20260514.csv
+```
+
+The test used QAT write-side compression with software readback to isolate
+compression service time from QAT decompression latency.
+
+| Jobs | Record | Dynamic Avg | Static Avg | Dynamic Ratio | Static Ratio | Static Result |
+|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 128K | 788.0 ms | 801.1 ms | 17.11x | 16.03x | 1.7% slower |
+| 1 | 256K | 696.3 ms | 735.8 ms | 21.89x | 19.53x | 5.7% slower |
+| 1 | 1M | 609.6 ms | 617.6 ms | 25.47x | 21.86x | 1.3% slower |
+| 4 | 128K | 1243.4 ms | 1303.1 ms | 17.16x | 16.07x | 4.8% slower |
+| 4 | 256K | 1211.7 ms | 1196.6 ms | 21.96x | 19.59x | 1.2% faster |
+| 4 | 1M | 1158.0 ms | 1162.6 ms | 25.56x | 21.93x | 0.4% slower |
+
+Interpretation:
+
+- Static Huffman is functional and produced zero DC failures in this matrix.
+- Static reduced accumulated QAT compression wait time for 256K and 1M in the
+  four-job run, but this did not translate into a broad elapsed-time win.
+- Static materially reduced compression ratio on this source file.
+- Keep `dynamic` as the default. Static remains useful as an explicit
+  performance/compression-ratio policy input, but not as a default change from
+  these results.
 
 ## Earlier Phase 4 Measurements
 

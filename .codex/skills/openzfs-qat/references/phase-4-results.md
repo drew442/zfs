@@ -583,6 +583,85 @@ Conclusion:
   lower-risk performance target should be QAT service-time policy: Huffman mode,
   compression level, or other QAT 1.x session options.
 
+## QAT Huffman Mode Follow-Up
+
+Run date: 2026-05-14.
+
+The repo now exposes:
+
+```text
+zfs_qat_cpa_dc_hufftype=dynamic
+```
+
+Accepted values are `dynamic` and `static`. The value is a global QAT
+data-compression session setting and must be set before QAT DC initializes.
+`dynamic` remains the default.
+
+Host source backup before installing the Huffman-mode build:
+
+```text
+/root/zfs-2.4.99.pre-hufftype.20260514T101911Z
+/root/zfs-2.4.99.pre-hufftype.latest -> /root/zfs-2.4.99.pre-hufftype.20260514T101911Z
+```
+
+Build and install logs:
+
+```text
+/root/zfs-qat-hufftype-dkms-build-20260514.log
+/root/zfs-qat-hufftype-dkms-install-20260514.log
+/root/zfs-qat-hufftype-initramfs-20260514.log
+/root/zfs-qat-hufftype-dkms-build-20260514-r2.log
+/root/zfs-qat-hufftype-dkms-install-20260514-r2.log
+/root/zfs-qat-hufftype-initramfs-20260514-r2.log
+/root/zfs-qat-hufftype-static-initramfs-20260514.log
+/root/zfs-qat-hufftype-restore-initramfs-20260514.log
+```
+
+Loaded module after DKMS install, `update-initramfs -u -k 7.0.0-3-pve`, and
+reboot:
+
+```text
+srcversion: 0A2AB5B290BEB725873A90F
+```
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-huff-dynamic-jobs1-swread-20260514.csv
+/root/zfs-qat-phase4-huff-static-jobs1-swread-20260514.csv
+/root/zfs-qat-phase4-huff-dynamic-jobs4-swread-20260514.csv
+/root/zfs-qat-phase4-huff-static-jobs4-swread-20260514.csv
+```
+
+Summary:
+
+```text
+jobs huff    record avg_ms MiB_s ratio  comp_wait_ms dc_fails
+1    dynamic 128K   788.0  232.1 17.11x 2313.4       0
+1    static  128K   801.1  227.9 16.03x 2253.7       0
+1    dynamic 256K   696.3  262.4 21.89x 2440.2       0
+1    static  256K   735.8  249.4 19.53x 2362.5       0
+1    dynamic 1M     609.6  299.4 25.47x 2556.9       0
+1    static  1M     617.6  295.5 21.86x 2386.0       0
+4    dynamic 128K   1243.4 587.3 17.16x 17459.8      0
+4    static  128K   1303.1 560.2 16.07x 18663.9      0
+4    dynamic 256K   1211.7 602.4 21.96x 19938.3      0
+4    static  256K   1196.6 610.1 19.59x 17862.3      0
+4    dynamic 1M     1158.0 630.5 25.56x 20090.3      0
+4    static  1M     1162.6 628.1 21.93x 18010.4      0
+```
+
+Conclusion:
+
+- Static Huffman works on the dh895xcc/QAT 4.28 host and did not produce DC
+  failures in the tested matrix.
+- Static reduced accumulated compression wait time for several larger-record
+  cases, but elapsed latency and throughput were mixed.
+- Static materially reduced compression ratio on the source file.
+- `dynamic` remains the correct default. Static should be treated as an
+  explicit tuning option and a candidate for a future performance-biased policy,
+  not as a default replacement.
+
 ## Large-Record Parameter Follow-Up
 
 Run date: 2026-05-13.

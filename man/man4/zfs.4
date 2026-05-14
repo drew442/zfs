@@ -2119,6 +2119,18 @@ This is a global QAT data-compression session setting, not a per-dataset
 setting.
 It must be set before QAT compression sessions are initialized.
 .
+.It Sy zfs_qat_cpa_dc_hufftype Ns = Ns Sy dynamic Ns | Ns static Pq charp
+QAT Huffman tree type for gzip compression.
+.Sy dynamic
+uses full dynamic Huffman trees, which may improve compression ratio but
+requires more QAT compression work.
+.Sy static
+uses fixed Huffman trees, which may reduce QAT compression service time at
+some compression-ratio cost.
+This is a global QAT data-compression session setting, not a per-dataset
+setting.
+It must be set before QAT compression sessions are initialized.
+.
 .It Sy zfs_qat_dc_max_buf_size Ns = Ns Sy 131072 Pq int
 Maximum buffer size eligible for QAT gzip compression and decompression.
 The default is

@@ -78,6 +78,7 @@ static boolean_t qat_dc_init_done = B_FALSE;
 int zfs_qat_compress_disable = 0;
 int zfs_qat_decompress_disable = 0;
 int zfs_qat_cpa_dc_level = 1;
+char *zfs_qat_cpa_dc_hufftype = "dynamic";
 int zfs_qat_dc_max_buf_size = QAT_DC_DEFAULT_MAX_BUF_SIZE;
 int zfs_qat_dc_max_instances = QAT_DC_MAX_INSTANCES;
 
@@ -104,6 +105,23 @@ static boolean_t
 qat_dc_valid_level(int level)
 {
 	return (level >= 1 && level <= 4);
+}
+
+static boolean_t
+qat_dc_hufftype(const char *value, CpaDcHuffType *huff_type)
+{
+	if (strcmp(value, "static") == 0 || strcmp(value, "static\n") == 0) {
+		*huff_type = CPA_DC_HT_STATIC;
+		return (B_TRUE);
+	}
+
+	if (strcmp(value, "dynamic") == 0 ||
+	    strcmp(value, "dynamic\n") == 0) {
+		*huff_type = CPA_DC_HT_FULL_DYNAMIC;
+		return (B_TRUE);
+	}
+
+	return (B_FALSE);
 }
 
 static boolean_t
@@ -139,6 +157,16 @@ qat_dc_level(void)
 	default:
 		return (CPA_DC_L1);
 	}
+}
+
+static CpaDcHuffType
+qat_dc_selected_hufftype(void)
+{
+	CpaDcHuffType huff_type = CPA_DC_HT_FULL_DYNAMIC;
+
+	(void) qat_dc_hufftype(zfs_qat_cpa_dc_hufftype, &huff_type);
+
+	return (huff_type);
 }
 
 static void
@@ -436,7 +464,7 @@ qat_dc_init(void)
 
 		sd.compLevel = qat_dc_level();
 		sd.compType = CPA_DC_DEFLATE;
-		sd.huffType = CPA_DC_HT_FULL_DYNAMIC;
+		sd.huffType = qat_dc_selected_hufftype();
 		sd.sessDirection = CPA_DC_DIR_COMBINED;
 		sd.sessState = CPA_DC_STATELESS;
 #if (CPA_DC_API_VERSION_NUM_MAJOR == 1 && CPA_DC_API_VERSION_NUM_MINOR < 6)
@@ -940,6 +968,24 @@ param_set_qat_dc_max_instances(const char *val, zfs_kernel_param_t *kp)
 }
 
 static int
+param_set_qat_cpa_dc_hufftype(const char *val, zfs_kernel_param_t *kp)
+{
+	CpaDcHuffType huff_type;
+	CpaDcHuffType old_huff_type;
+	char **pvalue = kp->arg;
+
+	if (!qat_dc_hufftype(val, &huff_type))
+		return (-EINVAL);
+
+	(void) qat_dc_hufftype(*pvalue, &old_huff_type);
+	if (qat_dc_init_done && huff_type != old_huff_type)
+		return (-EBUSY);
+
+	*pvalue = (huff_type == CPA_DC_HT_STATIC) ? "static" : "dynamic";
+	return (0);
+}
+
+static int
 param_set_qat_dc_max_buf_size(const char *val, zfs_kernel_param_t *kp)
 {
 	int ret;
@@ -978,6 +1024,11 @@ module_param_call(zfs_qat_cpa_dc_level, param_set_qat_cpa_dc_level,
     param_get_int, &zfs_qat_cpa_dc_level, 0644);
 MODULE_PARM_DESC(zfs_qat_cpa_dc_level,
     "QAT compression level: 1, 2, 3, or 4");
+
+module_param_call(zfs_qat_cpa_dc_hufftype, param_set_qat_cpa_dc_hufftype,
+    param_get_charp, &zfs_qat_cpa_dc_hufftype, 0644);
+MODULE_PARM_DESC(zfs_qat_cpa_dc_hufftype,
+    "QAT compression Huffman type: dynamic or static");
 
 module_param_call(zfs_qat_dc_max_buf_size, param_set_qat_dc_max_buf_size,
     param_get_int, &zfs_qat_dc_max_buf_size, 0644);
