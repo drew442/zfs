@@ -662,6 +662,90 @@ Conclusion:
   explicit tuning option and a candidate for a future performance-biased policy,
   not as a default replacement.
 
+## QAT Compression Bound Follow-Up
+
+Run date: 2026-05-14.
+
+The compression path now uses `cpaDcDeflateCompressBound()` to size the
+additional QAT compression scratch buffer. If the bound API fails, the code
+falls back to the previous full destination-sized scratch allocation.
+
+New QAT DC kstats:
+
+```text
+dc_compress_bound_requests
+dc_compress_bound_fails
+dc_compress_bound_ns
+dc_compress_bound_total_bytes
+dc_compress_dst_total_bytes
+dc_compress_scratch_bytes
+dc_compress_scratch_saved_bytes
+dc_compress_overflows
+dc_compress_incompressible
+```
+
+Host source backup before installing the compression-bound build:
+
+```text
+/root/zfs-2.4.99.pre-compress-bound.20260514T121246Z
+/root/zfs-2.4.99.pre-compress-bound.latest -> /root/zfs-2.4.99.pre-compress-bound.20260514T121246Z
+```
+
+Build and install logs:
+
+```text
+/root/zfs-qat-compress-bound-dkms-build-20260514.log
+/root/zfs-qat-compress-bound-dkms-install-20260514.log
+/root/zfs-qat-compress-bound-initramfs-20260514.log
+```
+
+Loaded module after DKMS install, `update-initramfs -u -k 7.0.0-3-pve`, and
+reboot:
+
+```text
+srcversion: 94BDEFB952B82D7C5DF9902
+```
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-bound-jobs1-swread-20260514.csv
+/root/zfs-qat-phase4-bound-jobs4-swread-20260514.csv
+/root/zfs-qat-phase4-bound-incompressible-20260514.csv
+```
+
+Summary versus the prior dynamic-Huffman, software-readback run:
+
+```text
+jobs record prior_ms bound_ms prior_MiB_s bound_MiB_s scratch_MB saved_MB overflow incompress
+1    128K   788.0    775.0    232.1       235.7       47.9       119.5    0        0
+1    256K   696.3    689.6    262.4       264.9       47.9       119.6    0        0
+1    1M     609.6    622.2    299.4       293.5       48.0       119.9    0        0
+4    128K   1243.4   1268.1   587.3       575.6       191.7      478.1    0        0
+4    256K   1211.7   1205.2   602.4       605.8       191.5      478.2    0        0
+4    1M     1158.0   1156.8   630.5       631.1       191.9      479.7    0        0
+```
+
+Incompressible 64 MiB random-source check:
+
+```text
+record avg_ms MiB_s ratio comp_requests overflow incompressible sha_ok
+128K   529.3  121.2 1.00x 512           0        512            yes
+1M     574.8  111.4 1.00x 64            0        64             yes
+```
+
+Conclusion:
+
+- The bound API succeeded for all tested requests.
+- The additional scratch allocation was reduced by about `71%` relative to the
+  destination-sized scratch strategy.
+- QAT overflow count stayed at zero, including the random-source
+  incompressible test.
+- Incompressible fallback behavior remained correct and read verification
+  passed.
+- Elapsed latency and throughput were mixed; treat this as a memory-pressure
+  and observability improvement, not a direct performance fix.
+
 ## Large-Record Parameter Follow-Up
 
 Run date: 2026-05-13.

@@ -169,6 +169,48 @@ qat_dc_selected_hufftype(void)
 	return (huff_type);
 }
 
+static size_t
+qat_dc_compress_scratch_len(int src_len, int dst_len)
+{
+	Cpa32U bound = 0;
+	Cpa32U qat_dst_len = 0;
+	size_t add_len = 0;
+	CpaStatus status;
+	hrtime_t start;
+	hrtime_t end;
+
+	QAT_STAT_BUMP(dc_compress_bound_requests);
+	QAT_STAT_INCR(dc_compress_dst_total_bytes, dst_len);
+
+	start = gethrtime();
+	status = cpaDcDeflateCompressBound(dc_inst_handles[0],
+	    qat_dc_selected_hufftype(), src_len, &bound);
+	end = gethrtime();
+	QAT_STAT_ADD_TIME(dc_compress_bound_ns, start, end);
+
+	if (status != CPA_STATUS_SUCCESS) {
+		QAT_STAT_BUMP(dc_compress_bound_fails);
+		add_len = dst_len;
+		goto out;
+	}
+
+	QAT_STAT_INCR(dc_compress_bound_total_bytes, bound);
+
+	if (dst_len > ZLIB_HEAD_SZ)
+		qat_dst_len = (Cpa32U)(dst_len - ZLIB_HEAD_SZ);
+
+	if (bound > qat_dst_len)
+		add_len = bound - qat_dst_len;
+
+out:
+	QAT_STAT_INCR(dc_compress_scratch_bytes, add_len);
+	if ((size_t)dst_len > add_len)
+		QAT_STAT_INCR(dc_compress_scratch_saved_bytes,
+		    (size_t)dst_len - add_len);
+
+	return (add_len);
+}
+
 static void
 qat_dc_callback(void *p_callback, CpaStatus status)
 {
@@ -729,12 +771,15 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		QAT_STAT_ADD_TIME(dc_compress_wait_ns, phase_start, phase_end);
 
 		if (dc_results.status != CPA_STATUS_SUCCESS) {
+			if (dc_results.status == CPA_DC_OVERFLOW)
+				QAT_STAT_BUMP(dc_compress_overflows);
 			status = CPA_STATUS_FAIL;
 			goto fail;
 		}
 
 		compressed_sz = dc_results.produced;
 		if (compressed_sz + hdr_sz + ZLIB_FOOT_SZ > dst_len) {
+			QAT_STAT_BUMP(dc_compress_incompressible);
 			status = CPA_STATUS_INCOMPRESSIBLE;
 			goto fail;
 		}
@@ -849,9 +894,10 @@ qat_compress(qat_compress_dir_t dir, char *src, int src_len,
 	hrtime_t scratch_end;
 
 	if (dir == QAT_COMPRESS) {
-		add_len = dst_len;
+		add_len = qat_dc_compress_scratch_len(src_len, dst_len);
 		scratch_start = gethrtime();
-		add = zio_data_buf_alloc(add_len);
+		if (add_len > 0)
+			add = zio_data_buf_alloc(add_len);
 		scratch_end = gethrtime();
 		QAT_STAT_ADD_TIME(dc_compress_scratch_alloc_ns, scratch_start,
 		    scratch_end);
@@ -862,7 +908,8 @@ qat_compress(qat_compress_dir_t dir, char *src, int src_len,
 
 	if (dir == QAT_COMPRESS) {
 		scratch_start = gethrtime();
-		zio_data_buf_free(add, add_len);
+		if (add != NULL)
+			zio_data_buf_free(add, add_len);
 		scratch_end = gethrtime();
 		QAT_STAT_ADD_TIME(dc_compress_scratch_free_ns, scratch_start,
 		    scratch_end);

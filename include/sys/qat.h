@@ -105,6 +105,18 @@ typedef struct qat_stats {
 	 */
 	kstat_named_t dc_buffer_reuse_misses;
 	/*
+	 * QAT deflate bound and output sizing counters.
+	 */
+	kstat_named_t dc_compress_bound_requests;
+	kstat_named_t dc_compress_bound_fails;
+	kstat_named_t dc_compress_bound_ns;
+	kstat_named_t dc_compress_bound_total_bytes;
+	kstat_named_t dc_compress_dst_total_bytes;
+	kstat_named_t dc_compress_scratch_bytes;
+	kstat_named_t dc_compress_scratch_saved_bytes;
+	kstat_named_t dc_compress_overflows;
+	kstat_named_t dc_compress_incompressible;
+	/*
 	 * Cumulative nanoseconds spent allocating and freeing QAT compression
 	 * scratch buffers.
 	 */

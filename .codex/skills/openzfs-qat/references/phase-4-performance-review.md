@@ -92,6 +92,7 @@ service time.
 | Decompression policy | Added `zfs_qat_decompress_disable` and benchmarked QAT writes with software readback. | Improved 128K/256K latency, but QAT remained slower than full software and 1M did not benefit consistently. |
 | In-flight counters | Added live and peak QAT DC in-flight counters. | ZFS already drives meaningful QAT concurrency; peak compression in-flight reached 25 with one copy stream and 50 with four streams. |
 | Huffman mode | Added `zfs_qat_cpa_dc_hufftype` and compared dynamic versus static Huffman with software readback. | Static lowered accumulated QAT wait time in some larger-record cases, but elapsed results were mixed and compression ratio dropped. |
+| Compression bound | Used `cpaDcDeflateCompressBound()` to size scratch space and added bound/overflow counters. | Scratch allocation dropped by about 71% with zero overflows; elapsed performance was mixed. |
 
 ## Current Fair Comparison
 
@@ -509,6 +510,44 @@ Interpretation:
 - Keep `dynamic` as the default. Static remains useful as an explicit
   performance/compression-ratio policy input, but not as a default change from
   these results.
+
+## Compression Bound Test
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-bound-jobs1-swread-20260514.csv
+/root/zfs-qat-phase4-bound-jobs4-swread-20260514.csv
+/root/zfs-qat-phase4-bound-incompressible-20260514.csv
+```
+
+This pass replaced the full destination-sized compression scratch allocation
+with a `cpaDcDeflateCompressBound()` calculation. The bound prevents QAT output
+buffer overflow without giving QAT an entire second destination-sized buffer for
+every compression request.
+
+| Jobs | Record | Prior Avg | Bound Avg | Scratch Bytes | Scratch Saved | Overflow | Incompressible |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 128K | 788.0 ms | 775.0 ms | 47.9 MB | 119.5 MB | 0 | 0 |
+| 1 | 256K | 696.3 ms | 689.6 ms | 47.9 MB | 119.6 MB | 0 | 0 |
+| 1 | 1M | 609.6 ms | 622.2 ms | 48.0 MB | 119.9 MB | 0 | 0 |
+| 4 | 128K | 1243.4 ms | 1268.1 ms | 191.7 MB | 478.1 MB | 0 | 0 |
+| 4 | 256K | 1211.7 ms | 1205.2 ms | 191.5 MB | 478.2 MB | 0 | 0 |
+| 4 | 1M | 1158.0 ms | 1156.8 ms | 191.9 MB | 479.7 MB | 0 | 0 |
+
+Incompressible 64 MiB random-source check:
+
+| Record | Avg Latency | Ratio | QAT Requests | Overflow | Incompressible | Read Verify |
+|---|---:|---:|---:|---:|---:|---:|
+| 128K | 529.3 ms | 1.00x | 512 | 0 | 512 | yes |
+| 1M | 574.8 ms | 1.00x | 64 | 0 | 64 | yes |
+
+Interpretation:
+
+- The bound call succeeded for all tested requests and added only sub-millisecond cumulative overhead per run.
+- Scratch allocation dropped from roughly a full destination-sized buffer to about 28.6% of destination bytes.
+- Correctness and fallback behavior remained intact: incompressible random data was stored through the existing incompressible path with zero QAT overflows.
+- Elapsed performance was mixed, so this is primarily a memory-pressure and overflow-observability improvement, not a proven latency fix.
 
 ## Earlier Phase 4 Measurements
 

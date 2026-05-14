@@ -254,6 +254,24 @@ run_one() {
 	local reuse_hits_after
 	local reuse_misses_before
 	local reuse_misses_after
+	local bound_requests_before
+	local bound_requests_after
+	local bound_fails_before
+	local bound_fails_after
+	local bound_ns_before
+	local bound_ns_after
+	local bound_total_before
+	local bound_total_after
+	local dst_total_before
+	local dst_total_after
+	local scratch_bytes_before
+	local scratch_bytes_after
+	local scratch_saved_before
+	local scratch_saved_after
+	local overflows_before
+	local overflows_after
+	local incompressible_before
+	local incompressible_after
 	local comp_scratch_alloc_before
 	local comp_scratch_alloc_after
 	local comp_scratch_free_before
@@ -304,6 +322,15 @@ run_one() {
 	fails_before="$(statv dc_fails)"
 	reuse_hits_before="$(statv dc_buffer_reuse_hits)"
 	reuse_misses_before="$(statv dc_buffer_reuse_misses)"
+	bound_requests_before="$(statv dc_compress_bound_requests)"
+	bound_fails_before="$(statv dc_compress_bound_fails)"
+	bound_ns_before="$(statv dc_compress_bound_ns)"
+	bound_total_before="$(statv dc_compress_bound_total_bytes)"
+	dst_total_before="$(statv dc_compress_dst_total_bytes)"
+	scratch_bytes_before="$(statv dc_compress_scratch_bytes)"
+	scratch_saved_before="$(statv dc_compress_scratch_saved_bytes)"
+	overflows_before="$(statv dc_compress_overflows)"
+	incompressible_before="$(statv dc_compress_incompressible)"
 	comp_scratch_alloc_before="$(statv dc_compress_scratch_alloc_ns)"
 	comp_scratch_free_before="$(statv dc_compress_scratch_free_ns)"
 	comp_setup_before="$(statv dc_compress_setup_ns)"
@@ -356,6 +383,15 @@ run_one() {
 	fails_after="$(statv dc_fails)"
 	reuse_hits_after="$(statv dc_buffer_reuse_hits)"
 	reuse_misses_after="$(statv dc_buffer_reuse_misses)"
+	bound_requests_after="$(statv dc_compress_bound_requests)"
+	bound_fails_after="$(statv dc_compress_bound_fails)"
+	bound_ns_after="$(statv dc_compress_bound_ns)"
+	bound_total_after="$(statv dc_compress_bound_total_bytes)"
+	dst_total_after="$(statv dc_compress_dst_total_bytes)"
+	scratch_bytes_after="$(statv dc_compress_scratch_bytes)"
+	scratch_saved_after="$(statv dc_compress_scratch_saved_bytes)"
+	overflows_after="$(statv dc_compress_overflows)"
+	incompressible_after="$(statv dc_compress_incompressible)"
 	comp_scratch_alloc_after="$(statv dc_compress_scratch_alloc_ns)"
 	comp_scratch_free_after="$(statv dc_compress_scratch_free_ns)"
 	comp_setup_after="$(statv dc_compress_setup_ns)"
@@ -383,7 +419,7 @@ run_one() {
 	used="$(zfs get -H -o value used "$ds")"
 	logicalused="$(zfs get -H -o value logicalused "$ds")"
 
-	printf "raw,%s,%s,%s,%s,%s,%s,%s,%s,,,,,,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" \
+	printf "raw,%s,%s,%s,%s,%s,%s,%s,%s,,,,,,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n" \
 	    "$mode" "$verify_mode" "$record" "$iter" "$JOBS" \
 	    "$SOURCE_LABEL" "$total_bytes" \
 	    "$elapsed_ms" "$mib_s" "$cpu_csv" "$ratio" "$used" "$logicalused" \
@@ -396,6 +432,15 @@ run_one() {
 	    "$((fails_after - fails_before))" \
 	    "$((reuse_hits_after - reuse_hits_before))" \
 	    "$((reuse_misses_after - reuse_misses_before))" \
+	    "$((bound_requests_after - bound_requests_before))" \
+	    "$((bound_fails_after - bound_fails_before))" \
+	    "$((bound_ns_after - bound_ns_before))" \
+	    "$((bound_total_after - bound_total_before))" \
+	    "$((dst_total_after - dst_total_before))" \
+	    "$((scratch_bytes_after - scratch_bytes_before))" \
+	    "$((scratch_saved_after - scratch_saved_before))" \
+	    "$((overflows_after - overflows_before))" \
+	    "$((incompressible_after - incompressible_before))" \
 	    "$((comp_scratch_alloc_after - comp_scratch_alloc_before))" \
 	    "$((comp_scratch_free_after - comp_scratch_free_before))" \
 	    "$((comp_setup_after - comp_setup_before))" \
@@ -437,7 +482,7 @@ QAT_KERNEL_DC_INSTANCES="$(qat_conf_value NumberDcInstances)"
 ZFS_SRCVERSION="$(modinfo zfs | awk '$1 == "srcversion:" { print $2 }')"
 
 mkdir -p "$(dirname "$OUT")"
-printf "row_type,mode,verify_mode,recordsize,iter,jobs,source_label,source_bytes,elapsed_ms,latency_avg_ms,latency_p50_ms,latency_p95_ms,latency_p99_ms,latency_max_ms,write_bw_mib_s,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct,compressratio,used,logicalused,comp_requests_delta,comp_in_delta,comp_out_delta,decomp_requests_delta,decomp_in_delta,decomp_out_delta,dc_fails_delta,dc_buffer_reuse_hits_delta,dc_buffer_reuse_misses_delta,dc_compress_scratch_alloc_ns_delta,dc_compress_scratch_free_ns_delta,dc_compress_setup_ns_delta,dc_compress_submit_ns_delta,dc_compress_wait_ns_delta,dc_compress_cleanup_ns_delta,dc_decompress_setup_ns_delta,dc_decompress_submit_ns_delta,dc_decompress_wait_ns_delta,dc_decompress_cleanup_ns_delta,dc_compress_inflight,dc_compress_inflight_max,dc_decompress_inflight,dc_decompress_inflight_max,sha_ok,zfs_qat_cpa_dc_level,zfs_qat_cpa_dc_hufftype,zfs_qat_dc_max_buf_size,zfs_qat_dc_max_instances,zfs_qat_decompress_disable,qat_kernel_cy_instances,qat_kernel_dc_instances,zfs_srcversion\n" > "$OUT"
+printf "row_type,mode,verify_mode,recordsize,iter,jobs,source_label,source_bytes,elapsed_ms,latency_avg_ms,latency_p50_ms,latency_p95_ms,latency_p99_ms,latency_max_ms,write_bw_mib_s,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct,compressratio,used,logicalused,comp_requests_delta,comp_in_delta,comp_out_delta,decomp_requests_delta,decomp_in_delta,decomp_out_delta,dc_fails_delta,dc_buffer_reuse_hits_delta,dc_buffer_reuse_misses_delta,dc_compress_bound_requests_delta,dc_compress_bound_fails_delta,dc_compress_bound_ns_delta,dc_compress_bound_total_bytes_delta,dc_compress_dst_total_bytes_delta,dc_compress_scratch_bytes_delta,dc_compress_scratch_saved_bytes_delta,dc_compress_overflows_delta,dc_compress_incompressible_delta,dc_compress_scratch_alloc_ns_delta,dc_compress_scratch_free_ns_delta,dc_compress_setup_ns_delta,dc_compress_submit_ns_delta,dc_compress_wait_ns_delta,dc_compress_cleanup_ns_delta,dc_decompress_setup_ns_delta,dc_decompress_submit_ns_delta,dc_decompress_wait_ns_delta,dc_decompress_cleanup_ns_delta,dc_compress_inflight,dc_compress_inflight_max,dc_decompress_inflight,dc_decompress_inflight_max,sha_ok,zfs_qat_cpa_dc_level,zfs_qat_cpa_dc_hufftype,zfs_qat_dc_max_buf_size,zfs_qat_dc_max_instances,zfs_qat_decompress_disable,qat_kernel_cy_instances,qat_kernel_dc_instances,zfs_srcversion\n" > "$OUT"
 
 echo "Results: $OUT" >&2
 echo "Source: $SOURCE ($SOURCE_BYTES bytes)" >&2
@@ -464,7 +509,8 @@ for mode in $MODES; do
 		    "$SOURCE_LABEL" "$((SOURCE_BYTES * JOBS))" "" "$latency_avg" "$latency_p50"
 		    "$latency_p95" "$latency_p99" "$latency_max" "" "" "" ""
 		    "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" ""
-		    "" "" "" "" "" "" "" "" "" "$QAT_DC_LEVEL" "$QAT_DC_HUFFTYPE"
+		    "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" ""
+		    "$QAT_DC_LEVEL" "$QAT_DC_HUFFTYPE"
 		    "$QAT_DC_MAX_BUF_SIZE" "$QAT_DC_MAX_INSTANCES" ""
 		    "$QAT_KERNEL_CY_INSTANCES" "$QAT_KERNEL_DC_INSTANCES"
 		    "$ZFS_SRCVERSION")
