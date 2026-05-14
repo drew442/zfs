@@ -332,6 +332,7 @@ Historical note:
 - Phase 4 in-flight counters showed QAT compression is not limited to one request at a time: the corrected v2 test reached peak `dc_compress_inflight_max=25` with one copy stream and `50` with four copy streams.
 - `zfs_qat_cpa_dc_hufftype=static` was tested on 2026-05-14. It was functional, but the result was mixed and compression ratio dropped; the host boot configuration was restored to the default `dynamic` behavior.
 - Compression-bound sizing with `cpaDcDeflateCompressBound()` was installed on 2026-05-14. It reduced additional compression scratch bytes by about 71% in the tested matrix, with zero QAT overflows; elapsed performance was mixed.
+- `zfs_qat_dc_coalesce_src=1` was tested on 2026-05-14. It reduced QAT compression source buffers to 1 and improved 128K/256K in the tested matrix, but 1M regressed; the host was restored to the default `0`.
 
 Initial QAT kstats before the phase 2/3 validation workload:
 

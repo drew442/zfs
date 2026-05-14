@@ -2146,6 +2146,13 @@ enable opt-in testing for larger ZFS records on QAT 1.x hardware.
 It must be set before QAT compression sessions are initialized.
 Records larger than this value use software gzip fallback.
 .
+.It Sy zfs_qat_dc_coalesce_src Ns = Ns Sy 0 Ns | Ns 1 Pq int
+Enable experimental QAT gzip compression source-buffer coalescing.
+When enabled, the QAT compression path copies each source record into one
+contiguous QAT input buffer before submission.
+This reduces QAT source buffer-list entries, but adds allocation and copy cost.
+The default is disabled.
+.
 .It Sy zfs_qat_dc_max_instances Ns = Ns Sy 48 Pq int
 Maximum number of QAT data-compression instances to use.
 The effective instance count is the smaller of this value and the number of

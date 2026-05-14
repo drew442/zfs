@@ -746,6 +746,108 @@ Conclusion:
 - Elapsed latency and throughput were mixed; treat this as a memory-pressure
   and observability improvement, not a direct performance fix.
 
+## QAT Source Coalescing Follow-Up
+
+Run date: 2026-05-14.
+
+The repo now exposes:
+
+```text
+zfs_qat_dc_coalesce_src=0
+```
+
+The default is disabled. When enabled, the QAT compression path copies each
+source record into one contiguous QAT input buffer before submission. This is a
+runtime experiment; it does not require QAT DC session reinitialization.
+
+New QAT DC kstats:
+
+```text
+dc_compress_src_buffers
+dc_compress_dst_buffers
+dc_compress_add_buffers
+dc_compress_dst_total_buffers
+dc_compress_src_buffers_max
+dc_compress_dst_buffers_max
+dc_compress_add_buffers_max
+dc_compress_dst_total_buffers_max
+dc_compress_coalesce_requests
+dc_compress_coalesce_success
+dc_compress_coalesce_fails
+dc_compress_coalesce_bytes
+dc_compress_coalesce_alloc_ns
+dc_compress_coalesce_copy_ns
+dc_compress_coalesce_free_ns
+```
+
+Host source backup before installing the buffer-shape/coalescing builds:
+
+```text
+/root/zfs-2.4.99.pre-buffer-shape.20260514T133038Z
+/root/zfs-2.4.99.pre-buffer-shape.latest -> /root/zfs-2.4.99.pre-buffer-shape.20260514T133038Z
+```
+
+Build and install logs:
+
+```text
+/root/zfs-qat-buffer-shape-dkms-build-20260514.log
+/root/zfs-qat-buffer-shape-dkms-install-20260514.log
+/root/zfs-qat-buffer-shape-initramfs-20260514.log
+/root/zfs-qat-src-coalesce-dkms-build-20260514.log
+/root/zfs-qat-src-coalesce-dkms-install-20260514.log
+/root/zfs-qat-src-coalesce-initramfs-20260514.log
+/root/zfs-qat-src-coalesce-dkms-build-20260514-r2.log
+/root/zfs-qat-src-coalesce-dkms-install-20260514-r2.log
+/root/zfs-qat-src-coalesce-initramfs-20260514-r2.log
+```
+
+Loaded module after the final DKMS install, `update-initramfs -u -k
+7.0.0-3-pve`, and reboot:
+
+```text
+srcversion: 4E6670F89115AA129322F75
+```
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-coalesce-off-jobs1-swread-v3-20260514.csv
+/root/zfs-qat-phase4-coalesce-on-jobs1-swread-v3-20260514.csv
+/root/zfs-qat-phase4-coalesce-off-jobs4-swread-v3-20260514.csv
+/root/zfs-qat-phase4-coalesce-on-jobs4-swread-v3-20260514.csv
+```
+
+Summary:
+
+```text
+jobs coalesce record avg_ms MiB_s src_bufs dst_total_bufs copy_MB coalesce_ms dc_fails
+1    off      128K   824.4  221.7 32       37             0.0     0.0         0
+1    on       128K   749.0  244.0 1        37             191.4   44.3        0
+1    off      256K   703.4  259.6 64       73             0.0     0.0         0
+1    on       256K   673.9  271.0 1        73             191.4   45.1        0
+1    off      1M     616.6  296.0 256      289            0.0     0.0         0
+1    on       1M     630.9  289.2 1        289            191.9   62.3        0
+4    off      128K   1294.3 564.0 32       37             0.0     0.0         0
+4    on       128K   1289.3 566.4 1        37             765.5   173.0       0
+4    off      256K   1289.0 566.6 64       73             0.0     0.0         0
+4    on       256K   1203.3 606.8 1        73             765.5   169.8       0
+4    off      1M     1188.7 614.3 256      289            0.0     0.0         0
+4    on       1M     1217.5 604.1 1        289            767.6   232.8       0
+```
+
+Conclusion:
+
+- The non-coalesced QAT source list is highly fragmented: 32 source buffers at
+  128K, 64 at 256K, and 256 at 1M.
+- Source coalescing reduced source buffers to 1 for all tested record sizes and
+  had zero coalescing allocation failures.
+- The copy/allocation cost was meaningful: about `44-62 ms` for the single-job
+  run and `170-233 ms` for the four-job run.
+- 128K and 256K improved in this matrix, while 1M regressed.
+- Keep `zfs_qat_dc_coalesce_src=0` by default. It is useful as an experimental
+  tuning knob and possible input to future bias policy, but not a universal
+  default.
+
 ## Large-Record Parameter Follow-Up
 
 Run date: 2026-05-13.

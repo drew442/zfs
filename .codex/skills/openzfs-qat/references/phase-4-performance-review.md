@@ -93,6 +93,7 @@ service time.
 | In-flight counters | Added live and peak QAT DC in-flight counters. | ZFS already drives meaningful QAT concurrency; peak compression in-flight reached 25 with one copy stream and 50 with four streams. |
 | Huffman mode | Added `zfs_qat_cpa_dc_hufftype` and compared dynamic versus static Huffman with software readback. | Static lowered accumulated QAT wait time in some larger-record cases, but elapsed results were mixed and compression ratio dropped. |
 | Compression bound | Used `cpaDcDeflateCompressBound()` to size scratch space and added bound/overflow counters. | Scratch allocation dropped by about 71% with zero overflows; elapsed performance was mixed. |
+| Source coalescing | Added `zfs_qat_dc_coalesce_src` and buffer-list shape counters. | Source buffers dropped to 1 per request; 128K/256K improved in this matrix, while 1M regressed. |
 
 ## Current Fair Comparison
 
@@ -548,6 +549,43 @@ Interpretation:
 - Scratch allocation dropped from roughly a full destination-sized buffer to about 28.6% of destination bytes.
 - Correctness and fallback behavior remained intact: incompressible random data was stored through the existing incompressible path with zero QAT overflows.
 - Elapsed performance was mixed, so this is primarily a memory-pressure and overflow-observability improvement, not a proven latency fix.
+
+## Source Coalescing Test
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-coalesce-off-jobs1-swread-v3-20260514.csv
+/root/zfs-qat-phase4-coalesce-on-jobs1-swread-v3-20260514.csv
+/root/zfs-qat-phase4-coalesce-off-jobs4-swread-v3-20260514.csv
+/root/zfs-qat-phase4-coalesce-on-jobs4-swread-v3-20260514.csv
+```
+
+The test added buffer-list shape counters and an experimental runtime toggle:
+
+```text
+zfs_qat_dc_coalesce_src=0
+```
+
+When enabled, QAT compression copies each source record into one contiguous QAT
+input buffer before submission. The destination and scratch output lists remain
+page-backed.
+
+| Jobs | Record | Off Avg | On Avg | Off Src Buffers | On Src Buffers | Copy MB | Coalesce Cost | Result |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 128K | 824.4 ms | 749.0 ms | 32 | 1 | 191.4 | 44.3 ms | 9.1% faster |
+| 1 | 256K | 703.4 ms | 673.9 ms | 64 | 1 | 191.4 | 45.1 ms | 4.2% faster |
+| 1 | 1M | 616.6 ms | 630.9 ms | 256 | 1 | 191.9 | 62.3 ms | 2.3% slower |
+| 4 | 128K | 1294.3 ms | 1289.3 ms | 32 | 1 | 765.5 | 173.0 ms | 0.4% faster |
+| 4 | 256K | 1289.0 ms | 1203.3 ms | 64 | 1 | 765.5 | 169.8 ms | 6.6% faster |
+| 4 | 1M | 1188.7 ms | 1217.5 ms | 256 | 1 | 767.6 | 232.8 ms | 2.4% slower |
+
+Interpretation:
+
+- The current non-coalesced path is highly fragmented: 128K uses 32 source buffers, 256K uses 64, and 1M uses 256.
+- Source coalescing reliably reduced source buffers to 1 and had zero allocation failures in the tested matrix.
+- The copy/allocation cost is large enough that coalescing is not a universal win.
+- Keep coalescing disabled by default. It is a useful experimental knob for 128K/256K or future bias policies, but 1M should remain non-coalesced unless further work reduces copy cost.
 
 ## Earlier Phase 4 Measurements
 

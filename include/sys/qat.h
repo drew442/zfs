@@ -117,6 +117,27 @@ typedef struct qat_stats {
 	kstat_named_t dc_compress_overflows;
 	kstat_named_t dc_compress_incompressible;
 	/*
+	 * QAT compression buffer-list shape counters.
+	 */
+	kstat_named_t dc_compress_src_buffers;
+	kstat_named_t dc_compress_dst_buffers;
+	kstat_named_t dc_compress_add_buffers;
+	kstat_named_t dc_compress_dst_total_buffers;
+	kstat_named_t dc_compress_src_buffers_max;
+	kstat_named_t dc_compress_dst_buffers_max;
+	kstat_named_t dc_compress_add_buffers_max;
+	kstat_named_t dc_compress_dst_total_buffers_max;
+	/*
+	 * Experimental source-buffer coalescing counters.
+	 */
+	kstat_named_t dc_compress_coalesce_requests;
+	kstat_named_t dc_compress_coalesce_success;
+	kstat_named_t dc_compress_coalesce_fails;
+	kstat_named_t dc_compress_coalesce_bytes;
+	kstat_named_t dc_compress_coalesce_alloc_ns;
+	kstat_named_t dc_compress_coalesce_copy_ns;
+	kstat_named_t dc_compress_coalesce_free_ns;
+	/*
 	 * Cumulative nanoseconds spent allocating and freeing QAT compression
 	 * scratch buffers.
 	 */
@@ -216,6 +237,7 @@ extern int zfs_qat_cpa_dc_level;
 extern char *zfs_qat_cpa_dc_hufftype;
 extern int zfs_qat_dc_max_buf_size;
 extern int zfs_qat_dc_max_instances;
+extern int zfs_qat_dc_coalesce_src;
 extern int zfs_qat_checksum_disable;
 extern int zfs_qat_encrypt_disable;
 extern int zfs_qat_cy_max_instances;
