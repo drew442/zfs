@@ -1,4 +1,4 @@
 interface:
   display_name: "OpenZFS QAT"
   short_description: "Review and improve OpenZFS QAT work"
-  default_prompt: "Use $openzfs-qat to review and improve QAT design, configuration, and implementation in this repo."
+  default_prompt: "For QAT-specific work, use $openzfs-qat to preserve expert continuity, host safety, and benchmark interpretation. For generic OpenZFS tasks that do not touch QAT, proceed without the QAT skill unless needed."
