@@ -61,6 +61,8 @@ qat_stats_t qat_stats = {
 	{ "dc_compress_dst_coalesce_requests",	KSTAT_DATA_UINT64 },
 	{ "dc_compress_dst_coalesce_success",	KSTAT_DATA_UINT64 },
 	{ "dc_compress_dst_coalesce_fails",	KSTAT_DATA_UINT64 },
+	{ "dc_compress_dst_coalesce_reuse_hits", KSTAT_DATA_UINT64 },
+	{ "dc_compress_dst_coalesce_reuse_misses", KSTAT_DATA_UINT64 },
 	{ "dc_compress_dst_coalesce_alloc_bytes", KSTAT_DATA_UINT64 },
 	{ "dc_compress_dst_coalesce_copy_bytes", KSTAT_DATA_UINT64 },
 	{ "dc_compress_dst_coalesce_alloc_ns",	KSTAT_DATA_UINT64 },

@@ -334,6 +334,8 @@ Historical note:
 - Compression-bound sizing with `cpaDcDeflateCompressBound()` was installed on 2026-05-14. It reduced additional compression scratch bytes by about 71% in the tested matrix, with zero QAT overflows; elapsed performance was mixed.
 - `zfs_qat_dc_coalesce_src=1` was tested on 2026-05-14. It reduced QAT compression source buffers to 1 and improved 128K/256K in the tested matrix, but 1M regressed; the host was restored to the default `0`.
 - `zfs_qat_dc_coalesce_dst=1` was tested on 2026-05-15. It reduced destination plus scratch output buffers to one QAT buffer; single-job results were mixed, and four-job results improved modestly. The host was restored to the default `0`.
+- Destination coalescing reuse was tested on 2026-05-15 with 32 reusable slots per DC instance. It reduced allocation cost after warmup, but elapsed results remained mixed and four-job runs regressed; the host was restored to `zfs_qat_dc_coalesce_dst=0`.
+- `/nvme_scratch` was recreated empty on 2026-05-15. The TIFF benchmark source was restored from `test-hdd-pool/bench/cpu-lz4/realdata-test/2021-09-05/Scanned Documents/Image.tif` to `/nvme_scratch/source/2021-09-05/Scanned Documents/Image.tif`.
 
 Initial QAT kstats before the phase 2/3 validation workload:
 

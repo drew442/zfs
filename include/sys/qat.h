@@ -143,6 +143,8 @@ typedef struct qat_stats {
 	kstat_named_t dc_compress_dst_coalesce_requests;
 	kstat_named_t dc_compress_dst_coalesce_success;
 	kstat_named_t dc_compress_dst_coalesce_fails;
+	kstat_named_t dc_compress_dst_coalesce_reuse_hits;
+	kstat_named_t dc_compress_dst_coalesce_reuse_misses;
 	kstat_named_t dc_compress_dst_coalesce_alloc_bytes;
 	kstat_named_t dc_compress_dst_coalesce_copy_bytes;
 	kstat_named_t dc_compress_dst_coalesce_alloc_ns;

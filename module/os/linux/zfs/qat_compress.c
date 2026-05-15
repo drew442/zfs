@@ -41,7 +41,7 @@
 #define	QAT_DC_STACK_MAX_PAGES	\
 	((QAT_DC_DEFAULT_MAX_BUF_SIZE >> PAGE_SHIFT) + 2)
 #define	QAT_DC_ABS_MAX_PAGES	((QAT_DC_ABS_MAX_BUF_SIZE >> PAGE_SHIFT) + 2)
-#define	QAT_DC_BUFFER_REUSE_SLOTS	4
+#define	QAT_DC_BUFFER_REUSE_SLOTS	32
 
 /*
  * ZLIB head and foot size
@@ -54,6 +54,8 @@ typedef struct qat_dc_buffer_slot {
 	Cpa8U *buffer_meta_dst;
 	CpaBufferList *buf_list_src;
 	CpaBufferList *buf_list_dst;
+	void *coalesced_dst;
+	Cpa32U coalesced_dst_size;
 } qat_dc_buffer_slot_t;
 
 typedef struct qat_dc_buffer_pool {
@@ -320,10 +322,30 @@ qat_dc_try_coalesce_src(char **src, int src_len, void **coalesced_src)
 	return (B_TRUE);
 }
 
+static CpaStatus
+qat_dc_alloc_dst_coalesce_buffer(void **coalesced_dst, Cpa32U alloc_len)
+{
+	CpaStatus status;
+	hrtime_t start;
+	hrtime_t end;
+
+	start = gethrtime();
+	status = QAT_PHYS_CONTIG_ALLOC(coalesced_dst, alloc_len);
+	end = gethrtime();
+	QAT_STAT_ADD_TIME(dc_compress_dst_coalesce_alloc_ns, start, end);
+
+	if (status == CPA_STATUS_SUCCESS)
+		QAT_STAT_INCR(dc_compress_dst_coalesce_alloc_bytes,
+		    alloc_len);
+
+	return (status);
+}
+
 static boolean_t
 qat_dc_try_coalesce_dst(char **dst, int dst_len, int add_len,
-    void **coalesced_dst)
+    qat_dc_buffer_slot_t *buffer_slot, void **coalesced_dst)
 {
+	void *new_dst = NULL;
 	CpaStatus status;
 	Cpa32U alloc_len;
 	hrtime_t start;
@@ -341,11 +363,42 @@ qat_dc_try_coalesce_dst(char **dst, int dst_len, int add_len,
 	}
 	alloc_len = (Cpa32U)(dst_len + add_len);
 
-	start = gethrtime();
-	status = QAT_PHYS_CONTIG_ALLOC(coalesced_dst, alloc_len);
-	end = gethrtime();
-	QAT_STAT_ADD_TIME(dc_compress_dst_coalesce_alloc_ns, start, end);
+	if (buffer_slot != NULL) {
+		if (buffer_slot->coalesced_dst != NULL &&
+		    buffer_slot->coalesced_dst_size >= alloc_len) {
+			*dst = buffer_slot->coalesced_dst;
+			*coalesced_dst = NULL;
+			QAT_STAT_BUMP(dc_compress_dst_coalesce_reuse_hits);
+			QAT_STAT_BUMP(dc_compress_dst_coalesce_success);
+			return (B_TRUE);
+		}
 
+		QAT_STAT_BUMP(dc_compress_dst_coalesce_reuse_misses);
+		status = qat_dc_alloc_dst_coalesce_buffer(&new_dst, alloc_len);
+		if (status != CPA_STATUS_SUCCESS) {
+			QAT_STAT_BUMP(dc_compress_dst_coalesce_fails);
+			*coalesced_dst = NULL;
+			return (B_FALSE);
+		}
+
+		if (buffer_slot->coalesced_dst != NULL) {
+			start = gethrtime();
+			QAT_PHYS_CONTIG_FREE(buffer_slot->coalesced_dst);
+			end = gethrtime();
+			QAT_STAT_ADD_TIME(dc_compress_dst_coalesce_free_ns,
+			    start, end);
+		}
+
+		buffer_slot->coalesced_dst = new_dst;
+		buffer_slot->coalesced_dst_size = alloc_len;
+		*dst = buffer_slot->coalesced_dst;
+		*coalesced_dst = NULL;
+		QAT_STAT_BUMP(dc_compress_dst_coalesce_success);
+		return (B_TRUE);
+	}
+
+	QAT_STAT_BUMP(dc_compress_dst_coalesce_reuse_misses);
+	status = qat_dc_alloc_dst_coalesce_buffer(coalesced_dst, alloc_len);
 	if (status != CPA_STATUS_SUCCESS) {
 		QAT_STAT_BUMP(dc_compress_dst_coalesce_fails);
 		*coalesced_dst = NULL;
@@ -354,7 +407,6 @@ qat_dc_try_coalesce_dst(char **dst, int dst_len, int add_len,
 
 	*dst = *coalesced_dst;
 	QAT_STAT_BUMP(dc_compress_dst_coalesce_success);
-	QAT_STAT_INCR(dc_compress_dst_coalesce_alloc_bytes, alloc_len);
 
 	return (B_TRUE);
 }
@@ -371,6 +423,7 @@ qat_dc_buffer_pool_clean(Cpa16U inst)
 		QAT_PHYS_CONTIG_FREE(slot->buffer_meta_dst);
 		QAT_PHYS_CONTIG_FREE(slot->buf_list_src);
 		QAT_PHYS_CONTIG_FREE(slot->buf_list_dst);
+		QAT_PHYS_CONTIG_FREE(slot->coalesced_dst);
 	}
 
 	memset(pool, 0, sizeof (*pool));
@@ -704,6 +757,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	hrtime_t free_end;
 	boolean_t src_coalesced;
 	boolean_t dst_coalesced;
+	boolean_t dst_coalesce_requested;
 	boolean_t local_add_alloc = B_FALSE;
 
 	/*
@@ -713,14 +767,15 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	 */
 	src_coalesced = (dir == QAT_COMPRESS &&
 	    qat_dc_try_coalesce_src(&src, src_len, &coalesced_src));
-	dst_coalesced = (dir == QAT_COMPRESS &&
-	    qat_dc_try_coalesce_dst(&dst, dst_len, add_len, &coalesced_dst));
-	if (dst_coalesced)
-		coalesced_dst_len = (Cpa32U)(dst_len + add_len);
+	dst_coalesce_requested = (dir == QAT_COMPRESS &&
+	    zfs_qat_dc_coalesce_dst);
+	dst_coalesced = B_FALSE;
 
 	num_src_buf = src_coalesced ? 1 : ((src_len >> PAGE_SHIFT) + 2);
-	num_dst_buf = dst_coalesced ? 1 : ((dst_len >> PAGE_SHIFT) + 2);
-	num_add_buf = dst_coalesced ? 0 : ((add_len >> PAGE_SHIFT) + 2);
+	num_dst_buf = dst_coalesce_requested ? 1 :
+	    ((dst_len >> PAGE_SHIFT) + 2);
+	num_add_buf = dst_coalesce_requested ? 0 :
+	    ((add_len >> PAGE_SHIFT) + 2);
 
 	src_buffer_list_mem_size = sizeof (CpaBufferList) +
 	    (num_src_buf * sizeof (CpaFlatBuffer));
@@ -731,6 +786,39 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	    num_dst_buf > QAT_DC_ABS_MAX_PAGES ||
 	    num_add_buf > QAT_DC_ABS_MAX_PAGES)
 		goto fail;
+
+	i = (Cpa32U)atomic_inc_32_nv(&inst_num) % num_inst;
+	dc_inst_handle = dc_inst_handles[i];
+	session_handle = session_handles[i];
+
+	buffer_slot = qat_dc_buffer_pool_acquire(i, num_src_buf,
+	    num_dst_buf + num_add_buf);
+
+	if (dst_coalesce_requested) {
+		dst_coalesced = qat_dc_try_coalesce_dst(&dst, dst_len,
+		    add_len, buffer_slot, &coalesced_dst);
+		if (dst_coalesced) {
+			coalesced_dst_len = (Cpa32U)(dst_len + add_len);
+		} else {
+			if (buffer_slot != NULL) {
+				qat_dc_buffer_pool_release(i, buffer_slot);
+				buffer_slot = NULL;
+			}
+
+			num_dst_buf = (dst_len >> PAGE_SHIFT) + 2;
+			num_add_buf = (add_len >> PAGE_SHIFT) + 2;
+			dst_buffer_list_mem_size = sizeof (CpaBufferList) +
+			    ((num_dst_buf + num_add_buf) *
+			    sizeof (CpaFlatBuffer));
+
+			if (num_dst_buf > QAT_DC_ABS_MAX_PAGES ||
+			    num_add_buf > QAT_DC_ABS_MAX_PAGES)
+				goto fail;
+
+			buffer_slot = qat_dc_buffer_pool_acquire(i,
+			    num_src_buf, num_dst_buf + num_add_buf);
+		}
+	}
 
 	if (add_len > 0 && !dst_coalesced && add == NULL) {
 		scratch_start = gethrtime();
@@ -764,12 +852,6 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 			goto fail;
 	}
 
-	i = (Cpa32U)atomic_inc_32_nv(&inst_num) % num_inst;
-	dc_inst_handle = dc_inst_handles[i];
-	session_handle = session_handles[i];
-
-	buffer_slot = qat_dc_buffer_pool_acquire(i, num_src_buf,
-	    num_dst_buf + num_add_buf);
 	if (buffer_slot != NULL) {
 		buffer_meta_src = buffer_slot->buffer_meta_src;
 		buffer_meta_dst = buffer_slot->buffer_meta_dst;

@@ -95,6 +95,7 @@ service time.
 | Compression bound | Used `cpaDcDeflateCompressBound()` to size scratch space and added bound/overflow counters. | Scratch allocation dropped by about 71% with zero overflows; elapsed performance was mixed. |
 | Source coalescing | Added `zfs_qat_dc_coalesce_src` and buffer-list shape counters. | Source buffers dropped to 1 per request; 128K/256K improved in this matrix, while 1M regressed. |
 | Destination coalescing | Added `zfs_qat_dc_coalesce_dst` and destination coalescing counters. | Destination plus scratch output list entries dropped to one QAT output buffer; results were small and mixed in single-job testing, with modest gains under four jobs. |
+| Destination coalescing reuse | Reused destination coalescing buffers from the QAT DC buffer-slot pool and increased reuse slots from 4 to 32 per DC instance. | Allocation cost dropped sharply after warmup, but elapsed results were still mixed and four-job runs regressed. |
 
 ## Current Fair Comparison
 
@@ -637,6 +638,56 @@ Interpretation:
 - Keep destination coalescing disabled by default. It is a useful experimental
   knob, especially for concurrent 256K/1M testing, but the gains are still
   small relative to run-to-run noise and allocation/free cost.
+
+## Destination Coalescing Reuse Test
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-dst-coalesce-reuse-smoke-r2-20260515.csv
+/root/zfs-qat-phase4-dst-coalesce-reuse-warmup-20260515.csv
+/root/zfs-qat-phase4-dst-coalesce-reuse-off-jobs1-20260515.csv
+/root/zfs-qat-phase4-dst-coalesce-reuse-on-jobs1-20260515.csv
+/root/zfs-qat-phase4-dst-coalesce-reuse-off-jobs4-20260515.csv
+/root/zfs-qat-phase4-dst-coalesce-reuse-on-jobs4-20260515.csv
+```
+
+The `/nvme_scratch` pool was recreated empty, so the TIFF source was restored
+from the lz4-backed copy before this run:
+
+```text
+/nvme_scratch/source/2021-09-05/Scanned Documents/Image.tif
+sha256 dec26817a6c7d6c6193c6db7e740e5d82bf19166a1ebab8f9af75cad80c01d6f
+```
+
+This pass changed destination coalescing to reuse one contiguous output buffer
+from the existing QAT DC buffer-slot pool. The pool was increased from `4` to
+`32` slots per DC instance because Phase 4 in-flight counters had already shown
+up to `25` compression requests in flight with one copy stream and `50` with
+four streams. The measured `on` runs were warmed with one prior 1M four-job
+coalescing run so the result measured reuse rather than first allocation.
+
+| Jobs | Record | Off Avg | On Avg | Off Dst Buffers | On Dst Buffers | Reuse Hits | Reuse Misses | Alloc MB | Result |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 128K | 836.6 ms | 797.9 ms | 37 | 1 | 1460 | 0 | 0.0 | 4.6% faster |
+| 1 | 256K | 698.3 ms | 699.7 ms | 73 | 1 | 730 | 0 | 0.0 | 0.2% slower |
+| 1 | 1M | 622.1 ms | 658.8 ms | 289 | 1 | 183 | 0 | 0.0 | 5.9% slower |
+| 4 | 128K | 1262.8 ms | 1324.0 ms | 37 | 1 | 5646 | 194 | 27.2 | 4.8% slower |
+| 4 | 256K | 1249.0 ms | 1255.2 ms | 73 | 1 | 2836 | 84 | 23.5 | 0.5% slower |
+| 4 | 1M | 1160.5 ms | 1191.7 ms | 289 | 1 | 707 | 25 | 28.5 | 2.7% slower |
+
+Interpretation:
+
+- Reuse did what it was meant to do: warmed single-job runs had zero destination
+  coalescing allocation bytes and four-job allocation dropped to about
+  `23-29 MiB`, not hundreds of MiB.
+- Reducing allocation did not make destination coalescing a clear performance
+  win. Four-job elapsed time regressed at all tested record sizes.
+- The dominant cost remains QAT completion wait/service time, not destination
+  coalescing allocation.
+- Keep destination coalescing disabled by default and do not prioritize further
+  destination-buffer shaping unless a later async/queueing change makes it
+  relevant again.
 
 ## Earlier Phase 4 Measurements
 

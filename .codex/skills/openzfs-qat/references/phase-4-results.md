@@ -952,6 +952,99 @@ Conclusion:
   knob and possible future throughput/recordsize policy input, but it is not a
   standalone latency fix.
 
+## QAT Destination Coalescing Reuse Follow-Up
+
+Run date: 2026-05-15.
+
+The destination coalescing path now reuses contiguous destination output buffers
+from the QAT DC buffer-slot pool. The reuse slot count was increased from `4`
+to `32` per DC instance to match the observed Phase 4 compression in-flight
+depth. If all reusable slots are busy, the code falls back to per-request
+destination coalescing allocation; if that allocation fails, it falls back to the
+normal fragmented destination plus scratch path.
+
+New QAT DC kstats:
+
+```text
+dc_compress_dst_coalesce_reuse_hits
+dc_compress_dst_coalesce_reuse_misses
+```
+
+Host source backup before installing the destination-coalescing reuse build:
+
+```text
+/root/zfs-2.4.99.pre-dst-coalesce-reuse.20260515T093414Z
+/root/zfs-2.4.99.pre-dst-coalesce-reuse.latest -> /root/zfs-2.4.99.pre-dst-coalesce-reuse.20260515T093414Z
+```
+
+Build and install logs:
+
+```text
+/root/zfs-qat-dst-coalesce-reuse-dkms-build-20260515.log
+/root/zfs-qat-dst-coalesce-reuse-dkms-install-20260515.log
+/root/zfs-qat-dst-coalesce-reuse-initramfs-20260515.log
+/root/zfs-qat-dst-coalesce-reuse-dkms-build-20260515-r2.log
+/root/zfs-qat-dst-coalesce-reuse-dkms-install-20260515-r2.log
+/root/zfs-qat-dst-coalesce-reuse-initramfs-20260515-r2.log
+```
+
+Loaded module after the final DKMS install, `update-initramfs -u -k
+7.0.0-3-pve`, and reboot:
+
+```text
+srcversion: 51222238CFF46E75D24E091
+```
+
+The `/nvme_scratch` pool had been recreated empty. The TIFF test source was
+restored from the lz4-backed copy:
+
+```text
+/nvme_scratch/source/2021-09-05/Scanned Documents/Image.tif
+sha256 dec26817a6c7d6c6193c6db7e740e5d82bf19166a1ebab8f9af75cad80c01d6f
+```
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-dst-coalesce-reuse-smoke-20260515.csv
+/root/zfs-qat-phase4-dst-coalesce-reuse-smoke-r2-20260515.csv
+/root/zfs-qat-phase4-dst-coalesce-reuse-warmup-20260515.csv
+/root/zfs-qat-phase4-dst-coalesce-reuse-off-jobs1-20260515.csv
+/root/zfs-qat-phase4-dst-coalesce-reuse-on-jobs1-20260515.csv
+/root/zfs-qat-phase4-dst-coalesce-reuse-off-jobs4-20260515.csv
+/root/zfs-qat-phase4-dst-coalesce-reuse-on-jobs4-20260515.csv
+```
+
+Summary:
+
+```text
+jobs coalesce record avg_ms MiB_s dst_total_bufs reuse_hit reuse_miss alloc_MB copy_MB dc_fails
+1    off      128K   836.6  218.1 37             0         0          0.0      0.0     0
+1    on       128K   797.9  228.8 1              1460      0          0.0      6.5     0
+1    off      256K   698.3  261.3 73             0         0          0.0      0.0     0
+1    on       256K   699.7  261.6 1              730       0          0.0      6.6     0
+1    off      1M     622.1  293.4 289            0         0          0.0      0.0     0
+1    on       1M     658.8  277.7 1              183       0          0.0      6.7     0
+4    off      128K   1262.8 578.1 37             0         0          0.0      0.0     0
+4    on       128K   1324.0 551.8 1              5646      194        27.2     26.1    0
+4    off      256K   1249.0 584.6 73             0         0          0.0      0.0     0
+4    on       256K   1255.2 581.8 1              2836      84         23.5     26.3    0
+4    off      1M     1160.5 629.7 289            0         0          0.0      0.0     0
+4    on       1M     1191.7 612.5 1              707       25         28.5     26.7    0
+```
+
+Conclusion:
+
+- Increasing reuse slots to `32` per DC instance fixed the first smoke issue
+  where four slots caused many per-request destination coalescing allocations.
+- Warmed single-job runs had zero destination coalescing allocation bytes.
+- Four-job runs still had some misses, but allocation volume was reduced to
+  about `23-29 MiB`.
+- The elapsed result was not a clear win: one-job 128K improved, one-job 256K
+  was flat, one-job 1M regressed, and all four-job records regressed.
+- Keep `zfs_qat_dc_coalesce_dst=0` by default. Destination buffer-list shaping
+  should be parked unless later async or queue-depth work changes the tradeoff.
+
 ## Large-Record Parameter Follow-Up
 
 Run date: 2026-05-13.
