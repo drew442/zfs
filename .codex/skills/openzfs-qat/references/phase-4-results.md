@@ -1244,6 +1244,80 @@ remained faster under four concurrent copy/verify jobs. The 4-job QAT gap was
 about `25-31%` slower by wall-clock latency and `20-24%` lower by aggregate
 throughput.
 
+## Compression Level Matrix Follow-Up
+
+Run date: 2026-05-15.
+
+This follow-up compared QAT compression levels 1 through 4 after destination
+coalescing reuse was installed, with source and destination coalescing disabled.
+The host boot configuration was backed up before the matrix and restored after
+the run:
+
+```text
+/etc/modprobe.d/zfs-qat.conf.pre-level-matrix-20260515
+/root/zfs-qat-level-matrix-restore-initramfs-20260515.log
+```
+
+Raw CSVs:
+
+```text
+/root/zfs-qat-phase4-level1-jobs1-20260515.csv
+/root/zfs-qat-phase4-level1-jobs4-20260515.csv
+/root/zfs-qat-phase4-level2-jobs1-20260515.csv
+/root/zfs-qat-phase4-level2-jobs4-20260515.csv
+/root/zfs-qat-phase4-level3-jobs1-20260515.csv
+/root/zfs-qat-phase4-level3-jobs4-20260515.csv
+/root/zfs-qat-phase4-level4-jobs1-20260515.csv
+/root/zfs-qat-phase4-level4-jobs4-20260515.csv
+```
+
+Module settings for each run:
+
+```text
+zfs_qat_cpa_dc_level=1..4
+zfs_qat_cpa_dc_hufftype=dynamic
+zfs_qat_dc_max_buf_size=1048576
+zfs_qat_dc_coalesce_src=0
+zfs_qat_dc_coalesce_dst=0
+```
+
+Summary:
+
+```text
+jobs record fastest_level fastest_ms fastest_MiB_s level4_ms level1_ratio level4_ratio
+1    128K   3             682.8      267.5         729.8     16.88x       17.11x
+1    256K   1             639.1      286.2         674.3     21.63x       21.89x
+1    1M     3             597.8      305.3         682.4     25.15x       25.47x
+4    128K   1             1208.1     604.3         1273.5    16.92x       17.16x
+4    256K   2             1139.8     640.7         1210.5    21.70x       21.96x
+4    1M     1             1069.6     682.7         1141.7    25.25x       25.56x
+```
+
+Observed QAT compression wait time followed the same general pattern: level 4
+had the highest accumulated wait time in most rows. Single-job 1M averaged
+`1930.8 ms` at level 1 and `2564.1 ms` at level 4; four-job 1M averaged
+`15904.0 ms` at level 1 and `20180.0 ms` at level 4.
+
+All level-matrix CSVs had the expected 90 columns and reported `dc_fails=0`.
+The host was restored to:
+
+```text
+options zfs zfs_qat_compress_disable=0 zfs_qat_checksum_disable=0 zfs_qat_cpa_dc_level=4 zfs_qat_dc_max_buf_size=1048576
+```
+
+Result:
+
+- No single QAT compression level was fastest for all tested cases.
+- Level 4 gave the best ratio, but the ratio gain over level 1 was only about
+  `1.2-1.4%` for the TIFF workload and came with worse elapsed time in the
+  fastest-row comparison.
+- Level 1 is the best current candidate for a performance-biased policy under
+  concurrent work.
+- Level 3 was fastest for single-job 128K and 1M in this run, but it did not
+  hold under four jobs.
+- Keep using the explicit global `zfs_qat_cpa_dc_level` parameter while the
+  performance/ratio policy is still being proven.
+
 ## Follow-Up
 
 - Continue phase 4 with throughput and latency as first-class requirements. Future benchmark output should include throughput, p50/p95/p99/max latency, CPU cost, compression ratio, QAT kstats, and failure counters.

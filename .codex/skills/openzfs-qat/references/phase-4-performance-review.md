@@ -1,6 +1,6 @@
 # Phase 4 Performance Review
 
-Last updated: 2026-05-13.
+Last updated: 2026-05-15.
 
 This is a human-readable review of phase 4 performance work. It summarizes what
 changed and what the measured result was. It intentionally avoids implementation
@@ -40,6 +40,7 @@ Important comparability note:
 - A 4-job concurrency comparison still favored software gzip. QAT used much less CPU, but it was `25-31%` slower by wall-clock latency and `20-24%` lower in aggregate throughput.
 - Larger records now actually use QAT. Before the large-record work, `256 KiB` and `1 MiB` records silently used software fallback.
 - Compression ratio is slightly better with QAT in the latest run, likely because QAT is using level 4.
+- A later level 1-4 matrix showed no single QAT compression level wins every case. Level 4 gives the best ratio, level 1 is generally strongest under four concurrent streams, and level 3 was fastest for single-stream 128K and 1M in that run.
 
 ## Current Latency Diagnosis
 
@@ -96,6 +97,7 @@ service time.
 | Source coalescing | Added `zfs_qat_dc_coalesce_src` and buffer-list shape counters. | Source buffers dropped to 1 per request; 128K/256K improved in this matrix, while 1M regressed. |
 | Destination coalescing | Added `zfs_qat_dc_coalesce_dst` and destination coalescing counters. | Destination plus scratch output list entries dropped to one QAT output buffer; results were small and mixed in single-job testing, with modest gains under four jobs. |
 | Destination coalescing reuse | Reused destination coalescing buffers from the QAT DC buffer-slot pool and increased reuse slots from 4 to 32 per DC instance. | Allocation cost dropped sharply after warmup, but elapsed results were still mixed and four-job runs regressed. |
+| Compression level matrix | Compared `zfs_qat_cpa_dc_level=1..4` with source and destination coalescing disabled. | Level 4 improved ratio slightly but was not the fastest. Level 1 was usually best under four jobs; level 3 was best for single-job 128K and 1M. |
 
 ## Current Fair Comparison
 
@@ -688,6 +690,66 @@ Interpretation:
 - Keep destination coalescing disabled by default and do not prioritize further
   destination-buffer shaping unless a later async/queueing change makes it
   relevant again.
+
+## Compression Level Matrix
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-level1-jobs1-20260515.csv
+/root/zfs-qat-phase4-level1-jobs4-20260515.csv
+/root/zfs-qat-phase4-level2-jobs1-20260515.csv
+/root/zfs-qat-phase4-level2-jobs4-20260515.csv
+/root/zfs-qat-phase4-level3-jobs1-20260515.csv
+/root/zfs-qat-phase4-level3-jobs4-20260515.csv
+/root/zfs-qat-phase4-level4-jobs1-20260515.csv
+/root/zfs-qat-phase4-level4-jobs4-20260515.csv
+```
+
+Test settings:
+
+```text
+zfs_qat_cpa_dc_hufftype=dynamic
+zfs_qat_dc_max_buf_size=1048576
+zfs_qat_dc_coalesce_src=0
+zfs_qat_dc_coalesce_dst=0
+VERIFY_MODE=sw
+ITERS=3
+RECORDS="128K 256K 1M"
+MODES="qat"
+```
+
+Lower elapsed time is better. Higher throughput and ratio are better.
+
+| Jobs | Record | Fastest Level | Fastest Avg | Fastest Throughput | Level 4 Avg | Level 1 Ratio | Level 4 Ratio |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 128K | 3 | 682.8 ms | 267.5 MiB/s | 729.8 ms | 16.88x | 17.11x |
+| 1 | 256K | 1 | 639.1 ms | 286.2 MiB/s | 674.3 ms | 21.63x | 21.89x |
+| 1 | 1M | 3 | 597.8 ms | 305.3 MiB/s | 682.4 ms | 25.15x | 25.47x |
+| 4 | 128K | 1 | 1208.1 ms | 604.3 MiB/s | 1273.5 ms | 16.92x | 17.16x |
+| 4 | 256K | 2 | 1139.8 ms | 640.7 MiB/s | 1210.5 ms | 21.70x | 21.96x |
+| 4 | 1M | 1 | 1069.6 ms | 682.7 MiB/s | 1141.7 ms | 25.25x | 25.56x |
+
+Accumulated QAT compression wait time also increased with higher levels in most
+rows. Examples: single-job 1M averaged `1930.8 ms` at level 1, `2024.8 ms` at
+level 2, `2213.9 ms` at level 3, and `2564.1 ms` at level 4; four-job 1M
+averaged `15904.0 ms`, `16633.7 ms`, `17759.8 ms`, and `20180.0 ms`
+respectively.
+
+Interpretation:
+
+- Level 4 should not be treated as the performance default merely because it
+  gives the best compression ratio.
+- Level 1 is the best candidate for a performance-biased policy because it won
+  two of three four-job cases and had the lowest four-job QAT wait time for
+  128K and 1M.
+- Level 3 may be useful for single-stream latency on this host, but it regressed
+  four-job 256K and 1M relative to levels 1 and 2.
+- The measured ratio gain from level 1 to level 4 was small in this workload:
+  about `1.4%` at 128K, `1.2%` at 256K, and `1.2%` at 1M.
+- Keep the explicit `zfs_qat_cpa_dc_level` knob for now. A future
+  performance/ratio bias can map to proven low-level settings, but should not
+  hide this variability before more workloads are tested.
 
 ## Earlier Phase 4 Measurements
 
