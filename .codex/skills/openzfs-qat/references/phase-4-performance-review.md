@@ -94,6 +94,7 @@ service time.
 | Huffman mode | Added `zfs_qat_cpa_dc_hufftype` and compared dynamic versus static Huffman with software readback. | Static lowered accumulated QAT wait time in some larger-record cases, but elapsed results were mixed and compression ratio dropped. |
 | Compression bound | Used `cpaDcDeflateCompressBound()` to size scratch space and added bound/overflow counters. | Scratch allocation dropped by about 71% with zero overflows; elapsed performance was mixed. |
 | Source coalescing | Added `zfs_qat_dc_coalesce_src` and buffer-list shape counters. | Source buffers dropped to 1 per request; 128K/256K improved in this matrix, while 1M regressed. |
+| Destination coalescing | Added `zfs_qat_dc_coalesce_dst` and destination coalescing counters. | Destination plus scratch output list entries dropped to one QAT output buffer; results were small and mixed in single-job testing, with modest gains under four jobs. |
 
 ## Current Fair Comparison
 
@@ -586,6 +587,56 @@ Interpretation:
 - Source coalescing reliably reduced source buffers to 1 and had zero allocation failures in the tested matrix.
 - The copy/allocation cost is large enough that coalescing is not a universal win.
 - Keep coalescing disabled by default. It is a useful experimental knob for 128K/256K or future bias policies, but 1M should remain non-coalesced unless further work reduces copy cost.
+
+## Destination Coalescing Test
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-dst-coalesce-off-jobs1-r2-20260515.csv
+/root/zfs-qat-phase4-dst-coalesce-on-jobs1-r2-20260515.csv
+/root/zfs-qat-phase4-dst-coalesce-off-jobs4-r2-20260515.csv
+/root/zfs-qat-phase4-dst-coalesce-on-jobs4-r2-20260515.csv
+```
+
+The original `/nvme_scratch` source pool was not imported after the 2026-05-15
+reboot, so this comparison used the lz4-backed copy of the same TIFF file:
+
+```text
+/test-hdd-pool/bench/cpu-lz4/realdata-test/2021-09-05/Scanned Documents/Image.tif
+```
+
+The test added an experimental runtime toggle:
+
+```text
+zfs_qat_dc_coalesce_dst=0
+```
+
+When enabled, QAT compression writes into one contiguous output buffer sized to
+the normal destination plus deflate-bound scratch allowance, then copies the
+successful compressed result back to the ZFS destination buffer. Source
+coalescing remained disabled for this test.
+
+| Jobs | Record | Off Avg | On Avg | Off Dst Total Buffers | On Dst Total Buffers | Alloc MB | Copy MB | Coalesce Cost | Result |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 128K | 893.1 ms | 863.8 ms | 37 | 1 | 205.4 | 6.5 | 29.6 ms | 3.3% faster |
+| 1 | 256K | 755.0 ms | 764.8 ms | 73 | 1 | 205.4 | 6.6 | 29.4 ms | 1.3% slower |
+| 1 | 1M | 732.6 ms | 733.5 ms | 289 | 1 | 205.9 | 6.7 | 65.0 ms | 0.1% slower |
+| 4 | 128K | 1896.0 ms | 1884.1 ms | 37 | 1 | 821.6 | 26.1 | 118.6 ms | 0.6% faster |
+| 4 | 256K | 1825.7 ms | 1776.8 ms | 73 | 1 | 821.4 | 26.3 | 120.6 ms | 2.7% faster |
+| 4 | 1M | 1632.7 ms | 1611.2 ms | 289 | 1 | 823.5 | 26.7 | 269.4 ms | 1.3% faster |
+
+Interpretation:
+
+- Destination coalescing reliably reduced the QAT destination plus scratch list
+  to one output buffer in the tested matrix and had zero allocation failures.
+- The copied compressed output was small, about `6.5-6.7 MiB` for one job and
+  `26-27 MiB` for four jobs, because the TIFF is highly compressible.
+- The allocation and free cost is much larger than the copy-back cost. This
+  cost moves into setup and cleanup, so QAT wait time is not materially reduced.
+- Keep destination coalescing disabled by default. It is a useful experimental
+  knob, especially for concurrent 256K/1M testing, but the gains are still
+  small relative to run-to-run noise and allocation/free cost.
 
 ## Earlier Phase 4 Measurements
 

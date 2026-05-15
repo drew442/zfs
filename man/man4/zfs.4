@@ -2153,6 +2153,15 @@ contiguous QAT input buffer before submission.
 This reduces QAT source buffer-list entries, but adds allocation and copy cost.
 The default is disabled.
 .
+.It Sy zfs_qat_dc_coalesce_dst Ns = Ns Sy 0 Ns | Ns 1 Pq int
+Enable experimental QAT gzip compression destination-buffer coalescing.
+When enabled, the QAT compression path writes into one contiguous QAT output
+buffer and copies the successful compressed result back to the ZFS destination
+buffer.
+This reduces QAT destination buffer-list entries, but adds allocation and copy
+cost.
+The default is disabled.
+.
 .It Sy zfs_qat_dc_max_instances Ns = Ns Sy 48 Pq int
 Maximum number of QAT data-compression instances to use.
 The effective instance count is the smaller of this value and the number of

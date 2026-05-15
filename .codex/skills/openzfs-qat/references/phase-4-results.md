@@ -848,6 +848,110 @@ Conclusion:
   tuning knob and possible input to future bias policy, but not a universal
   default.
 
+## QAT Destination Coalescing Follow-Up
+
+Run date: 2026-05-15.
+
+The repo now exposes:
+
+```text
+zfs_qat_dc_coalesce_dst=0
+```
+
+The default is disabled. When enabled, the QAT compression path writes to one
+contiguous output buffer sized to `dst_len + add_len`, where `add_len` is the
+deflate-bound scratch allowance. On successful compression, only the compressed
+result is copied back to the original ZFS destination buffer. Source coalescing
+was disabled during this comparison.
+
+New QAT DC kstats:
+
+```text
+dc_compress_dst_coalesce_requests
+dc_compress_dst_coalesce_success
+dc_compress_dst_coalesce_fails
+dc_compress_dst_coalesce_alloc_bytes
+dc_compress_dst_coalesce_copy_bytes
+dc_compress_dst_coalesce_alloc_ns
+dc_compress_dst_coalesce_copy_ns
+dc_compress_dst_coalesce_free_ns
+```
+
+Host source backup before installing the destination-coalescing build:
+
+```text
+/root/zfs-2.4.99.pre-dst-coalesce.20260515T060859Z
+/root/zfs-2.4.99.pre-dst-coalesce.latest -> /root/zfs-2.4.99.pre-dst-coalesce.20260515T060859Z
+```
+
+Build and install logs:
+
+```text
+/root/zfs-qat-dst-coalesce-dkms-build-20260515.log
+/root/zfs-qat-dst-coalesce-dkms-install-20260515.log
+/root/zfs-qat-dst-coalesce-initramfs-20260515.log
+/root/zfs-qat-dst-coalesce-dkms-build-20260515-r2.log
+/root/zfs-qat-dst-coalesce-dkms-install-20260515-r2.log
+/root/zfs-qat-dst-coalesce-initramfs-20260515-r2.log
+```
+
+Loaded module after the final DKMS install, `update-initramfs -u -k
+7.0.0-3-pve`, and reboot:
+
+```text
+srcversion: 536449095ADB8E51B622004
+```
+
+The original `/nvme_scratch` source pool was not imported after the reboot, so
+this pass used the lz4-backed copy of the same TIFF source file:
+
+```text
+/test-hdd-pool/bench/cpu-lz4/realdata-test/2021-09-05/Scanned Documents/Image.tif
+```
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-dst-coalesce-smoke-lz4src-20260515.csv
+/root/zfs-qat-phase4-dst-coalesce-smoke-lz4src-20260515.csv
+/root/zfs-qat-phase4-dst-coalesce-off-jobs1-r2-20260515.csv
+/root/zfs-qat-phase4-dst-coalesce-on-jobs1-r2-20260515.csv
+/root/zfs-qat-phase4-dst-coalesce-off-jobs4-r2-20260515.csv
+/root/zfs-qat-phase4-dst-coalesce-on-jobs4-r2-20260515.csv
+```
+
+Summary:
+
+```text
+jobs coalesce record avg_ms MiB_s dst_total_bufs alloc_MB copy_MB coalesce_ms dc_fails
+1    off      128K   893.1  205.8 37             0.0      0.0     0.0         0
+1    on       128K   863.8  211.4 1              205.4    6.5     29.6        0
+1    off      256K   755.0  241.7 73             0.0      0.0     0.0         0
+1    on       256K   764.8  239.3 1              205.4    6.6     29.4        0
+1    off      1M     732.6  249.4 289            0.0      0.0     0.0         0
+1    on       1M     733.5  249.1 1              205.9    6.7     65.0        0
+4    off      128K   1896.0 385.4 37             0.0      0.0     0.0         0
+4    on       128K   1884.1 387.4 1              821.6    26.1    118.6       0
+4    off      256K   1825.7 399.8 73             0.0      0.0     0.0         0
+4    on       256K   1776.8 410.8 1              821.4    26.3    120.6       0
+4    off      1M     1632.7 447.6 289            0.0      0.0     0.0         0
+4    on       1M     1611.2 453.2 1              823.5    26.7    269.4       0
+```
+
+Conclusion:
+
+- Destination coalescing reduced QAT compression destination plus scratch
+  output buffers from `37/73/289` to `1` for `128K/256K/1M`.
+- Destination coalescing had zero allocation failures in the tested matrix.
+- The copied compressed output was small because the TIFF source compresses
+  well, but allocation and free time were material.
+- Single-job results were mixed: 128K improved, while 256K and 1M were
+  effectively flat to slightly slower. Four-job results improved modestly at all
+  tested record sizes.
+- Keep `zfs_qat_dc_coalesce_dst=0` by default. It is useful as an experimental
+  knob and possible future throughput/recordsize policy input, but it is not a
+  standalone latency fix.
+
 ## Large-Record Parameter Follow-Up
 
 Run date: 2026-05-13.
