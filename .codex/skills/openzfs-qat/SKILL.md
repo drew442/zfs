@@ -122,6 +122,86 @@ For roadmap, phase planning, or deciding what work should come next, read:
 
 Use `references/phase-0-1-results.md`, `references/phase-2-3-results.md`, `references/phase-4-results.md`, and `references/phase-4-performance-review.md` as detailed evidence, not as mandatory startup context for every task.
 
+## Sub-Agent Delegation Policy
+
+Use Codex sub-agents to reduce noise, isolate high-volume mechanical work, and run independent sidecar tasks in parallel. Do not use delegation to replace the lead QAT expert's judgment.
+
+The lead QAT agent owns:
+
+- Design conclusions and final recommendations.
+- Host-operation plans and safety decisions.
+- QAT threshold/default decisions.
+- Fallback policy and correctness tradeoffs.
+- Worker, memory, scheduling, and allocation architecture.
+- Benchmark design and performance interpretation.
+- Updates to durable project memory.
+
+### When to spawn a sub-agent
+
+Spawn a sub-agent only for concrete, bounded work that can run independently or in parallel with non-overlapping lead-agent work. Good sub-agent tasks include:
+
+- Source search and code-path inventory.
+- Parsing benchmark CSVs and producing compact summary tables.
+- Summarizing command output or logs.
+- Checking whether expected kstats, module parameters, files, or counters changed.
+- Running explicitly provided read-only or low-risk validation commands.
+- Mechanical documentation updates from already-decided behavior.
+- Mechanical refactors with a clear, disjoint write set.
+- Independent verification of a narrow hypothesis after the lead agent defines the question.
+
+Do not delegate urgent blocking work when the lead agent's next step depends on the result. Do not duplicate work between the lead and sub-agent.
+
+### What not to delegate
+
+Do not let a sub-agent make final decisions about:
+
+- Whether QAT is worthwhile for a workload.
+- QAT offload thresholds, compression-level policy, or default tunables.
+- Whether a previously disproven optimization should be revived.
+- Fallback behavior, data safety, or correctness policy.
+- Host boot/module/service ordering changes.
+- ZIO worker, memory allocation, concurrency, or scheduling architecture.
+- Final performance conclusions.
+
+A sub-agent may collect evidence for these topics, but the lead QAT agent must interpret and decide.
+
+### Context and model selection for sub-agents
+
+By default, spawned agents inherit the lead agent's model and settings. Keep that default for QAT-specific or QAT-adjacent tasks where expert reasoning is required.
+
+Use a lower-cost model or lower reasoning effort only when all of the following are true:
+
+- The task is mechanical, bounded, and evidence-gathering rather than decision-making.
+- The requested output is compact and structured.
+- The task does not require prior benchmark conclusions beyond a short brief supplied by the lead agent.
+- The sub-agent will not make safety, architecture, performance, or fallback-policy decisions.
+
+When using a lower-cost model or lower reasoning effort, include a short task brief with:
+
+- The exact files, commands, or artifacts to inspect.
+- The expected output format.
+- The relevant project constraints needed for the task.
+- A clear instruction not to make final architectural or performance recommendations.
+
+Prefer limited context for sub-agents. Use no forked history or a small recent-turn fork for mechanical tasks when possible. Fork full context only when the worker genuinely needs the same project state as the lead agent.
+
+### Required sub-agent output shape
+
+Ask sub-agents to return compact, evidence-focused results:
+
+```text
+Task performed:
+Inputs inspected:
+Commands run, if any:
+Files changed, if any:
+Key findings:
+Errors or anomalies:
+Confidence / limitations:
+Recommended lead-agent follow-up:
+```
+
+The lead agent must review sub-agent output before changing QAT code, host state, benchmark interpretation, or project memory.
+
 ## Token Discipline
 
 - Prefer targeted inspection over loading full reference files.
@@ -129,6 +209,7 @@ Use `references/phase-0-1-results.md`, `references/phase-2-3-results.md`, `refer
 - Use `rg`, narrow file ranges, and specific section reads before opening large files in full.
 - Preserve long-form benchmark/history documents, but consult them whenever they are decision-relevant.
 - When QAT-adjacent work depends on prior performance conclusions, load the relevant performance/history context rather than guessing from generic OpenZFS knowledge.
+- Use sub-agents for bounded sidecar work only when it reduces noise or wall-clock time without weakening expert continuity.
 - When adding new project memory, prefer compact, decision-preserving summaries over duplicating raw logs or CSVs.
 - Do not paste long benchmark CSVs, full command transcripts, or large diffs into discussion unless needed for the task.
 - Never reduce context so far that the agent loses project continuity, host safety awareness, or prior benchmark conclusions.
@@ -145,17 +226,18 @@ Use `references/phase-0-1-results.md`, `references/phase-2-3-results.md`, `refer
    - Project sequencing or documentation
 2. When classification is ambiguous, choose QAT-adjacent rather than generic.
 3. Load the smallest reference set that preserves expert continuity for that task, following the Context Loading Policy.
-4. Confirm which layer the task touches before editing:
+4. Decide whether any bounded sidecar work should be delegated to a sub-agent. Keep judgment-heavy and safety-sensitive work with the lead QAT agent.
+5. Confirm which layer the task touches before editing:
    - Build integration and static configuration
    - Runtime tunables and initialization
    - Compression, checksum, or encryption call sites
    - QAT-adjacent worker, memory, scheduling, or allocation paths
    - Documentation or validation workflow
-5. Preserve software fallback behavior unless the task explicitly changes policy. Current QAT paths generally attempt acceleration first and then fall back to software on failure.
-6. Treat usability and performance separately:
+6. Preserve software fallback behavior unless the task explicitly changes policy. Current QAT paths generally attempt acceleration first and then fall back to software on failure.
+7. Treat usability and performance separately:
    - Usability work usually means clearer build flags, safer defaults, less surprising runtime behavior, or better observability.
    - Performance work usually means thresholding, allocation strategy, instance selection, avoiding unnecessary copies, or reducing failed offload attempts.
-7. For phase 4 benchmark runs, prefer `scripts/qat-phase4-benchmark.sh` so throughput, latency summaries, CPU cost, QAT kstats, module settings, and correctness checks are captured consistently.
+8. For phase 4 benchmark runs, prefer `scripts/qat-phase4-benchmark.sh` so throughput, latency summaries, CPU cost, QAT kstats, module settings, and correctness checks are captured consistently.
 
 ## Review Focus
 
