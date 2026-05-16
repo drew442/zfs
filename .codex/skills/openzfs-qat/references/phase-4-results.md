@@ -1385,3 +1385,34 @@ Result:
 - Keep explicit low-level parameters for benchmarking first. Bias parameters should later set coherent defaults across those low-level knobs; they should not be added as no-op labels before the policies are proven.
 - Move the next implementation spike toward async/queueing rather than additional small allocation or buffer-shape tuning. See `phase-4-async-queue-spike.md` for the first-pass design.
 - Park NUMA performance tuning until a true multi-socket QAT 1.x host is available.
+
+## Async QAT Write-Compression Smoke
+
+Run date: 2026-05-16.
+
+The first callback-driven async QAT gzip write-compression pass was built,
+installed, booted, and smoke-tested on `pve.drewnet.online`. The feature remains
+disabled by default behind `zfs_qat_dc_async=0`.
+
+Raw CSVs:
+
+```text
+/root/zfs-qat-phase4-async-off-smoke-r2-20260516.csv
+/root/zfs-qat-phase4-async-on-smoke-r2-20260516.csv
+```
+
+Summary:
+
+```text
+mode async record jobs elapsed_ms MiB_s  ratio  dc_fails async_submits submit_fails completions fallbacks verify
+qat  0     128K   1    908.370    200.89 17.11x 0        0             0            0           0         yes
+qat  1     128K   1    718.856    253.85 17.03x 0        1460          529          931         529       yes
+```
+
+Result:
+
+- Async-on was `20.9%` faster than async-off for this smoke row.
+- The async path completed and resumed ZIOs from QAT callbacks.
+- Verification passed and all pools remained healthy.
+- Submit failures are still high and currently fall back to software gzip.
+- This is a smoke result only; the full phase 4 matrix is still required.

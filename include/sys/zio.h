@@ -545,6 +545,7 @@ struct zio {
 	uint64_t	*io_stall;
 	zio_t		*io_gang_leader;
 	zio_gang_node_t	*io_gang_tree;
+	void		*io_qat_dc_async;
 	void		*io_executor;
 	void		*io_waiter;
 	void		*io_bio;

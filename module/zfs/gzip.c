@@ -49,16 +49,34 @@ typedef uLongf zlen_t;
 #endif
 
 static size_t
+zfs_gzip_compress_software_buf(void *s_start, void *d_start, size_t s_len,
+    size_t d_len, int n)
+{
+	zlen_t dstlen = d_len;
+
+	if (compress_func(d_start, &dstlen, s_start, s_len, n) != Z_OK) {
+		if (d_len != s_len)
+			return (s_len);
+
+		memcpy(d_start, s_start, s_len);
+		return (s_len);
+	}
+
+	return ((size_t)dstlen);
+}
+
+static size_t
 zfs_gzip_compress_buf(void *s_start, void *d_start, size_t s_len,
     size_t d_len, int n)
 {
 	int ret;
-	zlen_t dstlen = d_len;
 
 	ASSERT(d_len <= s_len);
 
 	/* check if hardware accelerator can be used */
 	if (qat_dc_compress_use_accel(s_len)) {
+		zlen_t dstlen = d_len;
+
 		ret = qat_compress(QAT_COMPRESS, s_start, s_len, d_start,
 		    d_len, &dstlen);
 		if (ret == CPA_STATUS_SUCCESS) {
@@ -73,15 +91,8 @@ zfs_gzip_compress_buf(void *s_start, void *d_start, size_t s_len,
 		/* if hardware compression fails, do it again with software */
 	}
 
-	if (compress_func(d_start, &dstlen, s_start, s_len, n) != Z_OK) {
-		if (d_len != s_len)
-			return (s_len);
-
-		memcpy(d_start, s_start, s_len);
-		return (s_len);
-	}
-
-	return ((size_t)dstlen);
+	return (zfs_gzip_compress_software_buf(s_start, d_start, s_len, d_len,
+	    n));
 }
 
 static int
@@ -108,4 +119,5 @@ zfs_gzip_decompress_buf(void *s_start, void *d_start, size_t s_len,
 }
 
 ZFS_COMPRESS_WRAP_DECL(zfs_gzip_compress)
+ZFS_COMPRESS_WRAP_DECL(zfs_gzip_compress_software)
 ZFS_DECOMPRESS_WRAP_DECL(zfs_gzip_decompress)

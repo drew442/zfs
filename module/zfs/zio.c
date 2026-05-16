@@ -49,6 +49,7 @@
 #include <sys/zfeature.h>
 #include <sys/dsl_scan.h>
 #include <sys/metaslab_impl.h>
+#include <sys/qat.h>
 #include <sys/time.h>
 #include <sys/trace_zfs.h>
 #include <sys/abd.h>
@@ -1038,6 +1039,7 @@ zio_create(zio_t *pio, spa_t *spa, uint64_t txg, const blkptr_t *bp,
 void
 zio_destroy(zio_t *zio)
 {
+	ASSERT0P(zio->io_qat_dc_async);
 	metaslab_trace_fini(&zio->io_alloc_list);
 	list_destroy(&zio->io_parent_list);
 	list_destroy(&zio->io_child_list);
@@ -1792,6 +1794,117 @@ zio_get_compression_max_size(enum zio_compress compress, uint64_t gcd_alloc,
 	return (d_len);
 }
 
+typedef enum zio_qat_dc_async_result {
+	ZIO_QAT_DC_ASYNC_NOT_USED = 0,
+	ZIO_QAT_DC_ASYNC_SUSPEND,
+	ZIO_QAT_DC_ASYNC_FALLBACK,
+	ZIO_QAT_DC_ASYNC_DONE,
+} zio_qat_dc_async_result_t;
+
+typedef struct zio_qat_dc_async_state {
+	qat_dc_async_t *req;
+	abd_t *cabd;
+	void *s_buf;
+	void *d_buf;
+	size_t s_len;
+	size_t d_len;
+} zio_qat_dc_async_state_t;
+
+static boolean_t
+zio_qat_dc_async_gzip(enum zio_compress compress)
+{
+	return (compress >= ZIO_COMPRESS_GZIP_1 &&
+	    compress <= ZIO_COMPRESS_GZIP_9);
+}
+
+static void
+zio_qat_dc_async_resume(void *arg)
+{
+	zio_interrupt(arg);
+}
+
+static size_t
+zio_qat_dc_async_gzip_software(enum zio_compress compress, abd_t *src,
+    abd_t **dst, size_t s_len, size_t d_len)
+{
+	size_t c_len;
+	int level = zio_compress_table[compress].ci_level;
+
+	if (*dst == NULL)
+		*dst = abd_alloc_sametype(src, s_len);
+
+	c_len = zfs_gzip_compress_software(src, *dst, s_len, d_len, level);
+	if (c_len > d_len)
+		return (s_len);
+
+	return (c_len);
+}
+
+static zio_qat_dc_async_result_t
+zio_qat_dc_async_write(zio_t *zio, enum zio_compress compress, uint64_t lsize,
+    uint64_t d_len, uint64_t *psizep, abd_t **cabdp)
+{
+	zio_qat_dc_async_state_t *state = zio->io_qat_dc_async;
+	size_t c_len = 0;
+	int ret;
+
+	if (state != NULL) {
+		if (!qat_dc_compress_async_complete(state->req)) {
+			zio->io_stage = ZIO_STAGE_ISSUE_ASYNC;
+			return (ZIO_QAT_DC_ASYNC_SUSPEND);
+		}
+
+		ret = qat_dc_compress_async_finish(state->req, &c_len);
+		abd_return_buf(zio->io_abd, state->s_buf, state->s_len);
+		abd_return_buf_copy(state->cabd, state->d_buf, state->d_len);
+		zio->io_qat_dc_async = NULL;
+
+		if (ret == CPA_STATUS_SUCCESS) {
+			*cabdp = state->cabd;
+			*psizep = c_len;
+			kmem_free(state, sizeof (*state));
+			return (ZIO_QAT_DC_ASYNC_DONE);
+		}
+
+		abd_free(state->cabd);
+		kmem_free(state, sizeof (*state));
+
+		if (ret == CPA_STATUS_INCOMPRESSIBLE) {
+			*psizep = lsize;
+			return (ZIO_QAT_DC_ASYNC_DONE);
+		}
+
+		return (ZIO_QAT_DC_ASYNC_FALLBACK);
+	}
+
+	if (!qat_dc_compress_async_enabled() ||
+	    !zio_qat_dc_async_gzip(compress) ||
+	    lsize > INT_MAX || d_len > INT_MAX ||
+	    !qat_dc_compress_use_accel(lsize))
+		return (ZIO_QAT_DC_ASYNC_NOT_USED);
+
+	state = kmem_zalloc(sizeof (*state), KM_SLEEP);
+	state->s_len = lsize;
+	state->d_len = d_len;
+	state->cabd = abd_alloc_sametype(zio->io_abd, lsize);
+	state->s_buf = abd_borrow_buf_copy(zio->io_abd, lsize);
+	state->d_buf = abd_borrow_buf(state->cabd, d_len);
+	state->req = qat_dc_compress_async_submit(state->s_buf, state->s_len,
+	    state->d_buf, state->d_len, zio_qat_dc_async_resume, zio);
+	if (state->req == NULL) {
+		abd_return_buf(zio->io_abd, state->s_buf, state->s_len);
+		abd_return_buf_copy(state->cabd, state->d_buf, state->d_len);
+		abd_free(state->cabd);
+		kmem_free(state, sizeof (*state));
+		return (ZIO_QAT_DC_ASYNC_FALLBACK);
+	}
+
+	zio->io_qat_dc_async = state;
+	zio->io_stage = ZIO_STAGE_ISSUE_ASYNC;
+	qat_dc_compress_async_arm(state->req);
+	return (ZIO_QAT_DC_ASYNC_SUSPEND);
+}
+
 /*
  * ==========================================================================
  * Prepare to read and write logical blocks
@@ -1967,16 +2080,46 @@ zio_write_compress(zio_t *zio)
 	if (compress != ZIO_COMPRESS_OFF &&
 	    !(zio->io_flags & ZIO_FLAG_RAW_COMPRESS)) {
 		abd_t *cabd = NULL;
-		if (abd_cmp_zero(zio->io_abd, lsize) == 0)
+		uint64_t d_len;
+		zio_qat_dc_async_result_t qat_async;
+
+		if (zio->io_qat_dc_async != NULL) {
+			qat_async = zio_qat_dc_async_write(zio, compress,
+			    lsize, 0, &psize, &cabd);
+			if (qat_async == ZIO_QAT_DC_ASYNC_SUSPEND)
+				return (NULL);
+			if (qat_async == ZIO_QAT_DC_ASYNC_FALLBACK) {
+				d_len = zio_get_compression_max_size(compress,
+				    spa->spa_gcd_alloc, spa->spa_min_alloc,
+				    lsize);
+				psize = zio_qat_dc_async_gzip_software(compress,
+				    zio->io_abd, &cabd, lsize, d_len);
+			} else if (qat_async == ZIO_QAT_DC_ASYNC_NOT_USED) {
+				d_len = zio_get_compression_max_size(compress,
+				    spa->spa_gcd_alloc, spa->spa_min_alloc,
+				    lsize);
+				psize = zio_compress_data(compress, zio->io_abd,
+				    &cabd, lsize, d_len, zp->zp_complevel);
+			}
+		} else if (abd_cmp_zero(zio->io_abd, lsize) == 0) {
 			psize = 0;
-		else if (compress == ZIO_COMPRESS_EMPTY)
+		} else if (compress == ZIO_COMPRESS_EMPTY) {
 			psize = lsize;
-		else
-			psize = zio_compress_data(compress, zio->io_abd, &cabd,
-			    lsize,
-			    zio_get_compression_max_size(compress,
-			    spa->spa_gcd_alloc, spa->spa_min_alloc, lsize),
-			    zp->zp_complevel);
+		} else {
+			d_len = zio_get_compression_max_size(compress,
+			    spa->spa_gcd_alloc, spa->spa_min_alloc, lsize);
+			qat_async = zio_qat_dc_async_write(zio, compress,
+			    lsize, d_len, &psize, &cabd);
+			if (qat_async == ZIO_QAT_DC_ASYNC_SUSPEND)
+				return (NULL);
+			if (qat_async == ZIO_QAT_DC_ASYNC_FALLBACK) {
+				psize = zio_qat_dc_async_gzip_software(compress,
+				    zio->io_abd, &cabd, lsize, d_len);
+			} else if (qat_async == ZIO_QAT_DC_ASYNC_NOT_USED) {
+				psize = zio_compress_data(compress, zio->io_abd,
+				    &cabd, lsize, d_len, zp->zp_complevel);
+			}
+		}
 		if (psize == 0) {
 			compress = ZIO_COMPRESS_OFF;
 		} else if (psize >= lsize) {

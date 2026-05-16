@@ -278,3 +278,69 @@ Compare against the current best-case level 1 result:
 Proceed with Slice 1 and Slice 2 only as the first implementation pass. Do not
 attempt to switch defaults or remove the synchronous path until async smoke and
 benchmark evidence show a real benefit.
+
+## Initial Implementation Smoke
+
+Run date: 2026-05-16.
+
+The first implementation pass added an opt-in callback-driven QAT gzip write
+compression path behind:
+
+```text
+zfs_qat_dc_async=0
+```
+
+Default behavior remains synchronous. Async is only eligible when gzip
+compression is selected, QAT compression acceleration is enabled, and both
+experimental source and destination coalescing are disabled. Async QAT failures
+force software gzip fallback rather than re-entering synchronous QAT gzip.
+
+Validation host:
+
+```text
+pve.drewnet.online
+kernel: 7.0.0-3-pve
+zfs srcversion: 8A5AE0428912589FC23A222
+```
+
+Smoke CSVs:
+
+```text
+/root/zfs-qat-phase4-async-off-smoke-r2-20260516.csv
+/root/zfs-qat-phase4-async-on-smoke-r2-20260516.csv
+```
+
+Smoke settings:
+
+```text
+VERIFY_MODE=sw
+ITERS=1
+JOBS=1
+RECORDS=128K
+MODES=qat
+zfs_qat_cpa_dc_level=4
+zfs_qat_dc_max_buf_size=1048576
+zfs_qat_dc_coalesce_src=0
+zfs_qat_dc_coalesce_dst=0
+```
+
+Smoke result:
+
+```text
+mode       async elapsed_ms MiB_s  ratio  dc_fails async_submits submit_fails completions fallbacks verify
+qat        0     908.370    200.89 17.11x 0        0             0            0           0         yes
+qat        1     718.856    253.85 17.03x 0        1460          529          931         529       yes
+```
+
+Result:
+
+- The default-off path still loads with `zfs_qat_dc_async=0`.
+- The async path resumed ZIOs from QAT callbacks: `dc_compress_async_completions=931` and `dc_compress_async_resumes=931`.
+- The async smoke was `20.9%` faster by elapsed time than the default-off smoke for this single 128K row.
+- Correctness passed with software read verification and `zpool status -x` remained healthy.
+- Async submit failures were high (`529 / 1460` submits), but each failure fell back to software gzip without `dc_fails` or data mismatch.
+- The host was restored to `zfs_qat_dc_async=0` after the smoke.
+
+Next work should tune async submit pressure and run the full 128K/256K/1M,
+jobs 1/jobs 4 matrix before treating the async path as a proven performance
+direction.

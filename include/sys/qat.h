@@ -33,6 +33,7 @@ typedef enum qat_encrypt_dir {
 	QAT_ENCRYPT = 1,
 } qat_encrypt_dir_t;
 
+typedef struct qat_dc_async qat_dc_async_t;
 
 #if defined(_KERNEL) && defined(HAVE_QAT)
 #include <sys/zio.h>
@@ -179,6 +180,15 @@ typedef struct qat_stats {
 	kstat_named_t dc_compress_inflight_max;
 	kstat_named_t dc_decompress_inflight;
 	kstat_named_t dc_decompress_inflight_max;
+	/*
+	 * Experimental async QAT compression counters.
+	 */
+	kstat_named_t dc_compress_async_submits;
+	kstat_named_t dc_compress_async_submit_fails;
+	kstat_named_t dc_compress_async_completions;
+	kstat_named_t dc_compress_async_resumes;
+	kstat_named_t dc_compress_async_fallbacks;
+	kstat_named_t dc_compress_async_cancels;
 
 	/*
 	 * Number of jobs submitted to QAT encryption engine.
@@ -252,6 +262,7 @@ extern int zfs_qat_dc_max_buf_size;
 extern int zfs_qat_dc_max_instances;
 extern int zfs_qat_dc_coalesce_src;
 extern int zfs_qat_dc_coalesce_dst;
+extern int zfs_qat_dc_async;
 extern int zfs_qat_checksum_disable;
 extern int zfs_qat_encrypt_disable;
 extern int zfs_qat_cy_max_instances;
@@ -289,6 +300,13 @@ extern boolean_t qat_crypt_use_accel(size_t s_len);
 extern boolean_t qat_checksum_use_accel(size_t s_len);
 extern int qat_compress(qat_compress_dir_t dir, char *src, int src_len,
     char *dst, int dst_len, size_t *c_len);
+extern boolean_t qat_dc_compress_async_enabled(void);
+extern qat_dc_async_t *qat_dc_compress_async_submit(char *src, int src_len,
+    char *dst, int dst_len, void (*resume)(void *), void *resume_arg);
+extern void qat_dc_compress_async_arm(qat_dc_async_t *req);
+extern boolean_t qat_dc_compress_async_complete(qat_dc_async_t *req);
+extern int qat_dc_compress_async_finish(qat_dc_async_t *req, size_t *c_len);
+extern void qat_dc_compress_async_cancel(qat_dc_async_t *req);
 extern int qat_crypt(qat_encrypt_dir_t dir, uint8_t *src_buf, uint8_t *dst_buf,
     uint8_t *aad_buf, uint32_t aad_len, uint8_t *iv_buf, uint8_t *digest_buf,
     crypto_key_t *key, uint64_t crypt, uint32_t enc_len);
@@ -296,6 +314,7 @@ extern int qat_checksum(uint64_t cksum, uint8_t *buf, uint64_t size,
     zio_cksum_t *zcp);
 #else
 #define	CPA_STATUS_SUCCESS			0
+#define	CPA_STATUS_FAIL			(-1)
 #define	CPA_STATUS_INCOMPRESSIBLE		(-127)
 #define	qat_init()
 #define	qat_fini()
@@ -306,6 +325,19 @@ extern int qat_checksum(uint64_t cksum, uint8_t *buf, uint64_t size,
 #define	qat_compress(dir, s, sl, d, dl, cl)			\
 	((void) sizeof (dir), (void) sizeof (s), (void) sizeof (sl), \
 	    (void) sizeof (d), (void) sizeof (dl), (void) sizeof (cl), 0)
+#define	qat_dc_compress_async_enabled()				(0)
+#define	qat_dc_compress_async_submit(s, sl, d, dl, r, a)	\
+	((void) sizeof (s), (void) sizeof (sl), (void) sizeof (d), \
+	    (void) sizeof (dl), (void) sizeof (r), (void) sizeof (a), \
+	    (qat_dc_async_t *)NULL)
+#define	qat_dc_compress_async_arm(req)				\
+	((void) sizeof (req))
+#define	qat_dc_compress_async_complete(req)			\
+	((void) sizeof (req), 0)
+#define	qat_dc_compress_async_finish(req, c_len)			\
+	((void) sizeof (req), (void) sizeof (c_len), CPA_STATUS_FAIL)
+#define	qat_dc_compress_async_cancel(req)			\
+	((void) sizeof (req))
 #define	qat_crypt(dir, s, d, a, al, i, db, k, c, el)		\
 	((void) sizeof (dir), (void) sizeof (s), (void) sizeof (d), \
 	    (void) sizeof (a),  (void) sizeof (al), (void) sizeof (i), \

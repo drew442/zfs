@@ -161,6 +161,8 @@ extern int zfs_lzjb_decompress(abd_t *src, abd_t *dst, size_t s_len,
     size_t d_len, int level);
 extern size_t zfs_gzip_compress(abd_t *src, abd_t *dst, size_t s_len,
     size_t d_len, int level);
+extern size_t zfs_gzip_compress_software(abd_t *src, abd_t *dst, size_t s_len,
+    size_t d_len, int level);
 extern int zfs_gzip_decompress(abd_t *src, abd_t *dst, size_t s_len,
     size_t d_len, int level);
 extern size_t zfs_zle_compress(abd_t *src, abd_t *dst, size_t s_len,
