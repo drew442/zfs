@@ -194,6 +194,9 @@ typedef struct qat_stats {
 	kstat_named_t dc_compress_async_fail_retry;
 	kstat_named_t dc_compress_async_fail_resource;
 	kstat_named_t dc_compress_async_fail_other;
+	kstat_named_t dc_compress_async_inflight;
+	kstat_named_t dc_compress_async_inflight_max;
+	kstat_named_t dc_compress_async_cap_skips;
 
 	/*
 	 * Number of jobs submitted to QAT encryption engine.
@@ -270,6 +273,7 @@ extern int zfs_qat_dc_coalesce_dst;
 extern int zfs_qat_dc_async;
 extern int zfs_qat_dc_async_submit_retries;
 extern int zfs_qat_dc_async_retry_us;
+extern int zfs_qat_dc_async_max_inflight;
 extern int zfs_qat_checksum_disable;
 extern int zfs_qat_encrypt_disable;
 extern int zfs_qat_cy_max_instances;

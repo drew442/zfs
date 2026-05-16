@@ -1477,3 +1477,76 @@ Result:
 - Async QAT now beats software in the one-iteration concurrent 128K and 256K rows.
 - Software still wins single-job rows and the concurrent 1M row.
 - The remaining fallback count is high for concurrent small records, so retry/backoff alone is not enough. The next target should control async submit pressure rather than simply increasing retry count.
+
+## Async In-Flight Cap Tuning
+
+Run date: 2026-05-16.
+
+The next async pass added:
+
+```text
+zfs_qat_dc_async_max_inflight=96
+```
+
+This cap limits the number of active async QAT compression requests. When the
+cap is reached, ZFS skips async QAT for that block and falls back to software
+gzip without first building and submitting a QAT request. The default remains
+`zfs_qat_dc_async=0`, so this only affects explicitly enabled async testing.
+
+Raw CSVs:
+
+```text
+/root/zfs-qat-phase4-async-cap32-jobs4-20260516.csv
+/root/zfs-qat-phase4-async-cap64-jobs4-20260516.csv
+/root/zfs-qat-phase4-async-cap96-jobs4-20260516.csv
+/root/zfs-qat-phase4-async-cap128-jobs4-20260516.csv
+/root/zfs-qat-phase4-async-cap192-jobs4-20260516.csv
+/root/zfs-qat-phase4-async-cap256-jobs4-20260516.csv
+/root/zfs-qat-phase4-async-cap512-jobs4-20260516.csv
+/root/zfs-qat-phase4-async-cap96-jobs1-compare-20260516.csv
+/root/zfs-qat-phase4-async-cap96-jobs4-compare-20260516.csv
+```
+
+Jobs=4 cap sweep:
+
+```text
+cap record async_ms MiB_s  async_submits completions cap_skips submit_fails verify
+32  128K   1033.719 706.12 5840          1335        4505      0            yes
+32  256K   964.506  756.79 2920          687         2233      0            yes
+64  128K   1063.828 686.13 5840          1535        4305      0            yes
+64  256K   936.620  779.32 2920          759         2161      0            yes
+96  128K   1056.668 690.78 5840          1402        4438      0            yes
+96  256K   924.537  789.51 2920          687         2233      0            yes
+192 128K   1072.564 680.54 5840          1697        4143      0            yes
+192 256K   972.536  750.54 2920          777         2143      0            yes
+256 128K   1040.878 701.26 5840          1831        4009      0            yes
+256 256K   954.047  765.09 2920          825         2095      0            yes
+512 128K   1096.017 665.98 5840          1935        3727      178          yes
+512 256K   982.047  743.27 2920          1082        1680      158          yes
+```
+
+Cap `96` was the best balanced choice in this pass: it produced the fastest
+256K jobs=4 result and kept 128K jobs=4 clearly ahead of software while avoiding
+QAT submit failures.
+
+One-iteration cap-96 comparison:
+
+```text
+jobs record async_ms sw_ms   async_vs_sw async_MiB_s sw_MiB_s verify
+1    128K   753.630  692.052 +8.9%       242.14      263.68   yes
+1    256K   682.103  601.603 +13.4%      267.53      303.33   yes
+1    1M     599.406  573.096 +4.6%       304.44      318.41   yes
+4    128K   1073.745 1172.390 -8.4%      679.80      622.60   yes
+4    256K   927.778  956.636  -3.0%      786.75      763.01   yes
+4    1M     876.489  892.719  -1.8%      832.79      817.65   yes
+```
+
+Result:
+
+- Admission control is better than retry-only pressure handling.
+- Cap `96` avoids QAT submit failures in the measured jobs=4 cap sweep.
+- Async QAT with cap `96` beats software in this one-iteration jobs=4 matrix.
+- Software still wins jobs=1, so async should not become a blanket policy.
+- The next target should be policy selection: use async only when concurrency
+  and record size make it likely to beat software, then validate with repeated
+  iterations.

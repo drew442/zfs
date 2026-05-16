@@ -395,3 +395,57 @@ Negative `async_vs_sw` means async QAT was faster. This result supports
 continued async work for concurrent 128K/256K writes, but it does not yet meet
 the broader throughput and latency goals. Single-job rows and 1M records still
 favor software gzip.
+
+## In-Flight Cap Checkpoint
+
+Run date: 2026-05-16.
+
+The next implementation pass added:
+
+```text
+zfs_qat_dc_async_max_inflight=96
+```
+
+The cap avoids filling QAT's submit path. When the cap is reached, the block
+uses software gzip directly instead of preparing a QAT request that is likely to
+return `CPA_STATUS_RETRY`.
+
+Jobs=4 cap sweep:
+
+```text
+cap record async_ms MiB_s  completions cap_skips submit_fails verify
+32  128K   1033.719 706.12 1335        4505      0            yes
+32  256K   964.506  756.79 687         2233      0            yes
+64  128K   1063.828 686.13 1535        4305      0            yes
+64  256K   936.620  779.32 759         2161      0            yes
+96  128K   1056.668 690.78 1402        4438      0            yes
+96  256K   924.537  789.51 687         2233      0            yes
+192 128K   1072.564 680.54 1697        4143      0            yes
+192 256K   972.536  750.54 777         2143      0            yes
+256 128K   1040.878 701.26 1831        4009      0            yes
+256 256K   954.047  765.09 825         2095      0            yes
+512 128K   1096.017 665.98 1935        3727      178          yes
+512 256K   982.047  743.27 1082        1680      158          yes
+```
+
+Cap `96` was selected as the current balanced default for async-enabled mode. It
+is not a default-on policy: `zfs_qat_dc_async=0` remains the default.
+
+Cap-96 comparison:
+
+```text
+jobs record async_ms sw_ms   async_vs_sw verify
+1    128K   753.630  692.052 +8.9%       yes
+1    256K   682.103  601.603 +13.4%      yes
+1    1M     599.406  573.096 +4.6%       yes
+4    128K   1073.745 1172.390 -8.4%      yes
+4    256K   927.778  956.636  -3.0%      yes
+4    1M     876.489  892.719  -1.8%      yes
+```
+
+Result:
+
+- Admission control removes submit failures in the measured jobs=4 cap sweep.
+- Async QAT with cap `96` is useful under concurrent write pressure.
+- Software still wins the single-job rows, so the next implementation target is
+  policy gating rather than defaulting async for every gzip write.

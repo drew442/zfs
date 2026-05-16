@@ -419,6 +419,7 @@ run_one() {
 	async_fail_retry_before="$(statv dc_compress_async_fail_retry)"
 	async_fail_resource_before="$(statv dc_compress_async_fail_resource)"
 	async_fail_other_before="$(statv dc_compress_async_fail_other)"
+	async_cap_skips_before="$(statv dc_compress_async_cap_skips)"
 	cpu_before="$(read_cpu)"
 	start_ns="$(date +%s%N)"
 
@@ -520,6 +521,9 @@ run_one() {
 	async_fail_retry_after="$(statv dc_compress_async_fail_retry)"
 	async_fail_resource_after="$(statv dc_compress_async_fail_resource)"
 	async_fail_other_after="$(statv dc_compress_async_fail_other)"
+	async_inflight_after="$(statv dc_compress_async_inflight)"
+	async_inflight_max_after="$(statv dc_compress_async_inflight_max)"
+	async_cap_skips_after="$(statv dc_compress_async_cap_skips)"
 
 	elapsed_ms="$(awk -v s="$start_ns" -v e="$end_ns" \
 	    'BEGIN { printf "%.3f", (e - s) / 1000000 }')"
@@ -600,11 +604,14 @@ run_one() {
 	    "$((async_fail_retry_after - async_fail_retry_before))"
 	    "$((async_fail_resource_after - async_fail_resource_before))"
 	    "$((async_fail_other_after - async_fail_other_before))"
+	    "$async_inflight_after" "$async_inflight_max_after"
+	    "$((async_cap_skips_after - async_cap_skips_before))"
 	    "$sha_ok" "$QAT_DC_LEVEL" "$QAT_DC_HUFFTYPE"
 	    "$QAT_DC_MAX_BUF_SIZE" "$QAT_DC_MAX_INSTANCES"
 	    "$QAT_DC_COALESCE_SRC" "$QAT_DC_COALESCE_DST"
 	    "$QAT_DC_ASYNC" "$QAT_DC_ASYNC_RETRIES" "$QAT_DC_ASYNC_RETRY_US"
-	    "$decompress_disable" "$QAT_KERNEL_CY_INSTANCES"
+	    "$QAT_DC_ASYNC_MAX_INFLIGHT" "$decompress_disable"
+	    "$QAT_KERNEL_CY_INSTANCES"
 	    "$QAT_KERNEL_DC_INSTANCES" "$ZFS_SRCVERSION")
 	(IFS=,; printf "%s\n" "${raw_row[*]}") | tee -a "$OUT"
 
@@ -631,12 +638,13 @@ QAT_DC_COALESCE_DST="$(read_param zfs_qat_dc_coalesce_dst)"
 QAT_DC_ASYNC="$(read_param zfs_qat_dc_async)"
 QAT_DC_ASYNC_RETRIES="$(read_param zfs_qat_dc_async_submit_retries)"
 QAT_DC_ASYNC_RETRY_US="$(read_param zfs_qat_dc_async_retry_us)"
+QAT_DC_ASYNC_MAX_INFLIGHT="$(read_param zfs_qat_dc_async_max_inflight)"
 QAT_KERNEL_CY_INSTANCES="$(qat_conf_value NumberCyInstances)"
 QAT_KERNEL_DC_INSTANCES="$(qat_conf_value NumberDcInstances)"
 ZFS_SRCVERSION="$(modinfo zfs | awk '$1 == "srcversion:" { print $2 }')"
 
 mkdir -p "$(dirname "$OUT")"
-printf "row_type,mode,verify_mode,recordsize,iter,jobs,source_label,source_bytes,elapsed_ms,latency_avg_ms,latency_p50_ms,latency_p95_ms,latency_p99_ms,latency_max_ms,write_bw_mib_s,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct,compressratio,used,logicalused,comp_requests_delta,comp_in_delta,comp_out_delta,decomp_requests_delta,decomp_in_delta,decomp_out_delta,dc_fails_delta,dc_buffer_reuse_hits_delta,dc_buffer_reuse_misses_delta,dc_compress_bound_requests_delta,dc_compress_bound_fails_delta,dc_compress_bound_ns_delta,dc_compress_bound_total_bytes_delta,dc_compress_dst_total_bytes_delta,dc_compress_scratch_bytes_delta,dc_compress_scratch_saved_bytes_delta,dc_compress_overflows_delta,dc_compress_incompressible_delta,dc_compress_src_buffers_delta,dc_compress_dst_buffers_delta,dc_compress_add_buffers_delta,dc_compress_dst_total_buffers_delta,dc_compress_src_buffers_max,dc_compress_dst_buffers_max,dc_compress_add_buffers_max,dc_compress_dst_total_buffers_max,dc_compress_coalesce_requests_delta,dc_compress_coalesce_success_delta,dc_compress_coalesce_fails_delta,dc_compress_coalesce_bytes_delta,dc_compress_coalesce_alloc_ns_delta,dc_compress_coalesce_copy_ns_delta,dc_compress_coalesce_free_ns_delta,dc_compress_dst_coalesce_requests_delta,dc_compress_dst_coalesce_success_delta,dc_compress_dst_coalesce_fails_delta,dc_compress_dst_coalesce_reuse_hits_delta,dc_compress_dst_coalesce_reuse_misses_delta,dc_compress_dst_coalesce_alloc_bytes_delta,dc_compress_dst_coalesce_copy_bytes_delta,dc_compress_dst_coalesce_alloc_ns_delta,dc_compress_dst_coalesce_copy_ns_delta,dc_compress_dst_coalesce_free_ns_delta,dc_compress_scratch_alloc_ns_delta,dc_compress_scratch_free_ns_delta,dc_compress_setup_ns_delta,dc_compress_submit_ns_delta,dc_compress_wait_ns_delta,dc_compress_cleanup_ns_delta,dc_decompress_setup_ns_delta,dc_decompress_submit_ns_delta,dc_decompress_wait_ns_delta,dc_decompress_cleanup_ns_delta,dc_compress_inflight,dc_compress_inflight_max,dc_decompress_inflight,dc_decompress_inflight_max,dc_compress_async_submits_delta,dc_compress_async_submit_fails_delta,dc_compress_async_completions_delta,dc_compress_async_resumes_delta,dc_compress_async_fallbacks_delta,dc_compress_async_cancels_delta,dc_compress_async_submit_retries_delta,dc_compress_async_retry_success_delta,dc_compress_async_fail_retry_delta,dc_compress_async_fail_resource_delta,dc_compress_async_fail_other_delta,sha_ok,zfs_qat_cpa_dc_level,zfs_qat_cpa_dc_hufftype,zfs_qat_dc_max_buf_size,zfs_qat_dc_max_instances,zfs_qat_dc_coalesce_src,zfs_qat_dc_coalesce_dst,zfs_qat_dc_async,zfs_qat_dc_async_submit_retries,zfs_qat_dc_async_retry_us,zfs_qat_decompress_disable,qat_kernel_cy_instances,qat_kernel_dc_instances,zfs_srcversion\n" > "$OUT"
+printf "row_type,mode,verify_mode,recordsize,iter,jobs,source_label,source_bytes,elapsed_ms,latency_avg_ms,latency_p50_ms,latency_p95_ms,latency_p99_ms,latency_max_ms,write_bw_mib_s,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct,compressratio,used,logicalused,comp_requests_delta,comp_in_delta,comp_out_delta,decomp_requests_delta,decomp_in_delta,decomp_out_delta,dc_fails_delta,dc_buffer_reuse_hits_delta,dc_buffer_reuse_misses_delta,dc_compress_bound_requests_delta,dc_compress_bound_fails_delta,dc_compress_bound_ns_delta,dc_compress_bound_total_bytes_delta,dc_compress_dst_total_bytes_delta,dc_compress_scratch_bytes_delta,dc_compress_scratch_saved_bytes_delta,dc_compress_overflows_delta,dc_compress_incompressible_delta,dc_compress_src_buffers_delta,dc_compress_dst_buffers_delta,dc_compress_add_buffers_delta,dc_compress_dst_total_buffers_delta,dc_compress_src_buffers_max,dc_compress_dst_buffers_max,dc_compress_add_buffers_max,dc_compress_dst_total_buffers_max,dc_compress_coalesce_requests_delta,dc_compress_coalesce_success_delta,dc_compress_coalesce_fails_delta,dc_compress_coalesce_bytes_delta,dc_compress_coalesce_alloc_ns_delta,dc_compress_coalesce_copy_ns_delta,dc_compress_coalesce_free_ns_delta,dc_compress_dst_coalesce_requests_delta,dc_compress_dst_coalesce_success_delta,dc_compress_dst_coalesce_fails_delta,dc_compress_dst_coalesce_reuse_hits_delta,dc_compress_dst_coalesce_reuse_misses_delta,dc_compress_dst_coalesce_alloc_bytes_delta,dc_compress_dst_coalesce_copy_bytes_delta,dc_compress_dst_coalesce_alloc_ns_delta,dc_compress_dst_coalesce_copy_ns_delta,dc_compress_dst_coalesce_free_ns_delta,dc_compress_scratch_alloc_ns_delta,dc_compress_scratch_free_ns_delta,dc_compress_setup_ns_delta,dc_compress_submit_ns_delta,dc_compress_wait_ns_delta,dc_compress_cleanup_ns_delta,dc_decompress_setup_ns_delta,dc_decompress_submit_ns_delta,dc_decompress_wait_ns_delta,dc_decompress_cleanup_ns_delta,dc_compress_inflight,dc_compress_inflight_max,dc_decompress_inflight,dc_decompress_inflight_max,dc_compress_async_submits_delta,dc_compress_async_submit_fails_delta,dc_compress_async_completions_delta,dc_compress_async_resumes_delta,dc_compress_async_fallbacks_delta,dc_compress_async_cancels_delta,dc_compress_async_submit_retries_delta,dc_compress_async_retry_success_delta,dc_compress_async_fail_retry_delta,dc_compress_async_fail_resource_delta,dc_compress_async_fail_other_delta,dc_compress_async_inflight,dc_compress_async_inflight_max,dc_compress_async_cap_skips_delta,sha_ok,zfs_qat_cpa_dc_level,zfs_qat_cpa_dc_hufftype,zfs_qat_dc_max_buf_size,zfs_qat_dc_max_instances,zfs_qat_dc_coalesce_src,zfs_qat_dc_coalesce_dst,zfs_qat_dc_async,zfs_qat_dc_async_submit_retries,zfs_qat_dc_async_retry_us,zfs_qat_dc_async_max_inflight,zfs_qat_decompress_disable,qat_kernel_cy_instances,qat_kernel_dc_instances,zfs_srcversion\n" > "$OUT"
 
 echo "Results: $OUT" >&2
 echo "Source: $SOURCE ($SOURCE_BYTES bytes)" >&2
@@ -667,12 +675,12 @@ for mode in $MODES; do
 		    "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" "" ""
 		    "" ""
 		    "" ""
-		    "" "" "" "" "" "" "" "" "" "" ""
+		    "" "" "" "" "" "" "" "" "" "" "" "" "" ""
 		    "$QAT_DC_LEVEL" "$QAT_DC_HUFFTYPE"
 		    "$QAT_DC_MAX_BUF_SIZE" "$QAT_DC_MAX_INSTANCES"
 		    "$QAT_DC_COALESCE_SRC" "$QAT_DC_COALESCE_DST"
 		    "$QAT_DC_ASYNC" "$QAT_DC_ASYNC_RETRIES"
-		    "$QAT_DC_ASYNC_RETRY_US" ""
+		    "$QAT_DC_ASYNC_RETRY_US" "$QAT_DC_ASYNC_MAX_INFLIGHT" ""
 		    "$QAT_KERNEL_CY_INSTANCES" "$QAT_KERNEL_DC_INSTANCES"
 		    "$ZFS_SRCVERSION")
 		(IFS=,; printf "%s\n" "${summary_row[*]}") | tee -a "$OUT"

@@ -140,6 +140,7 @@ int zfs_qat_dc_coalesce_dst = 0;
 int zfs_qat_dc_async = 0;
 int zfs_qat_dc_async_submit_retries = 8;
 int zfs_qat_dc_async_retry_us = 100;
+int zfs_qat_dc_async_max_inflight = 96;
 
 boolean_t
 qat_dc_compress_use_accel(size_t s_len)
@@ -271,6 +272,7 @@ out:
 }
 
 static void qat_dc_inflight_exit(qat_compress_dir_t dir);
+static void qat_dc_async_inflight_exit(void);
 
 static void
 qat_dc_callback(void *p_callback, CpaStatus status)
@@ -291,6 +293,7 @@ qat_dc_callback(void *p_callback, CpaStatus status)
 	req->callback_status = status;
 	end = gethrtime();
 	qat_dc_inflight_exit(QAT_COMPRESS);
+	qat_dc_async_inflight_exit();
 	QAT_STAT_ADD_TIME(dc_compress_wait_ns, req->submit_end, end);
 	QAT_STAT_BUMP(dc_compress_async_completions);
 	membar_producer();
@@ -1290,6 +1293,36 @@ qat_dc_async_record_submit_fail(CpaStatus status)
 	}
 }
 
+static boolean_t
+qat_dc_async_inflight_try_enter(void)
+{
+	uint64_t cur;
+	uint64_t next;
+	int max_inflight = zfs_qat_dc_async_max_inflight;
+
+	for (;;) {
+		cur = qat_stats.dc_compress_async_inflight.value.ui64;
+		if (max_inflight > 0 && cur >= (uint64_t)max_inflight)
+			return (B_FALSE);
+
+		next = cur + 1;
+		if (atomic_cas_64(
+		    &qat_stats.dc_compress_async_inflight.value.ui64,
+		    cur, next) == cur) {
+			qat_dc_update_stat_max(
+			    &qat_stats.dc_compress_async_inflight_max, next);
+			return (B_TRUE);
+		}
+	}
+}
+
+static void
+qat_dc_async_inflight_exit(void)
+{
+	(void) atomic_dec_64_nv(
+	    &qat_stats.dc_compress_async_inflight.value.ui64);
+}
+
 static void
 qat_dc_async_cleanup(qat_dc_async_t *req)
 {
@@ -1365,6 +1398,7 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	hrtime_t phase_end;
 	int attempt = 0;
 	int retry_limit;
+	boolean_t async_inflight = B_FALSE;
 
 	if (!qat_dc_compress_async_enabled() ||
 	    src_len < 0 || dst_len < 0 ||
@@ -1372,6 +1406,13 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 		return (NULL);
 
 	QAT_STAT_BUMP(dc_compress_async_submits);
+
+	if (!qat_dc_async_inflight_try_enter()) {
+		QAT_STAT_BUMP(dc_compress_async_cap_skips);
+		QAT_STAT_BUMP(dc_compress_async_fallbacks);
+		return (NULL);
+	}
+	async_inflight = B_TRUE;
 
 	req = kmem_zalloc(sizeof (*req), KM_SLEEP);
 	req->src = src;
@@ -1581,6 +1622,8 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	return (req);
 
 fail:
+	if (async_inflight)
+		qat_dc_async_inflight_exit();
 	QAT_STAT_BUMP(dc_compress_async_submit_fails);
 	QAT_STAT_BUMP(dc_compress_async_fallbacks);
 	qat_dc_async_record_submit_fail(status);
@@ -1855,5 +1898,9 @@ MODULE_PARM_DESC(zfs_qat_dc_async_submit_retries,
 module_param(zfs_qat_dc_async_retry_us, int, 0644);
 MODULE_PARM_DESC(zfs_qat_dc_async_retry_us,
     "QAT async compression submit retry backoff in microseconds");
+
+module_param(zfs_qat_dc_async_max_inflight, int, 0644);
+MODULE_PARM_DESC(zfs_qat_dc_async_max_inflight,
+    "Maximum in-flight experimental asynchronous QAT compression requests");
 
 #endif
