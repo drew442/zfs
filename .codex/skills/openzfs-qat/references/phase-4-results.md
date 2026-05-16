@@ -1383,5 +1383,5 @@ Result:
 - Keep larger-record QAT support as opt-in. Initial 256 KiB and 1 MiB validation proves QAT offload can work on this host, but the best-case level 1 comparison still favors software at larger records.
 - Evaluate optimization bias parameters only after measurements identify real policy choices. A throughput/latency bias such as `latency`, `balanced`, and `throughput` is useful if queueing, batching, thresholds, or reuse strategies create measured tradeoffs. A performance/ratio bias such as `performance`, `balanced`, and `compressionratio` is useful if compression effort or fallback policy creates measured tradeoffs.
 - Keep explicit low-level parameters for benchmarking first. Bias parameters should later set coherent defaults across those low-level knobs; they should not be added as no-op labels before the policies are proven.
-- Move the next implementation spike toward async/queueing rather than additional small allocation or buffer-shape tuning.
+- Move the next implementation spike toward async/queueing rather than additional small allocation or buffer-shape tuning. See `phase-4-async-queue-spike.md` for the first-pass design.
 - Park NUMA performance tuning until a true multi-socket QAT 1.x host is available.

@@ -796,7 +796,8 @@ Interpretation:
   destination allocation, or coalescing overhead.
 - The next useful engineering target should be an asynchronous or queueing
   design spike that can keep QAT work in flight without blocking each ZFS
-  worker on each individual block.
+  worker on each individual block. The first-pass design is documented in
+  `phase-4-async-queue-spike.md`.
 
 ## Earlier Phase 4 Measurements
 

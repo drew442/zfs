@@ -181,6 +181,16 @@ Workstream C: latency-focused measurements:
 
 Status: harness implementation started. `scripts/qat-phase4-benchmark.sh` records raw iteration elapsed time, summary p50/p95/p99/max latency, throughput, CPU percentages, compression ratio, QAT kstat deltas, module settings, and `cmp` correctness for controlled write/read tests. It also supports concurrent copy/verify streams through `JOBS`.
 
+Workstream G: async/queueing:
+
+- Do not wrap the existing synchronous `qat_compress()` helper in a taskq and call that sufficient; it still blocks a worker on each QAT request and adds dispatch overhead.
+- Split QAT gzip compression into submit and finish phases so `ZIO_STAGE_WRITE_COMPRESS` can suspend after QAT submission and resume from the QAT callback.
+- Keep the async path opt-in at first, with a disabled default such as `zfs_qat_dc_async=0`.
+- Keep software fallback available after async QAT failure by retaining source data until the compression stage has finalized.
+- Do not advance to encryption, checksum generation, allocation, or physical I/O until the async compression result has been finalized.
+
+Status: design spike documented on 2026-05-16. See `phase-4-async-queue-spike.md`.
+
 Workstream D: allocation and metadata reuse:
 
 - Continue reducing allocation and mapping overhead in `qat_compress_impl()`.
@@ -281,7 +291,8 @@ Acceptance:
 
 ## Immediate Next Steps
 
-1. Document and, if needed, improve the boot ordering between `qat.service` and early ZFS module load.
-2. Extend phase 5 host validation with repeatable benchmark scripts, latency reporting, and read-after-reboot checks.
-3. Run the expanded phase 4 benchmark matrix with the new large-record and reuse instrumentation.
-4. Defer checksum and encryption policy changes until compression behavior is stable.
+1. Implement the async QAT gzip API skeleton and kstats without changing default behavior.
+2. Add an opt-in `zfs_qat_dc_async=0` module parameter and wire only gzip write compression to the async path when enabled.
+3. Smoke-test async mode on `pve.drewnet.online` with `128K`, `JOBS=1`, software readback verification, and explicit host restore.
+4. Benchmark async mode against the level 1 best-case CSVs if smoke passes.
+5. Defer checksum and encryption policy changes until compression behavior is stable.
