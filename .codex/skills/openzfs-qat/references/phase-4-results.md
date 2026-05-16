@@ -1416,3 +1416,64 @@ Result:
 - Verification passed and all pools remained healthy.
 - Submit failures are still high and currently fall back to software gzip.
 - This is a smoke result only; the full phase 4 matrix is still required.
+
+## Async Retry/Backoff Tuning
+
+Run date: 2026-05-16.
+
+Submit-failure instrumentation confirmed async submit failures are
+`CPA_STATUS_RETRY`. No resource or generic submit failures were seen in the
+retry probes.
+
+Candidate default for async mode:
+
+```text
+zfs_qat_dc_async_submit_retries=8
+zfs_qat_dc_async_retry_us=100
+```
+
+Raw CSVs:
+
+```text
+/root/zfs-qat-phase4-async-retry0-smoke-20260516.csv
+/root/zfs-qat-phase4-async-retry2-smoke-20260516.csv
+/root/zfs-qat-phase4-async-retry8-smoke-20260516.csv
+/root/zfs-qat-phase4-async-retry8-us10-smoke-20260516.csv
+/root/zfs-qat-phase4-async-retry8-us100-smoke-20260516.csv
+/root/zfs-qat-phase4-async-retry16-us50-smoke-20260516.csv
+/root/zfs-qat-phase4-async-retry32-us50-smoke-20260516.csv
+/root/zfs-qat-phase4-async-8r100us-jobs1-20260516.csv
+/root/zfs-qat-phase4-async-8r100us-jobs4-20260516.csv
+```
+
+128K retry probe summary:
+
+```text
+retries retry_us elapsed_ms submit_fails retry_success final_retry_fails
+0       50       864.967    411          0             411
+2       50       709.949    509          149           509
+8       50       703.007    426          345           426
+8       10       782.450    465          253           465
+8       100      699.131    360          414           360
+16      50       775.053    326          493           326
+32      50       878.327    167          686           167
+```
+
+One-iteration `8/100` comparison:
+
+```text
+jobs record async_ms sw_ms   async_vs_sw async_MiB_s sw_MiB_s async_fallbacks verify
+1    128K   780.894  709.321 +10.1%      233.68      257.26   331             yes
+1    256K   709.884  649.872 +9.2%       257.06      280.80   16              yes
+1    1M     674.051  563.668 +19.6%      270.72      323.74   0               yes
+4    128K   1147.142 1178.060 -2.6%      636.30      619.60   3145            yes
+4    256K   1041.147 1079.694 -3.6%      701.08      676.05   1548            yes
+4    1M     1236.152 960.369  +28.7%     590.48      760.05   35              yes
+```
+
+Result:
+
+- `8/100` is the best observed retry/backoff setting in the 128K single-row probes.
+- Async QAT now beats software in the one-iteration concurrent 128K and 256K rows.
+- Software still wins single-job rows and the concurrent 1M row.
+- The remaining fallback count is high for concurrent small records, so retry/backoff alone is not enough. The next target should control async submit pressure rather than simply increasing retry count.

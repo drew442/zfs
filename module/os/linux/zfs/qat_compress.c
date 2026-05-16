@@ -26,6 +26,7 @@
 #include <linux/vmalloc.h>
 #include <linux/pagemap.h>
 #include <linux/completion.h>
+#include <linux/delay.h>
 #include <sys/zfs_context.h>
 #include <sys/byteorder.h>
 #include <sys/zio.h>
@@ -137,6 +138,8 @@ int zfs_qat_dc_max_instances = QAT_DC_MAX_INSTANCES;
 int zfs_qat_dc_coalesce_src = 0;
 int zfs_qat_dc_coalesce_dst = 0;
 int zfs_qat_dc_async = 0;
+int zfs_qat_dc_async_submit_retries = 8;
+int zfs_qat_dc_async_retry_us = 100;
 
 boolean_t
 qat_dc_compress_use_accel(size_t s_len)
@@ -1272,6 +1275,22 @@ qat_dc_compress_async_enabled(void)
 }
 
 static void
+qat_dc_async_record_submit_fail(CpaStatus status)
+{
+	switch (status) {
+	case CPA_STATUS_RETRY:
+		QAT_STAT_BUMP(dc_compress_async_fail_retry);
+		break;
+	case CPA_STATUS_RESOURCE:
+		QAT_STAT_BUMP(dc_compress_async_fail_resource);
+		break;
+	default:
+		QAT_STAT_BUMP(dc_compress_async_fail_other);
+		break;
+	}
+}
+
+static void
 qat_dc_async_cleanup(qat_dc_async_t *req)
 {
 	hrtime_t start;
@@ -1344,6 +1363,8 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	hrtime_t op_start = gethrtime();
 	hrtime_t phase_start;
 	hrtime_t phase_end;
+	int attempt = 0;
+	int retry_limit;
 
 	if (!qat_dc_compress_async_enabled() ||
 	    src_len < 0 || dst_len < 0 ||
@@ -1521,20 +1542,40 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	req->callback_ctx.type = QAT_DC_CALLBACK_ASYNC;
 	req->callback_ctx.u.async = req;
 
-	phase_start = gethrtime();
-	req->submit_end = phase_start;
-	qat_dc_inflight_enter(QAT_COMPRESS);
-	status = cpaDcCompressData(dc_inst_handle, session_handle,
-	    req->buf_list_src, req->buf_list_dst, &req->dc_results,
-	    CPA_DC_FLUSH_FINAL, &req->callback_ctx);
-	phase_end = gethrtime();
-	QAT_STAT_ADD_TIME(dc_compress_submit_ns, phase_start, phase_end);
-	if (status != CPA_STATUS_SUCCESS) {
+	retry_limit = (zfs_qat_dc_async_submit_retries > 0) ?
+	    zfs_qat_dc_async_submit_retries : 0;
+	for (;;) {
+		phase_start = gethrtime();
+		req->submit_end = phase_start;
+		qat_dc_inflight_enter(QAT_COMPRESS);
+		status = cpaDcCompressData(dc_inst_handle, session_handle,
+		    req->buf_list_src, req->buf_list_dst, &req->dc_results,
+		    CPA_DC_FLUSH_FINAL, &req->callback_ctx);
+		phase_end = gethrtime();
+		QAT_STAT_ADD_TIME(dc_compress_submit_ns, phase_start,
+		    phase_end);
+		if (status == CPA_STATUS_SUCCESS)
+			break;
+
 		qat_dc_inflight_exit(QAT_COMPRESS);
+		if (status != CPA_STATUS_RETRY || attempt >= retry_limit)
+			break;
+
+		attempt++;
+		QAT_STAT_BUMP(dc_compress_async_submit_retries);
+		if (zfs_qat_dc_async_retry_us > 0) {
+			usleep_range(zfs_qat_dc_async_retry_us,
+			    zfs_qat_dc_async_retry_us + 10);
+		}
+	}
+
+	if (status != CPA_STATUS_SUCCESS) {
 		req->submit_status = status;
 		goto fail;
 	}
 
+	if (attempt > 0)
+		QAT_STAT_BUMP(dc_compress_async_retry_success);
 	req->submit_status = status;
 	req->submit_end = phase_end;
 	return (req);
@@ -1542,6 +1583,7 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 fail:
 	QAT_STAT_BUMP(dc_compress_async_submit_fails);
 	QAT_STAT_BUMP(dc_compress_async_fallbacks);
+	qat_dc_async_record_submit_fail(status);
 	qat_dc_async_cleanup(req);
 	return (NULL);
 }
@@ -1805,5 +1847,13 @@ MODULE_PARM_DESC(zfs_qat_dc_coalesce_dst,
 module_param(zfs_qat_dc_async, int, 0644);
 MODULE_PARM_DESC(zfs_qat_dc_async,
     "Enable/Disable experimental asynchronous QAT compression");
+
+module_param(zfs_qat_dc_async_submit_retries, int, 0644);
+MODULE_PARM_DESC(zfs_qat_dc_async_submit_retries,
+    "QAT async compression submit retries after CPA_STATUS_RETRY");
+
+module_param(zfs_qat_dc_async_retry_us, int, 0644);
+MODULE_PARM_DESC(zfs_qat_dc_async_retry_us,
+    "QAT async compression submit retry backoff in microseconds");
 
 #endif

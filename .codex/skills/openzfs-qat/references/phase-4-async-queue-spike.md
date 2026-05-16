@@ -344,3 +344,54 @@ Result:
 Next work should tune async submit pressure and run the full 128K/256K/1M,
 jobs 1/jobs 4 matrix before treating the async path as a proven performance
 direction.
+
+## Retry/Backoff Tuning Checkpoint
+
+Run date: 2026-05-16.
+
+The initial smoke showed high async submit fallback counts. Follow-up
+instrumentation split submit failures by QAT status and confirmed the failures
+were `CPA_STATUS_RETRY`, not resource exhaustion or generic errors.
+
+New async-only controls:
+
+```text
+zfs_qat_dc_async_submit_retries=8
+zfs_qat_dc_async_retry_us=100
+```
+
+The default remains `zfs_qat_dc_async=0`; these controls only matter when the
+experimental async path is enabled.
+
+128K single-job retry probes:
+
+```text
+retries retry_us elapsed_ms submit_fails retry_success final_retry_fails
+0       50       864.967    411          0             411
+2       50       709.949    509          149           509
+8       50       703.007    426          345           426
+8       10       782.450    465          253           465
+8       100      699.131    360          414           360
+16      50       775.053    326          493           326
+32      50       878.327    167          686           167
+```
+
+The best single-row result was `8` retries with `100 us` backoff. Larger retry
+counts reduced final fallback counts but increased elapsed time.
+
+One-iteration async candidate matrix with `8/100`:
+
+```text
+jobs record async_ms sw_ms   async_vs_sw async_MiB_s sw_MiB_s async_fallbacks verify
+1    128K   780.894  709.321 +10.1%      233.68      257.26   331             yes
+1    256K   709.884  649.872 +9.2%       257.06      280.80   16              yes
+1    1M     674.051  563.668 +19.6%      270.72      323.74   0               yes
+4    128K   1147.142 1178.060 -2.6%      636.30      619.60   3145            yes
+4    256K   1041.147 1079.694 -3.6%      701.08      676.05   1548            yes
+4    1M     1236.152 960.369  +28.7%     590.48      760.05   35              yes
+```
+
+Negative `async_vs_sw` means async QAT was faster. This result supports
+continued async work for concurrent 128K/256K writes, but it does not yet meet
+the broader throughput and latency goals. Single-job rows and 1M records still
+favor software gzip.
