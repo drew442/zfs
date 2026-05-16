@@ -1318,10 +1318,70 @@ Result:
 - Keep using the explicit global `zfs_qat_cpa_dc_level` parameter while the
   performance/ratio policy is still being proven.
 
+## Best-Case Level 1 Fair Comparison
+
+Run date: 2026-05-16.
+
+This follow-up temporarily booted the host with level 1 and compared QAT against
+software gzip in the same benchmark window. Software readback verification was
+used so the result tested QAT compression without mixing in QAT decompression
+policy.
+
+Raw CSVs:
+
+```text
+/root/zfs-qat-phase4-level1-bestcase-jobs1-20260516.csv
+/root/zfs-qat-phase4-level1-bestcase-jobs4-20260516.csv
+```
+
+Module settings:
+
+```text
+zfs_qat_cpa_dc_level=1
+zfs_qat_cpa_dc_hufftype=dynamic
+zfs_qat_dc_max_buf_size=1048576
+zfs_qat_dc_coalesce_src=0
+zfs_qat_dc_coalesce_dst=0
+```
+
+Summary:
+
+```text
+jobs record qat_ms  sw_ms   qat_vs_sw qat_MiB_s sw_MiB_s qat_sys sw_sys qat_ratio sw_ratio
+1    128K   758.9   766.6   -1.0%     240.7     238.2    1.87    4.13   16.88x    16.86x
+1    256K   693.9   599.7   +15.7%    263.1     304.8    1.51    4.65   21.63x    21.53x
+1    1M     624.0   540.4   +15.5%    292.5     337.8    1.41    4.92   25.15x    25.17x
+4    128K   1208.2  1071.8  +12.7%    604.5     682.4    4.49    12.76  16.92x    16.90x
+4    256K   1131.2  994.3   +13.8%    645.4     735.7    3.95    13.37  21.70x    21.60x
+4    1M     1095.1  904.4   +21.1%    666.8     807.1    3.65    13.80  25.25x    25.26x
+```
+
+Negative `qat_vs_sw` means QAT was faster. All rows passed verification and QAT
+reported `dc_fails=0`. The two CSVs had the expected 90 columns and 24 data rows
+each.
+
+The host was restored to the pre-test level 4 boot/runtime configuration after
+the comparison:
+
+```text
+options zfs zfs_qat_compress_disable=0 zfs_qat_checksum_disable=0 zfs_qat_cpa_dc_level=4 zfs_qat_dc_max_buf_size=1048576
+```
+
+Result:
+
+- Level 1 QAT reached parity only at single-job 128K, where it was `1.0%`
+  faster than software.
+- Software remained faster for single-job 256K and 1M by `15-16%`.
+- Software remained faster under four jobs by `13-21%`.
+- QAT continued to use substantially less system CPU.
+- Compression-level policy alone is not enough to meet the throughput and
+  latency goals. The next target should be an async/queueing design spike.
+
 ## Follow-Up
 
 - Continue phase 4 with throughput and latency as first-class requirements. Future benchmark output should include throughput, p50/p95/p99/max latency, CPU cost, compression ratio, QAT kstats, and failure counters.
-- Continue larger-record benchmarking. Initial 256 KiB and 1 MiB validation proves QAT offload can work on this host, but the default should remain `128 KiB` until throughput and latency are compared against software gzip across the broader matrix.
+- Keep larger-record QAT support as opt-in. Initial 256 KiB and 1 MiB validation proves QAT offload can work on this host, but the best-case level 1 comparison still favors software at larger records.
 - Evaluate optimization bias parameters only after measurements identify real policy choices. A throughput/latency bias such as `latency`, `balanced`, and `throughput` is useful if queueing, batching, thresholds, or reuse strategies create measured tradeoffs. A performance/ratio bias such as `performance`, `balanced`, and `compressionratio` is useful if compression effort or fallback policy creates measured tradeoffs.
 - Keep explicit low-level parameters for benchmarking first. Bias parameters should later set coherent defaults across those low-level knobs; they should not be added as no-op labels before the policies are proven.
+- Move the next implementation spike toward async/queueing rather than additional small allocation or buffer-shape tuning.
 - Park NUMA performance tuning until a true multi-socket QAT 1.x host is available.

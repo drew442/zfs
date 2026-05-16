@@ -336,6 +336,7 @@ Historical note:
 - `zfs_qat_dc_coalesce_dst=1` was tested on 2026-05-15. It reduced destination plus scratch output buffers to one QAT buffer; single-job results were mixed, and four-job results improved modestly. The host was restored to the default `0`.
 - Destination coalescing reuse was tested on 2026-05-15 with 32 reusable slots per DC instance. It reduced allocation cost after warmup, but elapsed results remained mixed and four-job runs regressed; the host was restored to `zfs_qat_dc_coalesce_dst=0`.
 - `zfs_qat_cpa_dc_level=1..4` was tested on 2026-05-15 with dynamic Huffman and coalescing disabled. All tested levels completed with zero DC failures. Level 4 gave the best compression ratio, level 1 was generally strongest under four concurrent jobs, and level 3 was fastest for single-job 128K and 1M in that run. The host boot configuration was restored to level 4 after the matrix.
+- A best-case `zfs_qat_cpa_dc_level=1` QAT-vs-software comparison was run on 2026-05-16 with software readback verification. QAT was 1.0% faster only at single-job 128K; software remained faster for 256K/1M and under four jobs. The host boot and runtime configuration was restored to level 4 after the comparison.
 - `/nvme_scratch` was recreated empty on 2026-05-15. The TIFF benchmark source was restored from `test-hdd-pool/bench/cpu-lz4/realdata-test/2021-09-05/Scanned Documents/Image.tif` to `/nvme_scratch/source/2021-09-05/Scanned Documents/Image.tif`.
 
 Initial QAT kstats before the phase 2/3 validation workload:

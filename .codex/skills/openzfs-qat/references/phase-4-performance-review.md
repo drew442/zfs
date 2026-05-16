@@ -34,12 +34,12 @@ Important comparability note:
 ## Executive Summary
 
 - QAT compression is correct and stable for the tested matrix: all file comparisons passed and `dc_fails=0` after the 4 KiB threshold fix.
-- QAT is not yet faster than software gzip on the latest fair comparison.
-- Current QAT wall-clock latency is about `5%` slower than software at `128 KiB`, and about `12%` slower at `256 KiB` and `1 MiB`.
-- QAT uses much less aggregate system CPU than software gzip in the latest comparison.
-- A 4-job concurrency comparison still favored software gzip. QAT used much less CPU, but it was `25-31%` slower by wall-clock latency and `20-24%` lower in aggregate throughput.
+- QAT is not yet consistently faster than software gzip. The best-case level 1 comparison reached parity only at single-job `128 KiB`, where QAT was `1.0%` faster.
+- Best-case level 1 QAT remained `15-16%` slower than software at single-job `256 KiB` and `1 MiB`.
+- Best-case level 1 QAT remained `13-21%` slower than software under four jobs.
+- QAT uses much less aggregate system CPU than software gzip. In the best-case level 1 comparison, QAT system CPU was roughly `38-45%` of software in single-job runs and `26-35%` of software under four jobs.
 - Larger records now actually use QAT. Before the large-record work, `256 KiB` and `1 MiB` records silently used software fallback.
-- Compression ratio is slightly better with QAT in the latest run, likely because QAT is using level 4.
+- Compression ratio is close between QAT and software in the best-case level 1 comparison. Level 4 gives QAT a small ratio advantage, but it is not the performance winner.
 - A later level 1-4 matrix showed no single QAT compression level wins every case. Level 4 gives the best ratio, level 1 is generally strongest under four concurrent streams, and level 3 was fastest for single-stream 128K and 1M in that run.
 
 ## Current Latency Diagnosis
@@ -98,6 +98,7 @@ service time.
 | Destination coalescing | Added `zfs_qat_dc_coalesce_dst` and destination coalescing counters. | Destination plus scratch output list entries dropped to one QAT output buffer; results were small and mixed in single-job testing, with modest gains under four jobs. |
 | Destination coalescing reuse | Reused destination coalescing buffers from the QAT DC buffer-slot pool and increased reuse slots from 4 to 32 per DC instance. | Allocation cost dropped sharply after warmup, but elapsed results were still mixed and four-job runs regressed. |
 | Compression level matrix | Compared `zfs_qat_cpa_dc_level=1..4` with source and destination coalescing disabled. | Level 4 improved ratio slightly but was not the fastest. Level 1 was usually best under four jobs; level 3 was best for single-job 128K and 1M. |
+| Best-case level 1 comparison | Compared level 1 QAT against software gzip in the same benchmark window with software readback. | QAT reached parity only at single-job 128K; software remained faster at larger records and under four jobs. |
 
 ## Current Fair Comparison
 
@@ -750,6 +751,52 @@ Interpretation:
 - Keep the explicit `zfs_qat_cpa_dc_level` knob for now. A future
   performance/ratio bias can map to proven low-level settings, but should not
   hide this variability before more workloads are tested.
+
+## Best-Case Level 1 Comparison
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-level1-bestcase-jobs1-20260516.csv
+/root/zfs-qat-phase4-level1-bestcase-jobs4-20260516.csv
+```
+
+Test settings:
+
+```text
+zfs_qat_cpa_dc_level=1
+zfs_qat_cpa_dc_hufftype=dynamic
+zfs_qat_dc_max_buf_size=1048576
+zfs_qat_dc_coalesce_src=0
+zfs_qat_dc_coalesce_dst=0
+VERIFY_MODE=sw
+ITERS=3
+RECORDS="128K 256K 1M"
+MODES="qat sw"
+```
+
+Lower elapsed time is better. Negative QAT vs software means QAT was faster.
+
+| Jobs | Record | QAT Avg | Software Avg | QAT vs SW | QAT Throughput | SW Throughput | QAT Sys CPU | SW Sys CPU | QAT Ratio | SW Ratio |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 128K | 758.9 ms | 766.6 ms | 1.0% faster | 240.7 MiB/s | 238.2 MiB/s | 1.87% | 4.13% | 16.88x | 16.86x |
+| 1 | 256K | 693.9 ms | 599.7 ms | 15.7% slower | 263.1 MiB/s | 304.8 MiB/s | 1.51% | 4.65% | 21.63x | 21.53x |
+| 1 | 1M | 624.0 ms | 540.4 ms | 15.5% slower | 292.5 MiB/s | 337.8 MiB/s | 1.41% | 4.92% | 25.15x | 25.17x |
+| 4 | 128K | 1208.2 ms | 1071.8 ms | 12.7% slower | 604.5 MiB/s | 682.4 MiB/s | 4.49% | 12.76% | 16.92x | 16.90x |
+| 4 | 256K | 1131.2 ms | 994.3 ms | 13.8% slower | 645.4 MiB/s | 735.7 MiB/s | 3.95% | 13.37% | 21.70x | 21.60x |
+| 4 | 1M | 1095.1 ms | 904.4 ms | 21.1% slower | 666.8 MiB/s | 807.1 MiB/s | 3.65% | 13.80% | 25.25x | 25.26x |
+
+All rows passed verification and QAT reported `dc_fails=0`.
+
+Interpretation:
+
+- Level 1 is a better performance candidate than level 4, but it does not close
+  the larger-record or concurrent throughput gap.
+- The remaining gap is not primarily compression level, Huffman mode,
+  destination allocation, or coalescing overhead.
+- The next useful engineering target should be an asynchronous or queueing
+  design spike that can keep QAT work in flight without blocking each ZFS
+  worker on each individual block.
 
 ## Earlier Phase 4 Measurements
 
