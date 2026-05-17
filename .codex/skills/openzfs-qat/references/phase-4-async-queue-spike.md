@@ -446,6 +446,37 @@ jobs record async_ms sw_ms   async_vs_sw verify
 Result:
 
 - Admission control removes submit failures in the measured jobs=4 cap sweep.
-- Async QAT with cap `96` is useful under concurrent write pressure.
+- Async QAT with cap `96` is useful under concurrent write pressure as an
+  adaptive hybrid QAT/software policy.
 - Software still wins the single-job rows, so the next implementation target is
   policy gating rather than defaulting async for every gzip write.
+
+Important caveat:
+
+- Cap-skipped blocks use software gzip directly. Rows with nonzero
+  `dc_compress_async_cap_skips_delta` are therefore not pure-QAT measurements.
+  In the cap-96 jobs=4 `128K` row, `1402` QAT completions and `4438` cap skips
+  means `24.0%` QAT and `76.0%` software fallback.
+
+Small-record follow-up:
+
+```text
+Source CSVs:
+/root/zfs-qat-phase4-async-cap96-small-jobs1-20260517.csv
+/root/zfs-qat-phase4-async-cap96-small-jobs4-20260517.csv
+
+jobs record async_ms sw_ms    async_vs_sw qat_share
+1    8K     1668.786 1541.165 +8.3%       100.0%
+1    16K    1299.723 1160.976 +12.0%      99.8%
+1    32K    1105.450 1169.066 -5.4%       57.3%
+1    64K    976.121  837.671  +16.5%      41.1%
+4    8K     2422.484 2344.700 +3.3%       32.7%
+4    16K    1791.121 1617.184 +10.8%      25.6%
+4    32K    1790.974 1709.059 +4.8%       35.2%
+4    64K    1339.324 1219.847 +9.8%       26.0%
+```
+
+The smaller-record matrix does not support treating cap-96 as a general
+performance win. Software gzip won every four-job row and three of four
+single-job rows. The only winning row, single-job `32K`, was already a mixed
+QAT/software row.

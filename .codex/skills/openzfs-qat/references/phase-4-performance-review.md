@@ -1,6 +1,6 @@
 # Phase 4 Performance Review
 
-Last updated: 2026-05-15.
+Last updated: 2026-05-17.
 
 This is a human-readable review of phase 4 performance work. It summarizes what
 changed and what the measured result was. It intentionally avoids implementation
@@ -25,6 +25,9 @@ Primary compressible source:
 size: 191346108 bytes
 ```
 
+The Cap-96 small-record follow-up used the restored scratch source labelled
+`Image.tif_` in the benchmark CSV, size `765384432` bytes.
+
 Important comparability note:
 
 - The earliest phase 4 CSV measured write/copy behavior only.
@@ -41,6 +44,8 @@ Important comparability note:
 - Larger records now actually use QAT. Before the large-record work, `256 KiB` and `1 MiB` records silently used software fallback.
 - Compression ratio is close between QAT and software in the best-case level 1 comparison. Level 4 gives QAT a small ratio advantage, but it is not the performance winner.
 - A later level 1-4 matrix showed no single QAT compression level wins every case. Level 4 gives the best ratio, level 1 is generally strongest under four concurrent streams, and level 3 was fastest for single-stream 128K and 1M in that run.
+- The async in-flight cap improves admission behavior but creates adaptive hybrid QAT/software rows whenever cap skips are nonzero. These rows should not be described as pure-QAT performance.
+- In the Cap-96 small-record follow-up, software gzip won every four-job row and three of four single-job rows. The only QAT-labelled win was single-job `32K`, and that row was already `57.3%` QAT / `42.7%` software fallback.
 
 ## Current Latency Diagnosis
 
@@ -99,6 +104,10 @@ service time.
 | Destination coalescing reuse | Reused destination coalescing buffers from the QAT DC buffer-slot pool and increased reuse slots from 4 to 32 per DC instance. | Allocation cost dropped sharply after warmup, but elapsed results were still mixed and four-job runs regressed. |
 | Compression level matrix | Compared `zfs_qat_cpa_dc_level=1..4` with source and destination coalescing disabled. | Level 4 improved ratio slightly but was not the fastest. Level 1 was usually best under four jobs; level 3 was best for single-job 128K and 1M. |
 | Best-case level 1 comparison | Compared level 1 QAT against software gzip in the same benchmark window with software readback. | QAT reached parity only at single-job 128K; software remained faster at larger records and under four jobs. |
+| Async ZIO path | Added opt-in callback-driven QAT gzip write compression behind `zfs_qat_dc_async=1`. | Initial smoke improved one 128K row but had many submit retries/fallbacks; default remains off. |
+| Async submit retry tuning | Added retry and backoff controls for async QAT submit retries. | `8` retries with `100 us` backoff was the best single-row probe, but software still won single-job rows. |
+| Async in-flight cap | Added `zfs_qat_dc_async_max_inflight=96` to skip QAT when too many async requests are in flight. | Removes submit failures and can improve concurrent 128K/256K results, but rows become adaptive hybrid QAT/software when cap skips are nonzero. |
+| Cap-96 small records | Benchmarked `8K`, `16K`, `32K`, and `64K` with the async cap. | Software won every four-job row and three of four single-job rows; the only win was a mixed `32K` row. |
 
 ## Current Fair Comparison
 
@@ -798,6 +807,81 @@ Interpretation:
   design spike that can keep QAT work in flight without blocking each ZFS
   worker on each individual block. The first-pass design is documented in
   `phase-4-async-queue-spike.md`.
+
+## Async Cap-96 Hybrid Results
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-async-cap96-jobs1-compare-20260516.csv
+/root/zfs-qat-phase4-async-cap96-jobs4-compare-20260516.csv
+/root/zfs-qat-phase4-async-cap96-small-jobs1-20260517.csv
+/root/zfs-qat-phase4-async-cap96-small-jobs4-20260517.csv
+```
+
+The async in-flight cap is an admission-control policy. When the cap is reached,
+the block uses software gzip instead of attempting another QAT submission. That
+means cap-skipped benchmark rows are hybrid QAT/software rows.
+
+QAT share is calculated as:
+
+```text
+dc_compress_async_completions_delta / dc_compress_async_submits_delta
+```
+
+Example: `1402` completions and `4438` cap skips means `1402 / 5840 = 24.0%`
+QAT and `76.0%` software fallback.
+
+### 128K Through 1M
+
+| Jobs | Record | Async Cap-96 | Software | Async vs SW | QAT Share |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 128K | 753.6 ms | 692.1 ms | 8.9% slower | 35.0% |
+| 1 | 256K | 682.1 ms | 601.6 ms | 13.4% slower | 37.5% |
+| 1 | 1M | 599.4 ms | 573.1 ms | 4.6% slower | 70.5% |
+| 4 | 128K | 1073.7 ms | 1172.4 ms | 8.4% faster | 24.5% |
+| 4 | 256K | 927.8 ms | 956.6 ms | 3.0% faster | 24.7% |
+| 4 | 1M | 876.5 ms | 892.7 ms | 1.8% faster | 31.0% |
+
+```text
+QAT share, 4 jobs
+128K | #####               24.5%
+256K | #####               24.7%
+1M   | ######              31.0%
+```
+
+Result: the four-job Cap-96 rows are faster than software in this one-iteration
+matrix, but most blocks in those rows used software fallback. This is a useful
+adaptive policy result, not proof that pure QAT is faster.
+
+### 8K Through 64K
+
+| Jobs | Record | Async Cap-96 | Software | Async vs SW | QAT Share | Ratio |
+|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 8K | 1668.8 ms | 1541.2 ms | 8.3% slower | 100.0% | 4.44x |
+| 1 | 16K | 1299.7 ms | 1161.0 ms | 12.0% slower | 99.8% | 7.79x |
+| 1 | 32K | 1105.5 ms | 1169.1 ms | 5.4% faster | 57.3% | 6.91x |
+| 1 | 64K | 976.1 ms | 837.7 ms | 16.5% slower | 41.1% | 11.58x |
+| 4 | 8K | 2422.5 ms | 2344.7 ms | 3.3% slower | 32.7% | 4.44x |
+| 4 | 16K | 1791.1 ms | 1617.2 ms | 10.8% slower | 25.6% | 7.83x |
+| 4 | 32K | 1791.0 ms | 1709.1 ms | 4.8% slower | 35.2% | 6.90x |
+| 4 | 64K | 1339.3 ms | 1219.8 ms | 9.8% slower | 26.0% | 11.59x |
+
+```text
+Elapsed, 4 jobs, lower is better
+8K  async | #################### 2422.5
+8K  sw    | ###################  2344.7
+16K async | ###############      1791.1
+16K sw    | #############        1617.2
+32K async | ###############      1791.0
+32K sw    | ##############       1709.1
+64K async | ###########          1339.3
+64K sw    | ##########           1219.8
+```
+
+Result: smaller records did not fix QAT latency. The pure-QAT `8K` single-job
+row was slower than software, and all four-job small-record rows were slower
+than software while being mostly software fallback already.
 
 ## Earlier Phase 4 Measurements
 

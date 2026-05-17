@@ -1545,8 +1545,77 @@ Result:
 
 - Admission control is better than retry-only pressure handling.
 - Cap `96` avoids QAT submit failures in the measured jobs=4 cap sweep.
-- Async QAT with cap `96` beats software in this one-iteration jobs=4 matrix.
+- Async QAT with cap `96` beats software in this one-iteration jobs=4 matrix
+  as an adaptive hybrid QAT/software policy.
 - Software still wins jobs=1, so async should not become a blanket policy.
+- Cap-skipped blocks use software gzip directly. Therefore, rows with nonzero
+  `dc_compress_async_cap_skips_delta` are not pure-QAT measurements. For
+  example, `1402` completions and `4438` cap skips means `24.0%` QAT and
+  `76.0%` software, calculated as `completions / async_submits` and
+  `cap_skips / async_submits`.
 - The next target should be policy selection: use async only when concurrency
   and record size make it likely to beat software, then validate with repeated
   iterations.
+
+## Cap-96 Small-Record Follow-Up
+
+Run date: 2026-05-17.
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-async-cap96-small-jobs1-20260517.csv
+/root/zfs-qat-phase4-async-cap96-small-jobs4-20260517.csv
+```
+
+Test settings:
+
+```text
+zfs_qat_dc_async=1
+zfs_qat_dc_async_submit_retries=8
+zfs_qat_dc_async_retry_us=100
+zfs_qat_dc_async_max_inflight=96
+zfs_qat_dc_coalesce_src=0
+zfs_qat_dc_coalesce_dst=0
+VERIFY_MODE=sw
+ITERS=1
+RECORDS="8K 16K 32K 64K"
+MODES="qat sw"
+```
+
+Single-job results:
+
+```text
+record async_ms sw_ms    async_vs_sw qat_share cap_skips submit_fails verify
+8K     1668.786 1541.165 +8.3%       100.0%    0         0            yes
+16K    1299.723 1160.976 +12.0%      99.8%     26        0            yes
+32K    1105.450 1169.066 -5.4%       57.3%     2495      0            yes
+64K    976.121  837.671  +16.5%      41.1%     1719      0            yes
+```
+
+Four-job results:
+
+```text
+record async_ms sw_ms    async_vs_sw qat_share cap_skips submit_fails verify
+8K     2422.484 2344.700 +3.3%       32.7%     62900     0            yes
+16K    1791.121 1617.184 +10.8%      25.6%     34759     0            yes
+32K    1790.974 1709.059 +4.8%       35.2%     15136     0            yes
+64K    1339.324 1219.847 +9.8%       26.0%     8640      0            yes
+```
+
+Result:
+
+- Smaller records did not make Cap-96 async QAT faster than software in this
+  matrix. Software won every four-job row and three of four single-job rows.
+- The only winning small-record row was single-job `32K`, but it was already a
+  mixed row with `57.3%` QAT completions and `42.7%` cap-skipped software
+  fallback.
+- Single-job `8K` was a pure-QAT row and was `8.3%` slower than software. This
+  is useful evidence that the current QAT 1.x path is not merely starved by
+  large records; per-block QAT service/setup cost is also material at small
+  records.
+- Under four jobs, all small-record Cap-96 rows were mostly software fallback,
+  with only `25.6-35.2%` of async submissions completing through QAT.
+- Future benchmarks should report QAT share next to latency and throughput
+  whenever async admission control is enabled. Pure-QAT behavior and adaptive
+  hybrid policy behavior should be evaluated separately.
