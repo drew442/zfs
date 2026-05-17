@@ -468,6 +468,12 @@ Recent phase 4 policy benchmark artifacts:
 /root/zfs-qat-phase4-async-dc6-policy-recordsize-jobs4-20260517.csv
 /root/zfs-qat-phase4-async-dc6-policy-fixed-1m-repeat-jobs4-20260517.csv
 /root/zfs-qat-phase4-async-dc6-policy-recordsize-1m-repeat-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-src-coalesce-smoke-20260517.csv
+/root/zfs-qat-phase4-async-dst-coalesce-smoke-20260517.csv
+/root/zfs-qat-phase4-async-coalesce-off-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-coalesce-src-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-coalesce-dst-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-coalesce-both-jobs4-20260517.csv
 ```
 
 Current QAT async policy parameters after the 2026-05-17 reboot check:
@@ -485,6 +491,16 @@ The installed ZFS module includes `zfs_qat_dc_async_cap_policy` and reported
 `srcversion DE2F1DB9C0B6720727096E0` after the forced DKMS rebuild and
 initramfs update. The live host rejected invalid cap-policy values with
 `EINVAL` and accepted both `fixed` and `recordsize`.
+
+The async-compatible coalescing DKMS build reported
+`srcversion 18635F01D8EFD4EBD6C7675` after reboot. Build artifacts:
+
+```text
+/root/zfs-2.4.99.pre-async-coalesce.20260517T072844Z
+/root/zfs-qat-async-coalesce-dkms-build-20260517.log
+/root/zfs-qat-async-coalesce-dkms-install-20260517.log
+/root/zfs-qat-async-coalesce-initramfs-20260517.log
+```
 
 QATzip source is present under:
 

@@ -25,13 +25,13 @@ Record size is not sufficient by itself. The policy also needs:
 - Performance-vs-ratio bias.
 - Latency-vs-throughput bias.
 
-## Current Hard Constraints
+## Current Constraints
 
 - `zfs_qat_dc_async_cap_policy` is a per-request decision and can safely use
   record size and active DC instance count.
-- `zfs_qat_dc_coalesce_src` and `zfs_qat_dc_coalesce_dst` currently disable the
-  async path because `qat_dc_compress_async_enabled()` requires both coalescing
-  knobs to be off.
+- `zfs_qat_dc_coalesce_src` and `zfs_qat_dc_coalesce_dst` can now run with the
+  async path. They remain record-size/profile candidates because the measured
+  results are mixed.
 - `zfs_qat_cpa_dc_level` and `zfs_qat_cpa_dc_hufftype` are QAT DC session
   settings. They are global after QAT DC initialization and cannot currently
   vary per record without building multiple session sets per QAT instance.
@@ -55,8 +55,8 @@ unknown    Needs fresh benchmark evidence under the current DC6 async setup.
 |---|---|---:|---:|---:|---:|---:|---:|---:|---|
 | Async QAT admission | per request | disable | disable | disable | disable | enable | enable | enable | Use record-size policy. |
 | Async in-flight cap | per request | software | software | software | software | 768 on DC6 | 192 on DC6 | 96 on DC6 | Keep record-size/DC-count policy. |
-| Source coalescing | module/per request path | blocked | blocked | blocked | blocked | unknown | unknown | disable | Do not fold into async policy until async supports coalesced buffers. |
-| Destination coalescing | module/per request path | blocked | blocked | blocked | blocked | unknown | unknown | unknown | Do not fold into async policy until async supports coalesced buffers. |
+| Source coalescing | per request path | manual | manual | manual | manual | disable | candidate | candidate | Technically unblocked; not a global default. |
+| Destination coalescing | per request path | manual | manual | manual | manual | disable | candidate | candidate | Technically unblocked; not a global default. |
 | Compression level | QAT session | manual | manual | manual | manual | manual | manual | manual | Bias-profile candidate, not per-record today. |
 | Huffman type | QAT session | manual | manual | manual | manual | manual | manual | manual | Bias-profile candidate, not per-record today. |
 | DC max instances | QAT init/global | manual | manual | manual | manual | manual | manual | manual | Keep as hardware allocation control. |
@@ -107,6 +107,57 @@ Result: fixed and recordsize both use cap `96` for `1M`, and the measured
 difference between them is noise-level. The recordsize policy should keep
 `1M+ = 96` on DC6.
 
+## Async Coalescing Follow-Up
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-async-src-coalesce-smoke-20260517.csv
+/root/zfs-qat-phase4-async-dst-coalesce-smoke-20260517.csv
+/root/zfs-qat-phase4-async-coalesce-off-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-coalesce-src-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-coalesce-dst-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-coalesce-both-jobs4-20260517.csv
+
+Repo copies:
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-phase4-async-src-coalesce-smoke-20260517.csv
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-phase4-async-dst-coalesce-smoke-20260517.csv
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-phase4-async-coalesce-off-jobs4-20260517.csv
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-phase4-async-coalesce-src-jobs4-20260517.csv
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-phase4-async-coalesce-dst-jobs4-20260517.csv
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-phase4-async-coalesce-both-jobs4-20260517.csv
+```
+
+Smoke results:
+
+- Async plus source coalescing passed SHA verification and reduced source
+  buffers to `1`.
+- Async plus destination coalescing passed SHA verification and reduced
+  destination plus scratch output buffers to `1`.
+
+Three-iteration jobs=4 results:
+
+```text
+case record qat_ms   sw_ms    qat_vs_sw qat_share src_bufs dst_total_bufs
+off  128K   1112.168 1091.258 +1.9%     40.1%     32.0     37.0
+off  256K   1013.292 1008.034 +0.5%     30.8%     64.0     73.0
+off  1M     986.959  914.903  +7.9%     33.3%     256.0    289.0
+src  128K   1096.154 1058.649 +3.5%     36.6%     1.0      37.0
+src  256K   975.573  964.011  +1.2%     27.1%     1.0      73.0
+src  1M     876.813  928.709  -5.6%     32.7%     1.0      289.0
+dst  128K   1161.276 1100.953 +5.5%     39.7%     32.0     1.0
+dst  256K   979.081  1006.882 -2.8%     28.5%     64.0     1.0
+dst  1M     933.987  1038.753 -10.1%    35.5%     256.0    1.0
+both 128K   1201.735 1040.997 +15.4%    43.5%     1.0      1.0
+both 256K   960.724  999.667  -3.9%     26.9%     1.0      1.0
+both 1M     932.046  908.515  +2.6%     35.3%     1.0      1.0
+```
+
+Result: coalescing should not be globally enabled. It is technically unblocked
+for async and useful as a profile input, but the policy should avoid it at
+`128K`. In this pass, `256K` favored coalescing, especially both source and
+destination together, while `1M` favored source-only among the QAT rows.
+
 ## Bias Profiles
 
 Bias profiles are useful, but they should be layered on top of the record-size
@@ -137,13 +188,11 @@ Initial behavior should be conservative:
 
 1. Keep the current `recordsize` async cap policy as the default candidate for
    QAT 1.x async gzip.
-2. Do not enable source or destination coalescing in the async policy until the
-   async path can use coalesced buffers without disabling itself.
-3. If coalescing remains interesting, implement async-compatible source and
-   destination coalescing as separate patches, then repeat 128K, 256K, and 1M
-   benchmarks under DC6 async.
+2. Keep coalescing disabled at `128K` in any automatic policy.
+3. Treat coalescing as a candidate for `256K` and `1M` profile policy, but
+   repeat before making it default because the software baselines varied across
+   the matrix.
 4. Do not make compression level or Huffman type per-record until the code can
    maintain multiple QAT DC sessions per instance.
 5. Add bias-profile parameters only after the policy actions they control are
    implementable and benchmark-backed.
-

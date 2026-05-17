@@ -1194,9 +1194,10 @@ Policy-matrix follow-up:
   `.codex/skills/openzfs-qat/references/phase-4-policy-matrix.md`.
 - The focused six-iteration `1M` repeat showed fixed and recordsize are
   effectively the same policy at `1M`, both using cap `96`.
-- Source and destination coalescing should not be added to the current
-  recordsize policy yet because the async path currently requires both
-  coalescing knobs to be disabled.
+- Source and destination coalescing are now technically compatible with the
+  async path. The first jobs=4 matrix does not support global enablement:
+  `128K` regressed, `256K` favored coalescing, and `1M` favored source-only
+  among QAT rows.
 - Compression level and Huffman type are session-global today. They are valid
   bias-profile candidates, but they cannot be selected per record without a
   multi-session QAT DC implementation.

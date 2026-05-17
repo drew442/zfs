@@ -1996,3 +1996,96 @@ recordsize sw  921.995 791.7 n/a       n/a       25.26x
 Result: fixed and recordsize both select cap `96` for `1M`. The earlier
 same-window difference was not a policy signal. Keep the DC6 `1M+` cap at `96`
 in the recordsize policy.
+
+### Async-Compatible Coalescing
+
+Run date: 2026-05-17.
+
+Change:
+
+- `qat_dc_compress_async_enabled()` no longer rejects requests when
+  `zfs_qat_dc_coalesce_src` or `zfs_qat_dc_coalesce_dst` is enabled.
+- The async submit path now uses the existing source coalescing helper,
+  destination coalescing helper, destination buffer-slot reuse, and copy-back
+  accounting.
+- If source or destination coalescing allocation fails, the async path falls
+  back to the normal fragmented-buffer path.
+
+Host source backup before installing the async-compatible coalescing build:
+
+```text
+/root/zfs-2.4.99.pre-async-coalesce.20260517T072844Z
+/root/zfs-2.4.99.pre-async-coalesce.latest -> /root/zfs-2.4.99.pre-async-coalesce.20260517T072844Z
+```
+
+Build and install logs:
+
+```text
+/root/zfs-qat-async-coalesce-dkms-build-20260517.log
+/root/zfs-qat-async-coalesce-dkms-install-20260517.log
+/root/zfs-qat-async-coalesce-initramfs-20260517.log
+```
+
+Loaded module after DKMS install, `update-initramfs -u -k 7.0.0-3-pve`, and
+reboot:
+
+```text
+srcversion: 18635F01D8EFD4EBD6C7675
+```
+
+Smoke CSVs:
+
+```text
+/root/zfs-qat-phase4-async-src-coalesce-smoke-20260517.csv
+/root/zfs-qat-phase4-async-dst-coalesce-smoke-20260517.csv
+```
+
+Smoke result:
+
+- Async plus source coalescing passed SHA verification and recorded
+  `dc_compress_src_buffers_max=1`.
+- Async plus destination coalescing passed SHA verification and recorded
+  `dc_compress_dst_total_buffers_max=1`.
+
+Targeted jobs=4 CSVs:
+
+```text
+/root/zfs-qat-phase4-async-coalesce-off-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-coalesce-src-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-coalesce-dst-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-coalesce-both-jobs4-20260517.csv
+
+Repo copies are under:
+.codex/skills/openzfs-qat/references/benchmarks/
+```
+
+Three-iteration jobs=4 comparison:
+
+```text
+case record qat_ms   sw_ms    qat_vs_sw qat_share src_bufs dst_total_bufs
+off  128K   1112.168 1091.258 +1.9%     40.1%     32.0     37.0
+off  256K   1013.292 1008.034 +0.5%     30.8%     64.0     73.0
+off  1M     986.959  914.903  +7.9%     33.3%     256.0    289.0
+src  128K   1096.154 1058.649 +3.5%     36.6%     1.0      37.0
+src  256K   975.573  964.011  +1.2%     27.1%     1.0      73.0
+src  1M     876.813  928.709  -5.6%     32.7%     1.0      289.0
+dst  128K   1161.276 1100.953 +5.5%     39.7%     32.0     1.0
+dst  256K   979.081  1006.882 -2.8%     28.5%     64.0     1.0
+dst  1M     933.987  1038.753 -10.1%    35.5%     256.0    1.0
+both 128K   1201.735 1040.997 +15.4%    43.5%     1.0      1.0
+both 256K   960.724  999.667  -3.9%     26.9%     1.0      1.0
+both 1M     932.046  908.515  +2.6%     35.3%     1.0      1.0
+```
+
+Result:
+
+- Async-compatible source and destination coalescing works functionally and
+  passes SHA verification.
+- Coalescing is not a universal performance win. It should remain disabled for
+  automatic `128K` policy.
+- `256K` improved with coalescing in this pass, with both source and
+  destination coalescing producing the fastest QAT row.
+- `1M` was best with source-only coalescing among QAT rows in this pass.
+- Software baselines varied across the four coalescing runs, so these results
+  should drive a follow-up repeat before making coalescing part of a default
+  policy profile.
