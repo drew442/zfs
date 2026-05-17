@@ -505,3 +505,23 @@ checksum and encryption were disabled for this host test. Six DC instances
 improved the QAT completion share but did not turn Cap-96 into a general win;
 the repeated jobs=4 result was parity at `128K`, slightly behind software at
 `256K`, and ahead at `1M`.
+
+DC6 small-record follow-up:
+
+```text
+Source CSVs:
+/root/zfs-qat-phase4-async-cap96-dc6-small-jobs1-20260517.csv
+/root/zfs-qat-phase4-async-cap96-dc6-small-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-cap96-dc6-small-jobs4-repeat-20260517.csv
+
+Three-iteration jobs=4 repeat:
+record async_avg_ms sw_avg_ms async_vs_sw qat_share
+8K     2346.487     2339.104 +0.3%       58.8%
+16K    1713.810     1601.833 +7.0%       31.4%
+32K    1769.260     1717.969 +3.0%       36.3%
+64K    1358.403     1228.190 +10.6%      30.5%
+```
+
+The small-record repeat does not support using DC6 Cap-96 for small records as
+a performance policy. Even where QAT handled most requests at `8K`, elapsed
+time only reached parity with software.

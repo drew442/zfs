@@ -1686,3 +1686,58 @@ Result:
 - This result does not justify assuming that more DC instances alone will solve
   the latency gap. It may be useful for larger records, but the policy still
   needs record-size and concurrency gating.
+
+### DC6 Small-Record Cap-96 Follow-Up
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-async-cap96-dc6-small-jobs1-20260517.csv
+/root/zfs-qat-phase4-async-cap96-dc6-small-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-cap96-dc6-small-jobs4-repeat-20260517.csv
+```
+
+Single-job one-iteration results:
+
+```text
+record async_ms sw_ms    async_vs_sw qat_share cap_skips submit_fails verify
+8K     1526.686 1521.959 +0.3%       99.7%     70        0            yes
+16K    1184.087 1174.081 +0.9%       99.9%     7         0            yes
+32K    1055.309 1076.144 -1.9%       67.7%     1885      0            yes
+64K    954.536  892.426  +7.0%       40.1%     1749      0            yes
+```
+
+Four-job one-iteration results:
+
+```text
+record async_ms sw_ms    async_vs_sw qat_share cap_skips submit_fails verify
+8K     2365.443 2392.117 -1.1%       41.5%     54628     0            yes
+16K    1723.020 1603.424 +7.5%       28.6%     33364     0            yes
+32K    1823.673 1631.320 +11.8%      37.5%     14605     0            yes
+64K    1391.715 1211.059 +14.9%      34.4%     7661      0            yes
+```
+
+Four-job three-iteration repeat:
+
+```text
+record async_avg_ms sw_avg_ms async_vs_sw qat_share cap_skips submit_fails verify
+8K     2346.487     2339.104 +0.3%       58.8%     115566    0            yes
+16K    1713.810     1601.833 +7.0%       31.4%     96085     0            yes
+32K    1769.260     1717.969 +3.0%       36.3%     44648     0            yes
+64K    1358.403     1228.190 +10.6%      30.5%     24355     0            yes
+```
+
+Result:
+
+- DC6 small-record Cap-96 is not a performance win. The repeated jobs=4 matrix
+  is effectively parity at `8K` and slower than software at `16K`, `32K`, and
+  `64K`.
+- Six DC instances made the single-job `8K` and `16K` rows nearly pure-QAT and
+  nearly equal to software, which is a material improvement over the earlier
+  two-DC small-record run. It still did not beat software.
+- The repeated jobs=4 `8K` row completed more QAT work than software fallback
+  (`58.8%` QAT), but elapsed time was still slightly slower than software.
+- Submit failures remained zero. The cap is controlling queue pressure, but
+  small-record QAT service/setup cost remains too high to beat software gzip.
+- Combined with the larger-record DC6 repeat, the current policy evidence
+  favors DC6 Cap-96 only for larger records such as `1M`, not for small records.

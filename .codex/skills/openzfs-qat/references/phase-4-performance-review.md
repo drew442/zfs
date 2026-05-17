@@ -46,7 +46,8 @@ Important comparability note:
 - A later level 1-4 matrix showed no single QAT compression level wins every case. Level 4 gives the best ratio, level 1 is generally strongest under four concurrent streams, and level 3 was fastest for single-stream 128K and 1M in that run.
 - The async in-flight cap improves admission behavior but creates adaptive hybrid QAT/software rows whenever cap skips are nonzero. These rows should not be described as pure-QAT performance.
 - In the Cap-96 small-record follow-up, software gzip won every four-job row and three of four single-job rows. The only QAT-labelled win was single-job `32K`, and that row was already `57.3%` QAT / `42.7%` software fallback.
-- The host can run the ZFS QAT API service as six DC instances and zero crypto instances. In the Cap-96 repeat, this was near parity at four-job `128K`, slightly slower at `256K`, and faster at `1M`, but still mostly software fallback under the in-flight cap.
+- The host can run the ZFS QAT API service as six DC instances and zero crypto instances. In the larger-record Cap-96 repeat, this was near parity at four-job `128K`, slightly slower at `256K`, and faster at `1M`, but still mostly software fallback under the in-flight cap.
+- The DC6 small-record repeat did not produce a win: four-job `8K` was effectively parity, while `16K`, `32K`, and `64K` remained slower than software.
 
 ## Current Latency Diagnosis
 
@@ -109,7 +110,7 @@ service time.
 | Async submit retry tuning | Added retry and backoff controls for async QAT submit retries. | `8` retries with `100 us` backoff was the best single-row probe, but software still won single-job rows. |
 | Async in-flight cap | Added `zfs_qat_dc_async_max_inflight=96` to skip QAT when too many async requests are in flight. | Removes submit failures and can improve concurrent 128K/256K results, but rows become adaptive hybrid QAT/software when cap skips are nonzero. |
 | Cap-96 small records | Benchmarked `8K`, `16K`, `32K`, and `64K` with the async cap. | Software won every four-job row and three of four single-job rows; the only win was a mixed `32K` row. |
-| Six DC instances | Reconfigured `[KERNEL_QAT]` to `NumberCyInstances=0` and `NumberDcInstances=6`, with ZFS QAT crypto/checksum disabled. | Driver accepted the split. More QAT requests completed, but the Cap-96 policy still used mostly software fallback and only the four-job `1M` repeat clearly beat software. |
+| Six DC instances | Reconfigured `[KERNEL_QAT]` to `NumberCyInstances=0` and `NumberDcInstances=6`, with ZFS QAT crypto/checksum disabled. | Driver accepted the split. More QAT requests completed, but the Cap-96 policy still used mostly software fallback. Only the four-job `1M` repeat clearly beat software; small records did not. |
 
 ## Current Fair Comparison
 
@@ -939,6 +940,52 @@ Result: six DC instances increase the share of requests that complete through
 QAT, but they do not remove the hybrid-policy problem. With Cap-96, most
 four-job blocks still use software fallback, and the only clear repeated win is
 the `1M` row.
+
+### Six DC Instances, 8K Through 64K
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-async-cap96-dc6-small-jobs1-20260517.csv
+/root/zfs-qat-phase4-async-cap96-dc6-small-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-cap96-dc6-small-jobs4-repeat-20260517.csv
+```
+
+| Jobs | Record | Async Cap-96 | Software | Async vs SW | QAT Share |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 8K | 1526.7 ms | 1522.0 ms | 0.3% slower | 99.7% |
+| 1 | 16K | 1184.1 ms | 1174.1 ms | 0.9% slower | 99.9% |
+| 1 | 32K | 1055.3 ms | 1076.1 ms | 1.9% faster | 67.7% |
+| 1 | 64K | 954.5 ms | 892.4 ms | 7.0% slower | 40.1% |
+| 4 | 8K | 2365.4 ms | 2392.1 ms | 1.1% faster | 41.5% |
+| 4 | 16K | 1723.0 ms | 1603.4 ms | 7.5% slower | 28.6% |
+| 4 | 32K | 1823.7 ms | 1631.3 ms | 11.8% slower | 37.5% |
+| 4 | 64K | 1391.7 ms | 1211.1 ms | 14.9% slower | 34.4% |
+
+Three-iteration four-job repeat:
+
+| Record | Async Avg | Software Avg | Async vs SW | QAT Share |
+|---:|---:|---:|---:|---:|
+| 8K | 2346.5 ms | 2339.1 ms | 0.3% slower | 58.8% |
+| 16K | 1713.8 ms | 1601.8 ms | 7.0% slower | 31.4% |
+| 32K | 1769.3 ms | 1718.0 ms | 3.0% slower | 36.3% |
+| 64K | 1358.4 ms | 1228.2 ms | 10.6% slower | 30.5% |
+
+```text
+Three-iteration jobs=4, elapsed, lower is better
+8K  dc6 | #################### 2346.5
+8K  sw  | #################### 2339.1
+16K dc6 | ###############      1713.8
+16K sw  | ##############       1601.8
+32K dc6 | ###############      1769.3
+32K sw  | ###############      1718.0
+64K dc6 | ###########          1358.4
+64K sw  | ##########           1228.2
+```
+
+Result: DC6 improves QAT participation at small records, especially single-job
+`8K` and `16K`, but it does not make small records faster than software gzip.
+The only repeated jobs=4 near-parity row is `8K`; the rest remain slower.
 
 ## Earlier Phase 4 Measurements
 
