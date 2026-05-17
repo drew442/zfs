@@ -551,3 +551,36 @@ Higher caps are not broadly better. Cap `192` helped `256K`, cap `768` helped
 `128K`, and cap `96` remains the best repeated `1M` result seen so far. Removing
 the cap entirely reintroduced submit failures and heavy retry traffic, so
 uncapped mode is not a usable answer for this workload.
+
+Recordsize/DC-count policy follow-up:
+
+```text
+Source CSVs:
+/root/zfs-qat-phase4-async-dc6-policy-fixed-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-policy-recordsize-jobs4-20260517.csv
+
+zfs_qat_dc_async_cap_policy=fixed|recordsize
+```
+
+The `recordsize` policy includes the active DC instance count. On the six-DC
+test host it uses software fallback below `128K`, cap `768` at `128K`, cap
+`192` at `256K`, and cap `96` at `1M` and larger records. Untested sizes and
+DC counts fall back to the operator-provided fixed cap.
+
+Three-iteration jobs=4 results:
+
+```text
+record fixed_vs_sw recordsize_vs_sw recordsize_vs_fixed recordsize_qat_share
+8K     +5.4%       +1.4%            4.2% faster         0.0%
+16K    +4.7%       -0.2%            3.0% faster         0.0%
+32K    +9.3%       -3.5%            12.1% faster        0.0%
+64K    +8.5%       -4.9%            9.7% faster         0.0%
+128K   +0.3%       -1.4%            2.0% faster         35.9%
+256K   -1.5%       -2.4%            1.8% faster         27.3%
+1M     -8.7%       -7.8%            4.9% slower         32.2%
+```
+
+Result: the policy removes the small-record QAT penalty and keeps the large
+record wins. The `1M` same-window fixed row remained faster, so the `1M+`
+policy should stay conservative at cap `96` and be rechecked with a focused
+repeat before treating the difference as meaningful.

@@ -2162,6 +2162,38 @@ This reduces QAT destination buffer-list entries, but adds allocation and copy
 cost.
 The default is disabled.
 .
+.It Sy zfs_qat_dc_async Ns = Ns Sy 0 Ns | Ns 1 Pq int
+Enable experimental asynchronous QAT gzip write compression.
+The default is disabled.
+.
+.It Sy zfs_qat_dc_async_submit_retries Ns = Ns Sy 8 Pq int
+Number of submit retries after
+.Sy CPA_STATUS_RETRY
+when experimental asynchronous QAT gzip write compression is enabled.
+.
+.It Sy zfs_qat_dc_async_retry_us Ns = Ns Sy 100 Pq int
+Backoff delay, in microseconds, between asynchronous QAT gzip submit retries.
+.
+.It Sy zfs_qat_dc_async_max_inflight Ns = Ns Sy 96 Pq int
+Maximum in-flight experimental asynchronous QAT gzip compression requests.
+A value of
+.Sy 0
+disables the cap.
+.
+.It Sy zfs_qat_dc_async_cap_policy Ns = Ns Sy fixed Ns | Ns Sy recordsize Pq charp
+Policy for selecting the asynchronous QAT gzip in-flight cap.
+.Sy fixed
+uses
+.Sy zfs_qat_dc_async_max_inflight
+for every eligible record.
+.Sy recordsize
+uses an experimental QAT 1.x policy based on the ZFS record size and active QAT
+data-compression instance count, falling back to the fixed cap for untested
+combinations.
+This option is experimental and is only used when
+.Sy zfs_qat_dc_async
+is enabled.
+.
 .It Sy zfs_qat_dc_max_instances Ns = Ns Sy 48 Pq int
 Maximum number of QAT data-compression instances to use.
 The effective instance count is the smaller of this value and the number of

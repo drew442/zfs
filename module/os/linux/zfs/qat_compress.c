@@ -141,6 +141,7 @@ int zfs_qat_dc_async = 0;
 int zfs_qat_dc_async_submit_retries = 8;
 int zfs_qat_dc_async_retry_us = 100;
 int zfs_qat_dc_async_max_inflight = 96;
+char *zfs_qat_dc_async_cap_policy = "fixed";
 
 boolean_t
 qat_dc_compress_use_accel(size_t s_len)
@@ -202,6 +203,66 @@ qat_dc_valid_max_buf_size(int max_buf_size)
 	default:
 		return (B_FALSE);
 	}
+}
+
+static boolean_t
+qat_dc_async_valid_cap_policy(const char *value)
+{
+	return (strcmp(value, "fixed") == 0 ||
+	    strcmp(value, "fixed\n") == 0 ||
+	    strcmp(value, "recordsize") == 0 ||
+	    strcmp(value, "recordsize\n") == 0);
+}
+
+static boolean_t
+qat_dc_async_recordsize_cap(int src_len, int *cap)
+{
+	if (src_len < 128 * 1024)
+		return (B_FALSE);
+
+	/*
+	 * The recordsize policy is intentionally limited to measured
+	 * QAT 1.x configurations. Unknown DC instance counts fall back to
+	 * the operator-provided fixed cap.
+	 */
+	if (num_inst >= 6) {
+		if (src_len == 128 * 1024) {
+			*cap = 768;
+			return (B_TRUE);
+		}
+		if (src_len == 256 * 1024) {
+			*cap = 192;
+			return (B_TRUE);
+		}
+		if (src_len >= 1024 * 1024) {
+			*cap = 96;
+			return (B_TRUE);
+		}
+		return (B_TRUE);
+	}
+
+	if (num_inst <= 2) {
+		if (src_len == 128 * 1024 ||
+		    src_len == 256 * 1024 ||
+		    src_len >= 1024 * 1024) {
+			*cap = 96;
+			return (B_TRUE);
+		}
+		return (B_TRUE);
+	}
+
+	return (B_TRUE);
+}
+
+static boolean_t
+qat_dc_async_effective_cap(int src_len, int *cap)
+{
+	*cap = zfs_qat_dc_async_max_inflight;
+
+	if (strcmp(zfs_qat_dc_async_cap_policy, "recordsize") == 0)
+		return (qat_dc_async_recordsize_cap(src_len, cap));
+
+	return (B_TRUE);
 }
 
 static CpaDcCompLvl
@@ -1294,11 +1355,14 @@ qat_dc_async_record_submit_fail(CpaStatus status)
 }
 
 static boolean_t
-qat_dc_async_inflight_try_enter(void)
+qat_dc_async_inflight_try_enter(int src_len)
 {
 	uint64_t cur;
 	uint64_t next;
-	int max_inflight = zfs_qat_dc_async_max_inflight;
+	int max_inflight;
+
+	if (!qat_dc_async_effective_cap(src_len, &max_inflight))
+		return (B_FALSE);
 
 	for (;;) {
 		cur = qat_stats.dc_compress_async_inflight.value.ui64;
@@ -1407,7 +1471,7 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 
 	QAT_STAT_BUMP(dc_compress_async_submits);
 
-	if (!qat_dc_async_inflight_try_enter()) {
+	if (!qat_dc_async_inflight_try_enter(src_len)) {
 		QAT_STAT_BUMP(dc_compress_async_cap_skips);
 		QAT_STAT_BUMP(dc_compress_async_fallbacks);
 		return (NULL);
@@ -1849,6 +1913,19 @@ param_set_qat_dc_max_buf_size(const char *val, zfs_kernel_param_t *kp)
 	return (0);
 }
 
+static int
+param_set_qat_dc_async_cap_policy(const char *val, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+
+	if (!qat_dc_async_valid_cap_policy(val))
+		return (-EINVAL);
+
+	*pvalue = (strncmp(val, "recordsize", 10) == 0) ?
+	    "recordsize" : "fixed";
+	return (0);
+}
+
 module_param_call(zfs_qat_compress_disable, param_set_qat_compress,
     param_get_int, &zfs_qat_compress_disable, 0644);
 MODULE_PARM_DESC(zfs_qat_compress_disable,
@@ -1902,5 +1979,11 @@ MODULE_PARM_DESC(zfs_qat_dc_async_retry_us,
 module_param(zfs_qat_dc_async_max_inflight, int, 0644);
 MODULE_PARM_DESC(zfs_qat_dc_async_max_inflight,
     "Maximum in-flight experimental asynchronous QAT compression requests");
+
+module_param_call(zfs_qat_dc_async_cap_policy,
+    param_set_qat_dc_async_cap_policy, param_get_charp,
+    &zfs_qat_dc_async_cap_policy, 0644);
+MODULE_PARM_DESC(zfs_qat_dc_async_cap_policy,
+    "QAT async cap policy: fixed or recordsize");
 
 #endif

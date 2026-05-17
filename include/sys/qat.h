@@ -274,6 +274,7 @@ extern int zfs_qat_dc_async;
 extern int zfs_qat_dc_async_submit_retries;
 extern int zfs_qat_dc_async_retry_us;
 extern int zfs_qat_dc_async_max_inflight;
+extern char *zfs_qat_dc_async_cap_policy;
 extern int zfs_qat_checksum_disable;
 extern int zfs_qat_encrypt_disable;
 extern int zfs_qat_cy_max_instances;

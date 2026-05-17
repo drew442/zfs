@@ -1833,3 +1833,119 @@ Result:
   software even at `1M`.
 - The useful cap appears to be record-size dependent. A single global cap is
   unlikely to be optimal across `8K` through `1M`.
+
+### DC6 Recordsize Cap Policy
+
+Run date: 2026-05-17.
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-async-dc6-policy-fixed-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-policy-recordsize-jobs4-20260517.csv
+
+Repo copies:
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-phase4-async-dc6-policy-fixed-jobs4-20260517.csv
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-phase4-async-dc6-policy-recordsize-jobs4-20260517.csv
+```
+
+Test settings:
+
+```text
+NumberCyInstances = 0
+NumberDcInstances = 6
+zfs_qat_dc_async=1
+zfs_qat_dc_async_submit_retries=8
+zfs_qat_dc_async_retry_us=100
+zfs_qat_dc_async_max_inflight=96
+zfs_qat_dc_coalesce_src=0
+zfs_qat_dc_coalesce_dst=0
+zfs_qat_decompress_disable=1
+VERIFY_MODE=sw
+JOBS=4
+ITERS=3
+```
+
+The new policy knob is:
+
+```text
+zfs_qat_dc_async_cap_policy=fixed|recordsize
+```
+
+`fixed` preserves the existing behavior and uses
+`zfs_qat_dc_async_max_inflight` for every eligible record. `recordsize` is a
+QAT 1.x policy that includes the active DC instance count. On the DC6 host it
+skips async QAT for records below `128K`, uses a `768` cap for `128K`, a `192`
+cap for `256K`, and a `96` cap for `1M` and larger records. Untested instance
+counts and intermediate record sizes fall back to the fixed cap.
+
+Three-iteration jobs=4 comparison:
+
+```text
+policy     record qat_avg_ms sw_avg_ms qat_vs_sw qat_share cap_skips ratio_qat ratio_sw
+fixed      8K     2432.329   2307.079  +5.4%     49.7%     141015    4.43x     4.44x
+fixed      16K    1685.861   1609.556  +4.7%     27.9%     101010    7.83x     7.83x
+fixed      32K    1857.981   1699.187  +9.3%     36.7%     44348     6.91x     6.89x
+fixed      64K    1377.161   1268.829  +8.5%     28.9%     24912     11.60x    11.56x
+fixed      128K   1090.465   1087.621  +0.3%     24.7%     13192     16.99x    16.90x
+fixed      256K   967.729    982.396   -1.5%     24.9%     6583      21.71x    21.60x
+fixed      1M     858.618    940.062   -8.7%     33.5%     1460      25.36x    25.26x
+recordsize 8K     2329.554   2297.649  +1.4%     0.0%      280296    4.44x     4.44x
+recordsize 16K    1635.570   1638.606  -0.2%     0.0%      140148    7.83x     7.83x
+recordsize 32K    1633.441   1693.153  -3.5%     0.0%      70080     6.89x     6.89x
+recordsize 64K    1243.085   1306.951  -4.9%     0.0%      35040     11.56x    11.56x
+recordsize 128K   1068.960   1084.435  -1.4%     35.9%     11223     17.00x    16.90x
+recordsize 256K   950.537    973.445   -2.4%     27.3%     6372      21.74x    21.60x
+recordsize 1M     901.087    977.362   -7.8%     32.2%     1489      25.34x    25.26x
+```
+
+Relative to the fixed policy:
+
+```text
+record fixed_ms recordsize_ms recordsize_vs_fixed
+8K     2432.329 2329.554      4.2% faster
+16K    1685.861 1635.570      3.0% faster
+32K    1857.981 1633.441      12.1% faster
+64K    1377.161 1243.085      9.7% faster
+128K   1090.465 1068.960      2.0% faster
+256K   967.729  950.537       1.8% faster
+1M     858.618  901.087       4.9% slower
+```
+
+Simple latency chart, lower is better:
+
+```text
+8K   fixed QAT      | ######################## 2432 ms
+8K   recordsize QAT | #######################  2330 ms
+8K   software       | #######################  2298 ms
+32K  fixed QAT      | ##################       1858 ms
+32K  recordsize QAT | ################         1633 ms
+32K  software       | #################        1693 ms
+128K fixed QAT      | ###########              1090 ms
+128K recordsize QAT | ###########              1069 ms
+128K software       | ###########              1084 ms
+256K fixed QAT      | ##########               968 ms
+256K recordsize QAT | #########                951 ms
+256K software       | ##########               973 ms
+1M   fixed QAT      | #########                859 ms
+1M   recordsize QAT | #########                901 ms
+1M   software       | ##########               977 ms
+```
+
+Result:
+
+- The recordsize policy materially improves the small-record rows by avoiding
+  QAT below `128K`. Those rows are now software-compressed from the QAT mode,
+  which is why `qat_share` is `0.0%`.
+- The policy improves the repeated `128K` and `256K` rows in this same-window
+  run, and both beat software by a small margin.
+- The `1M` row remains faster than software, but it was slower than fixed cap
+  `96` in this pass. Since both policies should use cap `96` at `1M`, this is
+  likely run-to-run noise or workload ordering rather than evidence that the
+  policy should alter `1M`.
+- `dc_compress_async_cap_skips_delta` now includes both queue-cap skips and
+  policy skips. For `recordsize` rows below `128K`, the skips are deliberate
+  policy skips to software gzip.
+- `dc_compress_async_inflight_max` is cumulative for the loaded module, not a
+  per-row cap trace. It should not be used by itself to infer the cap selected
+  for each row after a higher-cap row has executed.

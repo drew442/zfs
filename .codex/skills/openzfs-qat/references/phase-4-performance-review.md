@@ -1118,21 +1118,72 @@ After the large-record change:
 
 Result: larger records now offload correctly. This was a capability and correctness improvement, not yet a speed win.
 
+### DC6 Recordsize Cap Policy
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-async-dc6-policy-fixed-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-policy-recordsize-jobs4-20260517.csv
+```
+
+Policy:
+
+```text
+fixed      = use zfs_qat_dc_async_max_inflight for every eligible record
+recordsize = include active DC count and measured record-size caps
+
+DC6 recordsize caps:
+<128K = software fallback
+128K  = 768
+256K  = 192
+1M+   = 96
+```
+
+Three-iteration jobs=4 comparison:
+
+| Policy | Record | QAT Avg | Software Avg | QAT vs Software | QAT Share |
+|---|---:|---:|---:|---:|---:|
+| fixed | 8K | 2432.329 ms | 2307.079 ms | 5.4% slower | 49.7% |
+| fixed | 16K | 1685.861 ms | 1609.556 ms | 4.7% slower | 27.9% |
+| fixed | 32K | 1857.981 ms | 1699.187 ms | 9.3% slower | 36.7% |
+| fixed | 64K | 1377.161 ms | 1268.829 ms | 8.5% slower | 28.9% |
+| fixed | 128K | 1090.465 ms | 1087.621 ms | 0.3% slower | 24.7% |
+| fixed | 256K | 967.729 ms | 982.396 ms | 1.5% faster | 24.9% |
+| fixed | 1M | 858.618 ms | 940.062 ms | 8.7% faster | 33.5% |
+| recordsize | 8K | 2329.554 ms | 2297.649 ms | 1.4% slower | 0.0% |
+| recordsize | 16K | 1635.570 ms | 1638.606 ms | 0.2% faster | 0.0% |
+| recordsize | 32K | 1633.441 ms | 1693.153 ms | 3.5% faster | 0.0% |
+| recordsize | 64K | 1243.085 ms | 1306.951 ms | 4.9% faster | 0.0% |
+| recordsize | 128K | 1068.960 ms | 1084.435 ms | 1.4% faster | 35.9% |
+| recordsize | 256K | 950.537 ms | 973.445 ms | 2.4% faster | 27.3% |
+| recordsize | 1M | 901.087 ms | 977.362 ms | 7.8% faster | 32.2% |
+
+Result: this is the best current default candidate for QAT 1.x async gzip
+policy. Below `128K`, forcing software avoids the known QAT small-record
+penalty. At `128K` and `256K`, the policy applies higher measured caps for the
+six-DC host and beats software in this run. At `1M`, the policy preserves the
+cap-96 behavior and remains faster than software, although this run was slower
+than the same-window fixed row.
+
 ## Bottom Line
 
 Current QAT state:
 
 - Correct: yes.
 - Larger records offload: yes, up to the tested 1 MiB opt-in limit.
-- Faster than software gzip: no, not in the current fair single-file comparison.
-- Current gap from software gzip: about `5-12%` slower by wall-clock latency and `5-11%` lower throughput.
-- Faster under 4-job concurrency: no. The concurrent gap was about `25-31%` slower by wall-clock latency and `20-24%` lower throughput.
+- Faster than software gzip: yes for selected concurrent jobs=4 rows with the
+  current async hybrid policy, not yet as a universal QAT-only path.
+- Current recordsize-policy result: `16K` through `1M` beat software by
+  `0.2-7.8%` in the latest DC6 jobs=4 run; `8K` remained `1.4%` slower.
+- Fixed cap-96 result: still best for the latest same-window `1M` row, `8.7%`
+  faster than software, but it remains slower than software below `128K`.
 - CPU benefit: substantial. QAT uses roughly one quarter or less of the aggregate system CPU used by software gzip in the current comparison.
 - Compression ratio: slightly better with QAT in the current comparison.
 
 Next performance question:
 
-The timing counters show QAT completion wait dominates. The next useful
-benchmark should test whether the QAT 1.x driver can expose more useful DC
-concurrency to the kernel. If it cannot, the realistic speed path is likely a
-larger asynchronous ZIO integration rather than more small allocation cleanup.
+The next useful benchmark is a focused validation of the `recordsize` policy,
+especially the `1M` row where same-window fixed cap-96 was faster. If that row
+holds, keep the `1M+` cap at `96` and treat any remaining difference as
+run-to-run noise unless repeated evidence says otherwise.
