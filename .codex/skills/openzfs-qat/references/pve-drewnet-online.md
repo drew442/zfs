@@ -474,6 +474,10 @@ Recent phase 4 policy benchmark artifacts:
 /root/zfs-qat-phase4-async-coalesce-src-jobs4-20260517.csv
 /root/zfs-qat-phase4-async-coalesce-dst-jobs4-20260517.csv
 /root/zfs-qat-phase4-async-coalesce-both-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-coalesce-off-focus-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-coalesce-src-focus-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-coalesce-dst-focus-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-coalesce-both-focus-jobs4-20260517.csv
 ```
 
 Current QAT async policy parameters after the 2026-05-17 reboot check:

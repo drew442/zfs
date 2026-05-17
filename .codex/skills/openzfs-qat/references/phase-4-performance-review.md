@@ -1198,6 +1198,10 @@ Policy-matrix follow-up:
   async path. The first jobs=4 matrix does not support global enablement:
   `128K` regressed, `256K` favored coalescing, and `1M` favored source-only
   among QAT rows.
+- A focused six-iteration repeat for `256K` and `1M` weakened the coalescing
+  case further. The best `256K` row was coalescing off, and the best `1M`
+  coalesced row was effectively tied with software. Keep coalescing manual for
+  now.
 - Compression level and Huffman type are session-global today. They are valid
   bias-profile candidates, but they cannot be selected per record without a
   multi-session QAT DC implementation.

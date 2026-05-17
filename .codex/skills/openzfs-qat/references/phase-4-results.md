@@ -2089,3 +2089,60 @@ Result:
 - Software baselines varied across the four coalescing runs, so these results
   should drive a follow-up repeat before making coalescing part of a default
   policy profile.
+
+### Async Coalescing Focused Repeat
+
+Run date: 2026-05-17.
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-async-coalesce-off-focus-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-coalesce-src-focus-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-coalesce-dst-focus-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-coalesce-both-focus-jobs4-20260517.csv
+
+Repo copies are under:
+.codex/skills/openzfs-qat/references/benchmarks/
+```
+
+Focused repeat settings:
+
+```text
+NumberCyInstances = 0
+NumberDcInstances = 6
+zfs_qat_dc_async=1
+zfs_qat_dc_async_submit_retries=8
+zfs_qat_dc_async_retry_us=100
+zfs_qat_dc_async_max_inflight=96
+zfs_qat_dc_async_cap_policy=recordsize
+zfs_qat_decompress_disable=1
+VERIFY_MODE=sw
+JOBS=4
+ITERS=6
+RECORDS="256K 1M"
+```
+
+Results:
+
+```text
+case record qat_ms   sw_ms    qat_vs_sw qat_share src_bufs dst_total_bufs
+off  256K   954.435  1064.672 -10.4%    27.0%     64.0     73.0
+off  1M     924.087  1019.278 -9.3%     33.5%     256.0    289.0
+src  256K   1000.454 1003.532 -0.3%     27.5%     1.0      73.0
+src  1M     965.245  1083.916 -10.9%    33.7%     1.0      289.0
+dst  256K   971.320  982.247  -1.1%     27.1%     64.0     1.0
+dst  1M     960.360  932.231  +3.0%     33.5%     256.0    1.0
+both 256K   986.401  987.878  -0.1%     27.7%     1.0      1.0
+both 1M     911.303  909.951  +0.1%     35.4%     1.0      1.0
+```
+
+Result:
+
+- The earlier coalescing signal did not hold in the focused repeat.
+- Coalescing still works functionally, but it should remain an explicit manual
+  knob rather than an automatic record-size policy behavior.
+- The strongest `256K` row was coalescing off.
+- The strongest `1M` QAT row was source+destination coalescing, but it was
+  effectively equal to software and only modestly ahead of the off row in a
+  noisy benchmark window.

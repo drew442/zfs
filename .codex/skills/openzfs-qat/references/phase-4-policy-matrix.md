@@ -55,8 +55,8 @@ unknown    Needs fresh benchmark evidence under the current DC6 async setup.
 |---|---|---:|---:|---:|---:|---:|---:|---:|---|
 | Async QAT admission | per request | disable | disable | disable | disable | enable | enable | enable | Use record-size policy. |
 | Async in-flight cap | per request | software | software | software | software | 768 on DC6 | 192 on DC6 | 96 on DC6 | Keep record-size/DC-count policy. |
-| Source coalescing | per request path | manual | manual | manual | manual | disable | candidate | candidate | Technically unblocked; not a global default. |
-| Destination coalescing | per request path | manual | manual | manual | manual | disable | candidate | candidate | Technically unblocked; not a global default. |
+| Source coalescing | per request path | manual | manual | manual | manual | disable | manual | manual | Technically unblocked, but repeat data does not justify policy enablement. |
+| Destination coalescing | per request path | manual | manual | manual | manual | disable | manual | manual | Technically unblocked, but repeat data does not justify policy enablement. |
 | Compression level | QAT session | manual | manual | manual | manual | manual | manual | manual | Bias-profile candidate, not per-record today. |
 | Huffman type | QAT session | manual | manual | manual | manual | manual | manual | manual | Bias-profile candidate, not per-record today. |
 | DC max instances | QAT init/global | manual | manual | manual | manual | manual | manual | manual | Keep as hardware allocation control. |
@@ -158,6 +158,60 @@ for async and useful as a profile input, but the policy should avoid it at
 `128K`. In this pass, `256K` favored coalescing, especially both source and
 destination together, while `1M` favored source-only among the QAT rows.
 
+## Focused Coalescing Repeat
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-async-coalesce-off-focus-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-coalesce-src-focus-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-coalesce-dst-focus-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-coalesce-both-focus-jobs4-20260517.csv
+
+Repo copies:
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-phase4-async-coalesce-off-focus-jobs4-20260517.csv
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-phase4-async-coalesce-src-focus-jobs4-20260517.csv
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-phase4-async-coalesce-dst-focus-jobs4-20260517.csv
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-phase4-async-coalesce-both-focus-jobs4-20260517.csv
+```
+
+Focused repeat settings:
+
+```text
+NumberCyInstances = 0
+NumberDcInstances = 6
+zfs_qat_dc_async=1
+zfs_qat_dc_async_submit_retries=8
+zfs_qat_dc_async_retry_us=100
+zfs_qat_dc_async_max_inflight=96
+zfs_qat_dc_async_cap_policy=recordsize
+zfs_qat_decompress_disable=1
+VERIFY_MODE=sw
+JOBS=4
+ITERS=6
+RECORDS="256K 1M"
+```
+
+Results:
+
+```text
+case record qat_ms   sw_ms    qat_vs_sw qat_share src_bufs dst_total_bufs
+off  256K   954.435  1064.672 -10.4%    27.0%     64.0     73.0
+off  1M     924.087  1019.278 -9.3%     33.5%     256.0    289.0
+src  256K   1000.454 1003.532 -0.3%     27.5%     1.0      73.0
+src  1M     965.245  1083.916 -10.9%    33.7%     1.0      289.0
+dst  256K   971.320  982.247  -1.1%     27.1%     64.0     1.0
+dst  1M     960.360  932.231  +3.0%     33.5%     256.0    1.0
+both 256K   986.401  987.878  -0.1%     27.7%     1.0      1.0
+both 1M     911.303  909.951  +0.1%     35.4%     1.0      1.0
+```
+
+Result: the focused repeat does not justify automatic coalescing. The best
+`256K` QAT row was coalescing off. The best `1M` QAT row was both coalescing,
+but it was effectively equal to software and only modestly faster than off in a
+noisy window. Keep source and destination coalescing as manual experimental
+knobs until a different workload or repeated matrix shows a stable win.
+
 ## Bias Profiles
 
 Bias profiles are useful, but they should be layered on top of the record-size
@@ -188,10 +242,10 @@ Initial behavior should be conservative:
 
 1. Keep the current `recordsize` async cap policy as the default candidate for
    QAT 1.x async gzip.
-2. Keep coalescing disabled at `128K` in any automatic policy.
-3. Treat coalescing as a candidate for `256K` and `1M` profile policy, but
-   repeat before making it default because the software baselines varied across
-   the matrix.
+2. Keep coalescing out of automatic policy for now. It is technically
+   compatible with async, but the focused repeat does not show a stable win.
+3. If coalescing is revisited, test a second data source or a workload with a
+   materially different compression ratio before adding profile behavior.
 4. Do not make compression level or Huffman type per-record until the code can
    maintain multiple QAT DC sessions per instance.
 5. Add bias-profile parameters only after the policy actions they control are
