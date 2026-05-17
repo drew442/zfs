@@ -48,6 +48,7 @@ Important comparability note:
 - In the Cap-96 small-record follow-up, software gzip won every four-job row and three of four single-job rows. The only QAT-labelled win was single-job `32K`, and that row was already `57.3%` QAT / `42.7%` software fallback.
 - The host can run the ZFS QAT API service as six DC instances and zero crypto instances. In the larger-record Cap-96 repeat, this was near parity at four-job `128K`, slightly slower at `256K`, and faster at `1M`, but still mostly software fallback under the in-flight cap.
 - The DC6 small-record repeat did not produce a win: four-job `8K` was effectively parity, while `16K`, `32K`, and `64K` remained slower than software.
+- A DC6 cap sweep showed that higher caps are record-size sensitive rather than broadly better. Cap `192` helped repeated `256K`, cap `768` helped repeated `128K`, and uncapped mode reintroduced submit failures and was slower.
 
 ## Current Latency Diagnosis
 
@@ -111,6 +112,7 @@ service time.
 | Async in-flight cap | Added `zfs_qat_dc_async_max_inflight=96` to skip QAT when too many async requests are in flight. | Removes submit failures and can improve concurrent 128K/256K results, but rows become adaptive hybrid QAT/software when cap skips are nonzero. |
 | Cap-96 small records | Benchmarked `8K`, `16K`, `32K`, and `64K` with the async cap. | Software won every four-job row and three of four single-job rows; the only win was a mixed `32K` row. |
 | Six DC instances | Reconfigured `[KERNEL_QAT]` to `NumberCyInstances=0` and `NumberDcInstances=6`, with ZFS QAT crypto/checksum disabled. | Driver accepted the split. More QAT requests completed, but the Cap-96 policy still used mostly software fallback. Only the four-job `1M` repeat clearly beat software; small records did not. |
+| DC6 cap sweep | Swept `zfs_qat_dc_async_max_inflight` over `96`, `192`, `384`, `768`, and uncapped. | Higher caps are not generally better. Cap choice is record-size dependent; uncapped mode is slower and causes submit failures. |
 
 ## Current Fair Comparison
 
@@ -986,6 +988,58 @@ Three-iteration jobs=4, elapsed, lower is better
 Result: DC6 improves QAT participation at small records, especially single-job
 `8K` and `16K`, but it does not make small records faster than software gzip.
 The only repeated jobs=4 near-parity row is `8K`; the rest remain slower.
+
+### DC6 Cap Sweep
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-async-dc6-cap96-sweep-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-cap192-sweep-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-cap384-sweep-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-cap768-sweep-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-cap0-sweep-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-cap192-target-repeat-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-cap384-target-repeat-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-cap768-target-repeat-jobs4-20260517.csv
+```
+
+Targeted three-iteration repeats:
+
+| Cap | Record | Async Avg | Software Avg | Async vs SW | QAT Share | Submit Fails |
+|---:|---:|---:|---:|---:|---:|---:|
+| 192 | 32K | 1906.1 ms | 1686.5 ms | 13.0% slower | 41.2% | 0 |
+| 192 | 128K | 1072.5 ms | 1067.2 ms | 0.5% slower | 26.8% | 0 |
+| 192 | 256K | 955.6 ms | 986.0 ms | 3.1% faster | 27.1% | 0 |
+| 192 | 1M | 977.4 ms | 944.3 ms | 3.5% slower | 45.7% | 0 |
+| 384 | 32K | 1900.4 ms | 1646.2 ms | 15.4% slower | 40.4% | 0 |
+| 384 | 128K | 1084.4 ms | 1059.1 ms | 2.4% slower | 28.7% | 0 |
+| 384 | 256K | 965.7 ms | 948.9 ms | 1.8% slower | 33.4% | 0 |
+| 384 | 1M | 1092.0 ms | 954.1 ms | 14.4% slower | 73.4% | 0 |
+| 768 | 32K | 1893.1 ms | 1669.0 ms | 13.4% slower | 37.2% | 0 |
+| 768 | 128K | 1060.9 ms | 1096.3 ms | 3.2% faster | 37.5% | 0 |
+| 768 | 256K | 988.4 ms | 982.3 ms | 0.6% slower | 47.6% | 0 |
+| 768 | 1M | 1178.6 ms | 933.7 ms | 26.2% slower | 100.0% | 0 |
+
+```text
+Best repeated result by record, lower is better
+128K cap768 | ###########         1060.9
+128K sw     | ###########         1096.3
+256K cap192 | ##########          955.6
+256K sw     | ##########          986.0
+1M   cap96  | #########           882.4
+1M   sw     | ##########          953.7
+```
+
+Uncapped mode (`zfs_qat_dc_async_max_inflight=0`) was tested as a boundary case.
+It removed cap skips, but it caused final submit failures on small and mid-size
+records. In the one-iteration sweep, uncapped `8K` had `4872` final submit
+failures and `145431` submit retries, and uncapped `1M` was still `27.7%`
+slower than software despite completing all QAT submissions.
+
+Result: higher caps increase QAT participation, but more QAT work does not
+translate directly into lower latency. The best cap appears record-size
+dependent, and uncapped mode should not be used for this workload.
 
 ## Earlier Phase 4 Measurements
 

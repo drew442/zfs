@@ -1741,3 +1741,95 @@ Result:
   small-record QAT service/setup cost remains too high to beat software gzip.
 - Combined with the larger-record DC6 repeat, the current policy evidence
   favors DC6 Cap-96 only for larger records such as `1M`, not for small records.
+
+### DC6 Async Cap Sweep
+
+Run date: 2026-05-17.
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-async-dc6-cap96-sweep-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-cap192-sweep-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-cap384-sweep-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-cap768-sweep-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-cap0-sweep-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-cap192-target-repeat-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-cap384-target-repeat-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-cap768-target-repeat-jobs4-20260517.csv
+```
+
+Test settings:
+
+```text
+NumberCyInstances = 0
+NumberDcInstances = 6
+zfs_qat_dc_async=1
+zfs_qat_dc_async_submit_retries=8
+zfs_qat_dc_async_retry_us=100
+zfs_qat_dc_coalesce_src=0
+zfs_qat_dc_coalesce_dst=0
+zfs_qat_decompress_disable=1
+VERIFY_MODE=sw
+JOBS=4
+```
+
+One-iteration sweep:
+
+```text
+cap record async_ms sw_ms   async_vs_sw qat_share cap_skips submit_fails retries verify
+96  8K     2402.2   2364.3  +1.6%       41.5%     54671     0            0       yes
+96  16K    1715.5   1593.4  +7.7%       26.5%     34331     0            0       yes
+96  32K    1917.6   1647.2  +16.4%      37.5%     14596     0            0       yes
+96  64K    1352.3   1184.0  +14.2%      28.6%     8338      0            0       yes
+96  128K   1119.1   1027.9  +8.9%       24.9%     4383      0            0       yes
+96  256K   1032.7   992.4   +4.1%       25.2%     2185      0            0       yes
+96  1M     925.1    905.6   +2.2%       35.0%     476       0            0       yes
+192 32K    1697.5   1716.1  -1.1%       39.1%     14229     0            0       yes
+192 128K   1054.1   1051.4  +0.3%       25.8%     4335      0            0       yes
+192 256K   977.7    965.4   +1.3%       27.3%     2123      0            0       yes
+384 256K   970.8    992.9   -2.2%       33.8%     1934      0            0       yes
+768 128K   1132.7   1133.8  -0.1%       37.3%     3660      0            0       yes
+768 1M     1208.1   974.2   +24.0%      100.0%    0         0            0       yes
+0   8K     2564.2   2306.5  +11.2%      94.8%     0         4872         145431  yes
+0   1M     1134.0   888.3   +27.7%      100.0%    0         0            0       yes
+```
+
+The full one-iteration sweep is in the CSV files above. The table shows every
+cap-96 row, the only non-cap-96 rows that were close or faster than software,
+and the uncapped boundary rows.
+
+Targeted three-iteration repeats:
+
+```text
+cap record async_avg_ms sw_avg_ms async_vs_sw qat_share cap_skips submit_fails retries verify
+192 32K    1906.1       1686.5    +13.0%      41.2%     41184     0            0       yes
+192 128K   1072.5       1067.2    +0.5%       26.8%     12822     0            0       yes
+192 256K   955.6        986.0     -3.1%       27.1%     6384      0            0       yes
+192 1M     977.4        944.3     +3.5%       45.7%     1193      0            0       yes
+384 32K    1900.4       1646.2    +15.4%      40.4%     41793     0            0       yes
+384 128K   1084.4       1059.1    +2.4%       28.7%     12488     0            0       yes
+384 256K   965.7        948.9     +1.8%       33.4%     5838      0            0       yes
+384 1M     1092.0       954.1     +14.4%      73.4%     584       0            0       yes
+768 32K    1893.1       1669.0    +13.4%      37.2%     43988     0            0       yes
+768 128K   1060.9       1096.3    -3.2%       37.5%     10957     0            0       yes
+768 256K   988.4        982.3     +0.6%       47.6%     4586      0            0       yes
+768 1M     1178.6       933.7     +26.2%      100.0%    0         0            0       yes
+```
+
+Result:
+
+- Raising the cap increases QAT participation in some rows, but it does not
+  produce a general performance win.
+- Cap `192` produced the best repeated `256K` result in this pass, `3.1%`
+  faster than software, but it was slower at `32K`, `128K`, and `1M`.
+- Cap `768` produced the best repeated `128K` result in this pass, `3.2%`
+  faster than software, but it was much slower at `32K` and `1M`.
+- Cap `96` remains the best repeated `1M` result observed so far in the DC6
+  tests: `7.5%` faster than software in the prior repeat.
+- Uncapped mode (`zfs_qat_dc_async_max_inflight=0`) is not viable for this
+  workload. It removes cap skips but reintroduces thousands of final submit
+  failures and heavy retry traffic for smaller records, and it is slower than
+  software even at `1M`.
+- The useful cap appears to be record-size dependent. A single global cap is
+  unlikely to be optimal across `8K` through `1M`.

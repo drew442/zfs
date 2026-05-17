@@ -525,3 +525,29 @@ record async_avg_ms sw_avg_ms async_vs_sw qat_share
 The small-record repeat does not support using DC6 Cap-96 for small records as
 a performance policy. Even where QAT handled most requests at `8K`, elapsed
 time only reached parity with software.
+
+DC6 cap-sweep follow-up:
+
+```text
+Source CSVs:
+/root/zfs-qat-phase4-async-dc6-cap96-sweep-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-cap192-sweep-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-cap384-sweep-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-cap768-sweep-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-cap0-sweep-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-cap192-target-repeat-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-cap384-target-repeat-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-cap768-target-repeat-jobs4-20260517.csv
+
+Targeted three-iteration jobs=4 repeats:
+cap record async_avg_ms sw_avg_ms async_vs_sw qat_share
+192 256K   955.6        986.0     -3.1%       27.1%
+768 128K   1060.9       1096.3    -3.2%       37.5%
+384 1M     1092.0       954.1     +14.4%      73.4%
+768 1M     1178.6       933.7     +26.2%      100.0%
+```
+
+Higher caps are not broadly better. Cap `192` helped `256K`, cap `768` helped
+`128K`, and cap `96` remains the best repeated `1M` result seen so far. Removing
+the cap entirely reintroduced submit failures and heavy retry traffic, so
+uncapped mode is not a usable answer for this workload.
