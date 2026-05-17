@@ -1619,3 +1619,70 @@ Result:
 - Future benchmarks should report QAT share next to latency and throughput
   whenever async admission control is enabled. Pure-QAT behavior and adaptive
   hybrid policy behavior should be evaluated separately.
+
+## DC-Only 6-Instance Cap-96 Follow-Up
+
+Run date: 2026-05-17.
+
+The host was switched from the prior `[KERNEL_QAT]` split of four crypto and
+two compression instances to a DC-only split:
+
+```text
+NumberCyInstances = 0
+NumberDcInstances = 6
+```
+
+ZFS QAT crypto/checksum acceleration was disabled for this host test:
+
+```text
+zfs_qat_checksum_disable=1
+zfs_qat_encrypt_disable=1
+```
+
+The driver accepted the split after reboot. The benchmark harness recorded
+`qat_kernel_cy_instances=0` and `qat_kernel_dc_instances=6` in the CSV rows.
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-async-cap96-dc6-jobs1-20260517.csv
+/root/zfs-qat-phase4-async-cap96-dc6-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-cap96-dc6-jobs4-repeat-20260517.csv
+```
+
+Comparable one-iteration Cap-96 results:
+
+```text
+jobs record async_ms sw_ms   async_vs_sw qat_share cap_skips submit_fails verify
+1    128K   837.365  725.009 +15.5%      44.9%     804       0            yes
+1    256K   641.044  641.013 +0.0%       50.8%     359       0            yes
+1    1M     587.222  566.868 +3.6%       76.5%     43        0            yes
+4    128K   1079.252 1089.128 -0.9%      30.4%     4064      0            yes
+4    256K   1037.007 966.262  +7.3%      30.0%     2043      0            yes
+4    1M     897.341  958.766  -6.4%      34.2%     482       0            yes
+```
+
+Three-iteration jobs=4 repeat:
+
+```text
+record async_avg_ms sw_avg_ms async_vs_sw qat_share cap_skips submit_fails verify
+128K   1150.050     1152.593 -0.2%       29.9%     12285     0            yes
+256K   981.900      974.846  +0.7%       28.7%     6248      0            yes
+1M     882.406      953.739  -7.5%       35.5%     1416      0            yes
+```
+
+Result:
+
+- It is possible to use all six QAT API kernel instances for DC and zero for
+  crypto on this dh895xcc host.
+- The six-DC split increased the QAT completion share relative to the earlier
+  two-DC Cap-96 run, but the rows are still mostly software fallback under
+  `zfs_qat_dc_async_max_inflight=96`.
+- The six-DC split did not produce a broad Cap-96 win. The repeated jobs=4 run
+  was effectively parity at `128K`, slightly slower at `256K`, and faster at
+  `1M`.
+- Submit failures remained zero, so the cap is still preventing QAT retry
+  pressure.
+- This result does not justify assuming that more DC instances alone will solve
+  the latency gap. It may be useful for larger records, but the policy still
+  needs record-size and concurrency gating.

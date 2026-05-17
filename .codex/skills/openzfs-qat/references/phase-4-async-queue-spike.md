@@ -480,3 +480,28 @@ The smaller-record matrix does not support treating cap-96 as a general
 performance win. Software gzip won every four-job row and three of four
 single-job rows. The only winning row, single-job `32K`, was already a mixed
 QAT/software row.
+
+Six-DC follow-up:
+
+```text
+Source CSVs:
+/root/zfs-qat-phase4-async-cap96-dc6-jobs1-20260517.csv
+/root/zfs-qat-phase4-async-cap96-dc6-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-cap96-dc6-jobs4-repeat-20260517.csv
+
+Kernel QAT API split:
+NumberCyInstances = 0
+NumberDcInstances = 6
+
+Three-iteration jobs=4 repeat:
+record async_avg_ms sw_avg_ms async_vs_sw qat_share
+128K   1150.050     1152.593 -0.2%       29.9%
+256K   981.900      974.846  +0.7%       28.7%
+1M     882.406      953.739  -7.5%       35.5%
+```
+
+The dh895xcc driver accepted a DC-only QAT API split after reboot. ZFS QAT
+checksum and encryption were disabled for this host test. Six DC instances
+improved the QAT completion share but did not turn Cap-96 into a general win;
+the repeated jobs=4 result was parity at `128K`, slightly behind software at
+`256K`, and ahead at `1M`.

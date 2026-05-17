@@ -167,26 +167,26 @@ Cy0IsPolled = 0
 Cy0CoreAffinity = 0
 
 [KERNEL_QAT]
-NumberCyInstances = 4
-NumberDcInstances = 2
-Cy0Name = "IPSec0"
-Cy0IsPolled = 0
-Cy0CoreAffinity = 1
-Cy1Name = "IPSec1"
-Cy1IsPolled = 0
-Cy1CoreAffinity = 2
-Cy2Name = "IPSec2"
-Cy2IsPolled = 0
-Cy2CoreAffinity = 3
-Cy3Name = "IPSec3"
-Cy3IsPolled = 0
-Cy3CoreAffinity = 4
+NumberCyInstances = 0
+NumberDcInstances = 6
 Dc0Name = "IPComp0"
 Dc0IsPolled = 0
-Dc0CoreAffinity = 5
+Dc0CoreAffinity = 1
 Dc1Name = "IPComp1"
 Dc1IsPolled = 0
-Dc1CoreAffinity = 6
+Dc1CoreAffinity = 2
+Dc2Name = "IPComp2"
+Dc2IsPolled = 0
+Dc2CoreAffinity = 3
+Dc3Name = "IPComp3"
+Dc3IsPolled = 0
+Dc3CoreAffinity = 4
+Dc4Name = "IPComp4"
+Dc4IsPolled = 0
+Dc4CoreAffinity = 5
+Dc5Name = "IPComp5"
+Dc5IsPolled = 0
+Dc5CoreAffinity = 6
 
 [SSL]
 NumberCyInstances = 2
@@ -199,6 +199,16 @@ Performance experiment note: a temporary `[KERNEL_QAT]` split of
 `NumberCyInstances = 2` and `NumberDcInstances = 4` was tested on 2026-05-13.
 The result was mixed, so the host was restored to the original
 `NumberCyInstances = 4` and `NumberDcInstances = 2` split.
+
+Current project experiment note: on 2026-05-17 the host was switched to a
+DC-only `[KERNEL_QAT]` split with `NumberCyInstances = 0` and
+`NumberDcInstances = 6`. The QAT 1.x driver accepted the configuration after
+reboot. The previous config was backed up as:
+
+```text
+/etc/dh895xcc_dev0.conf.pre-dc6-20260517T013612Z
+/etc/dh895xcc_dev0.conf.pre-dc6.latest -> /etc/dh895xcc_dev0.conf.pre-dc6-20260517T013612Z
+```
 
 Observation: `adf_ctl` and the kernel can report the device up while ZFS QAT kstats remain at zero. Do not infer from driver state alone that ZFS has processed QAT-accelerated I/O.
 
@@ -307,20 +317,27 @@ grep HAVE_QAT /var/lib/dkms/zfs/2.4.99/7.0.0-3-pve/x86_64/zfs_config.h
 Observed module parameters:
 
 ```text
-zfs_qat_checksum_disable=0
+zfs_qat_checksum_disable=1
 zfs_qat_compress_disable=0
 zfs_qat_decompress_disable=0
 zfs_qat_cpa_dc_level=4
 zfs_qat_dc_max_buf_size=1048576
 zfs_qat_dc_max_instances=48
-zfs_qat_encrypt_disable=0
+zfs_qat_encrypt_disable=1
 zfs_qat_cy_max_instances=48
 ```
 
 `/etc/modprobe.d/zfs-qat.conf` contains:
 
 ```text
-options zfs zfs_qat_compress_disable=0 zfs_qat_checksum_disable=0 zfs_qat_cpa_dc_level=4 zfs_qat_dc_max_buf_size=1048576
+options zfs zfs_qat_compress_disable=0 zfs_qat_checksum_disable=1 zfs_qat_encrypt_disable=1 zfs_qat_cpa_dc_level=4 zfs_qat_dc_max_buf_size=1048576
+```
+
+The previous modprobe config was backed up as:
+
+```text
+/etc/modprobe.d/zfs-qat.conf.pre-dc6-20260517T013612Z
+/etc/modprobe.d/zfs-qat.conf.pre-dc6.latest -> /etc/modprobe.d/zfs-qat.conf.pre-dc6-20260517T013612Z
 ```
 
 Historical note:

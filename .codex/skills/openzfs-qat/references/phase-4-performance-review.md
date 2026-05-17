@@ -46,6 +46,7 @@ Important comparability note:
 - A later level 1-4 matrix showed no single QAT compression level wins every case. Level 4 gives the best ratio, level 1 is generally strongest under four concurrent streams, and level 3 was fastest for single-stream 128K and 1M in that run.
 - The async in-flight cap improves admission behavior but creates adaptive hybrid QAT/software rows whenever cap skips are nonzero. These rows should not be described as pure-QAT performance.
 - In the Cap-96 small-record follow-up, software gzip won every four-job row and three of four single-job rows. The only QAT-labelled win was single-job `32K`, and that row was already `57.3%` QAT / `42.7%` software fallback.
+- The host can run the ZFS QAT API service as six DC instances and zero crypto instances. In the Cap-96 repeat, this was near parity at four-job `128K`, slightly slower at `256K`, and faster at `1M`, but still mostly software fallback under the in-flight cap.
 
 ## Current Latency Diagnosis
 
@@ -108,6 +109,7 @@ service time.
 | Async submit retry tuning | Added retry and backoff controls for async QAT submit retries. | `8` retries with `100 us` backoff was the best single-row probe, but software still won single-job rows. |
 | Async in-flight cap | Added `zfs_qat_dc_async_max_inflight=96` to skip QAT when too many async requests are in flight. | Removes submit failures and can improve concurrent 128K/256K results, but rows become adaptive hybrid QAT/software when cap skips are nonzero. |
 | Cap-96 small records | Benchmarked `8K`, `16K`, `32K`, and `64K` with the async cap. | Software won every four-job row and three of four single-job rows; the only win was a mixed `32K` row. |
+| Six DC instances | Reconfigured `[KERNEL_QAT]` to `NumberCyInstances=0` and `NumberDcInstances=6`, with ZFS QAT crypto/checksum disabled. | Driver accepted the split. More QAT requests completed, but the Cap-96 policy still used mostly software fallback and only the four-job `1M` repeat clearly beat software. |
 
 ## Current Fair Comparison
 
@@ -882,6 +884,61 @@ Elapsed, 4 jobs, lower is better
 Result: smaller records did not fix QAT latency. The pure-QAT `8K` single-job
 row was slower than software, and all four-job small-record rows were slower
 than software while being mostly software fallback already.
+
+### Six DC Instances
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-async-cap96-dc6-jobs1-20260517.csv
+/root/zfs-qat-phase4-async-cap96-dc6-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-cap96-dc6-jobs4-repeat-20260517.csv
+```
+
+The host was reconfigured to use the ZFS QAT API kernel service as six data
+compression instances and zero crypto instances:
+
+```text
+NumberCyInstances = 0
+NumberDcInstances = 6
+zfs_qat_checksum_disable=1
+zfs_qat_encrypt_disable=1
+```
+
+The driver accepted the split after reboot, and the benchmark CSVs report
+`qat_kernel_cy_instances=0` and `qat_kernel_dc_instances=6`.
+
+| Jobs | Record | Async Cap-96 | Software | Async vs SW | QAT Share |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 128K | 837.4 ms | 725.0 ms | 15.5% slower | 44.9% |
+| 1 | 256K | 641.0 ms | 641.0 ms | 0.0% slower | 50.8% |
+| 1 | 1M | 587.2 ms | 566.9 ms | 3.6% slower | 76.5% |
+| 4 | 128K | 1079.3 ms | 1089.1 ms | 0.9% faster | 30.4% |
+| 4 | 256K | 1037.0 ms | 966.3 ms | 7.3% slower | 30.0% |
+| 4 | 1M | 897.3 ms | 958.8 ms | 6.4% faster | 34.2% |
+
+Three-iteration four-job repeat:
+
+| Record | Async Avg | Software Avg | Async vs SW | QAT Share |
+|---:|---:|---:|---:|---:|
+| 128K | 1150.1 ms | 1152.6 ms | 0.2% faster | 29.9% |
+| 256K | 981.9 ms | 974.8 ms | 0.7% slower | 28.7% |
+| 1M | 882.4 ms | 953.7 ms | 7.5% faster | 35.5% |
+
+```text
+Three-iteration jobs=4, elapsed, lower is better
+128K dc6 | ############        1150.1
+128K sw  | ############        1152.6
+256K dc6 | ##########          981.9
+256K sw  | ##########          974.8
+1M   dc6 | #########           882.4
+1M   sw  | ##########          953.7
+```
+
+Result: six DC instances increase the share of requests that complete through
+QAT, but they do not remove the hybrid-policy problem. With Cap-96, most
+four-job blocks still use software fallback, and the only clear repeated win is
+the `1M` row.
 
 ## Earlier Phase 4 Measurements
 
