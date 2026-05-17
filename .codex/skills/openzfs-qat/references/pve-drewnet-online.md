@@ -466,6 +466,8 @@ Recent phase 4 policy benchmark artifacts:
 ```text
 /root/zfs-qat-phase4-async-dc6-policy-fixed-jobs4-20260517.csv
 /root/zfs-qat-phase4-async-dc6-policy-recordsize-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-policy-fixed-1m-repeat-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-policy-recordsize-1m-repeat-jobs4-20260517.csv
 ```
 
 Current QAT async policy parameters after the 2026-05-17 reboot check:

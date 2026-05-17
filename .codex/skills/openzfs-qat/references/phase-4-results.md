@@ -1949,3 +1949,50 @@ Result:
 - `dc_compress_async_inflight_max` is cumulative for the loaded module, not a
   per-row cap trace. It should not be used by itself to infer the cap selected
   for each row after a higher-cap row has executed.
+
+### DC6 1M Policy Repeat
+
+Run date: 2026-05-17.
+
+Source CSVs:
+
+```text
+/root/zfs-qat-phase4-async-dc6-policy-fixed-1m-repeat-jobs4-20260517.csv
+/root/zfs-qat-phase4-async-dc6-policy-recordsize-1m-repeat-jobs4-20260517.csv
+
+Repo copies:
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-phase4-async-dc6-policy-fixed-1m-repeat-jobs4-20260517.csv
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-phase4-async-dc6-policy-recordsize-1m-repeat-jobs4-20260517.csv
+```
+
+Focused repeat settings:
+
+```text
+NumberCyInstances = 0
+NumberDcInstances = 6
+zfs_qat_dc_async=1
+zfs_qat_dc_async_submit_retries=8
+zfs_qat_dc_async_retry_us=100
+zfs_qat_dc_async_max_inflight=96
+zfs_qat_dc_coalesce_src=0
+zfs_qat_dc_coalesce_dst=0
+zfs_qat_decompress_disable=1
+VERIFY_MODE=sw
+JOBS=4
+ITERS=6
+RECORDS=1M
+```
+
+Results:
+
+```text
+policy     mode avg_ms  MiB_s qat_share cap_skips ratio
+fixed      qat  933.789 781.7 33.3%     2928      25.39x
+fixed      sw   927.323 787.1 n/a       n/a       25.26x
+recordsize qat 907.026 804.7 33.4%     2926      25.35x
+recordsize sw  921.995 791.7 n/a       n/a       25.26x
+```
+
+Result: fixed and recordsize both select cap `96` for `1M`. The earlier
+same-window difference was not a policy signal. Keep the DC6 `1M+` cap at `96`
+in the recordsize policy.

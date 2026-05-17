@@ -1187,3 +1187,16 @@ The next useful benchmark is a focused validation of the `recordsize` policy,
 especially the `1M` row where same-window fixed cap-96 was faster. If that row
 holds, keep the `1M+` cap at `96` and treat any remaining difference as
 run-to-run noise unless repeated evidence says otherwise.
+
+Policy-matrix follow-up:
+
+- Detailed policy matrix:
+  `.codex/skills/openzfs-qat/references/phase-4-policy-matrix.md`.
+- The focused six-iteration `1M` repeat showed fixed and recordsize are
+  effectively the same policy at `1M`, both using cap `96`.
+- Source and destination coalescing should not be added to the current
+  recordsize policy yet because the async path currently requires both
+  coalescing knobs to be disabled.
+- Compression level and Huffman type are session-global today. They are valid
+  bias-profile candidates, but they cannot be selected per record without a
+  multi-session QAT DC implementation.
