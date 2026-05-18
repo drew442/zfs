@@ -475,9 +475,12 @@ The benchmark harness now supports:
 VERIFY_MODE=same
 VERIFY_MODE=qat
 VERIFY_MODE=sw
+VERIFY_MODE=profile
 ```
 
-It also records `verify_mode` and `zfs_qat_decompress_disable` in the CSV.
+It also records `verify_mode`, `zfs_qat_decompress_disable`, and the effective
+decompression policy in the CSV. `VERIFY_MODE=profile` verifies readback while
+leaving `zfs_qat_decompress_disable=profile` in control.
 
 Single-job summary:
 
@@ -2729,3 +2732,35 @@ zfs_qat_dc_effective_async=0
 zfs_qat_dc_async_max_inflight=profile
 zfs_qat_dc_effective_async_max_inflight=96
 ```
+
+### Profile Sweep
+
+Run date: 2026-05-18.
+
+The full profile sweep compared `balanced`, `latency`, `throughput`, and
+`offload` across target record sizes `128K`, `256K`, `512K`, and `1M`.
+
+Summary:
+
+- Detailed human-review note:
+  `.codex/skills/openzfs-qat/references/profile-sweep-20260518.md`
+- Raw CSVs:
+  `.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-profile-sweep-target*-20260518.csv`
+- The only clear elapsed-time win was `target=1M`, `profile=throughput`,
+  `record=1M`: QAT averaged `844.7 ms` versus same-window software at
+  `913.3 ms`, or `7.5%` faster.
+- That winning row was hybrid: QAT byte share was `72.7%` and fallback share
+  was `27.5%`.
+- Fully synchronous QAT offload frequently reduced system CPU per GiB by a
+  large margin, but usually regressed elapsed time versus software.
+- Apparent wins with `qat_byte=0.0` are software-fallback wins, not QAT engine
+  wins.
+
+Result:
+
+- Keep `throughput` at target `1M` as the only repeat-worthy throughput
+  candidate from this sweep.
+- Do not treat current `balanced` large-record full offload as latency-safe;
+  it saves CPU but regressed elapsed time in this window.
+- Repeat the `target=1M`, `profile=throughput`, `record=1M` result with more
+  iterations and `JOBS=8` before changing profile mappings again.

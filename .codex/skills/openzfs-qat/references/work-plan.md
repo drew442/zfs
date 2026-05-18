@@ -332,11 +332,12 @@ Acceptance:
 ## Immediate Next Steps
 
 1. Run a focused profile sweep comparing `balanced`, `latency`, `throughput`,
-   and `offload` at the configured target record sizes.
-2. Evaluate profile outcomes using QAT byte share, software fallback share,
-   elapsed time, latency percentiles, CPU seconds per GiB, compression ratio,
-   and QAT service/wait nanoseconds per MiB.
+   and `offload` at the configured target record sizes. Status: completed on
+   2026-05-18; see `profile-sweep-20260518.md`.
+2. Repeat the strongest candidate from the profile sweep:
+   `target=1M`, `profile=throughput`, `record=1M`, first with more iterations
+   at `JOBS=4`, then at `JOBS=8`.
 3. Promote only repeatable profile wins into the documented default mappings;
-   keep weak or mixed results as manual overrides.
+   keep weak, mixed, or software-fallback-only results as manual overrides.
 4. Defer checksum and encryption policy changes until compression profile
    behavior is stable.

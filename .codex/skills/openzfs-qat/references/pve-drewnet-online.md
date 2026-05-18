@@ -512,6 +512,22 @@ Recent phase 4 policy benchmark artifacts:
 /root/zfs-qat-profile-maxbuf-smoke-20260518.csv
 /root/zfs-qat-profile-level-smoke-20260518.csv
 /root/zfs-qat-profile-remaining-smoke-20260518.csv
+/root/zfs-qat-profile-sweep-target128k-balanced-20260518.csv
+/root/zfs-qat-profile-sweep-target128k-latency-20260518.csv
+/root/zfs-qat-profile-sweep-target128k-throughput-20260518.csv
+/root/zfs-qat-profile-sweep-target128k-offload-20260518.csv
+/root/zfs-qat-profile-sweep-target256k-balanced-20260518.csv
+/root/zfs-qat-profile-sweep-target256k-latency-20260518.csv
+/root/zfs-qat-profile-sweep-target256k-throughput-20260518.csv
+/root/zfs-qat-profile-sweep-target256k-offload-20260518.csv
+/root/zfs-qat-profile-sweep-target512k-balanced-20260518.csv
+/root/zfs-qat-profile-sweep-target512k-latency-20260518.csv
+/root/zfs-qat-profile-sweep-target512k-throughput-20260518.csv
+/root/zfs-qat-profile-sweep-target512k-offload-20260518.csv
+/root/zfs-qat-profile-sweep-target1m-balanced-20260518.csv
+/root/zfs-qat-profile-sweep-target1m-latency-20260518.csv
+/root/zfs-qat-profile-sweep-target1m-throughput-20260518.csv
+/root/zfs-qat-profile-sweep-target1m-offload-20260518.csv
 ```
 
 Current QAT profile parameters after the 2026-05-18 remaining-profile build:

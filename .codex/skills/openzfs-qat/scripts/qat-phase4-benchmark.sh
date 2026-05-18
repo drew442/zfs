@@ -281,6 +281,9 @@ set_decompress_mode() {
 	fi
 
 	case "$mode" in
+	profile)
+		echo profile > "$param"
+		;;
 	qat)
 		echo 0 > "$param"
 		;;
