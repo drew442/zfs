@@ -120,6 +120,8 @@ Scale-test runs also append these hardware-state fields:
 - `zfs_qat_dc_profile_recordsize`: operator-selected target record size for
   profile decisions.
 - `zfs_qat_dc_ratio_profile`: selected ratio/performance profile.
+- `zfs_qat_dc_effective_max_buf_size`: effective QAT maximum buffer size after
+  resolving `zfs_qat_dc_max_buf_size=profile`.
 
 Use byte share as the primary offload-share metric. Request-count share remains
 useful, but it can mislead when comparing different record sizes or mixed

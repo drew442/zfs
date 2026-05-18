@@ -509,6 +509,7 @@ Recent phase 4 policy benchmark artifacts:
 /root/zfs-qat-profile-cap-1m-cap160-repeat-jobs8-20260518.csv
 /root/zfs-qat-profile-cap-1m-cap192-repeat-jobs8-20260518.csv
 /root/zfs-qat-profile-params-smoke-20260518.csv
+/root/zfs-qat-profile-maxbuf-smoke-20260518.csv
 ```
 
 Current QAT async policy parameters after the 2026-05-18 methodology benchmark
@@ -541,6 +542,27 @@ zfs_qat_dc_async_cap_policy=profile
 zfs_qat_dc_profile=balanced
 zfs_qat_dc_profile_recordsize=131072
 zfs_qat_dc_ratio_profile=balanced
+zfs_qat_dc_max_buf_size=profile
+```
+
+The installed ZFS module includes profile-managed
+`zfs_qat_dc_max_buf_size=profile|131072|262144|524288|1048576`. The profile
+value uses `zfs_qat_dc_profile_recordsize` as the effective QAT DC maximum
+input size unless a concrete manual override is supplied. After the 2026-05-18
+profile-max-buffer build, reboot, and persistent modprobe config update, the
+module reported:
+
+```text
+srcversion 3F7B9C471829F5421207D9D
+zfs_qat_dc_max_buf_size=profile
+zfs_qat_dc_effective_max_buf_size=131072
+```
+
+The previous persistent modprobe config was backed up before changing
+`zfs_qat_dc_max_buf_size=1048576` to `profile`:
+
+```text
+/etc/modprobe.d/zfs-qat.conf.pre-profile-maxbuf-20260518
 ```
 
 Recent DC-count policy build artifacts:
@@ -561,6 +583,13 @@ Recent DC-count policy build artifacts:
 /root/zfs-qat-profile-params-dkms-build-20260518.log
 /root/zfs-qat-profile-params-dkms-install-20260518.log
 /root/zfs-qat-profile-params-initramfs-20260518.log
+/root/zfs-qat-profile-maxbuf-dkms-build-20260518.log
+/root/zfs-qat-profile-maxbuf-dkms-install-20260518.log
+/root/zfs-qat-profile-maxbuf-initramfs-20260518.log
+/root/zfs-qat-profile-maxbuf-dkms-build-20260518-r2.log
+/root/zfs-qat-profile-maxbuf-dkms-install-20260518-r2.log
+/root/zfs-qat-profile-maxbuf-initramfs-20260518-r2.log
+/root/zfs-qat-profile-maxbuf-host-config-initramfs-20260518.log
 ```
 
 The async-compatible coalescing DKMS build reported

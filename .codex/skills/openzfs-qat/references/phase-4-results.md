@@ -2582,3 +2582,42 @@ srcversion: 16975019E0003C1241D4DF7
 The host accepted valid profile, ratio-profile, target-recordsize, and
 cap-policy values, rejected invalid values, and the benchmark harness smoke CSV
 recorded the new profile columns with `127` aligned columns.
+
+### Profile Max Buffer
+
+Run date: 2026-05-18.
+
+The second profile implementation slice made the QAT DC maximum buffer size
+profile-managed by default:
+
+```text
+zfs_qat_dc_max_buf_size=profile|131072|262144|524288|1048576
+```
+
+Effective behavior:
+
+- `profile` uses `zfs_qat_dc_profile_recordsize` as the effective maximum QAT
+  DC input size.
+- Concrete values remain manual overrides for this tunable only.
+- Records larger than the effective value continue to fall back to software.
+- The effective value must be fixed before QAT DC sessions are initialized;
+  changes that would alter initialized session sizing are rejected with `EBUSY`.
+
+Validation:
+
+```text
+srcversion: 3F7B9C471829F5421207D9D
+/root/zfs-qat-profile-maxbuf-smoke-20260518.csv
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-profile-maxbuf-smoke-20260518.csv
+```
+
+The host booted with persistent `zfs_qat_dc_max_buf_size=profile`, accepted a
+manual concrete override, returned to `profile`, and rejected invalid values.
+The benchmark harness smoke CSV recorded `128` aligned columns and included
+both the stored value and the effective value:
+
+```text
+zfs_qat_dc_max_buf_size=profile
+zfs_qat_dc_effective_max_buf_size=131072
+zfs_qat_dc_profile_recordsize=131072
+```

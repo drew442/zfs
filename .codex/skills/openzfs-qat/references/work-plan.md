@@ -238,6 +238,10 @@ Next profile work:
 - Initial implementation starts with `zfs_qat_dc_async_cap_policy=profile`
   only. It does not automatically enable async QAT because `zfs_qat_dc_async`
   remains disabled by default.
+- The second implementation adds `zfs_qat_dc_max_buf_size=profile`, so the
+  effective large-record eligibility window follows
+  `zfs_qat_dc_profile_recordsize` unless the operator supplies a concrete
+  per-tunable override.
 - Apply session-global settings such as QAT compression level and Huffman type
   only before QAT DC initialization, and reject profile changes that would
   require changing active QAT DC sessions.

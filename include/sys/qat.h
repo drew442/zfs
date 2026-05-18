@@ -270,7 +270,7 @@ extern int zfs_qat_compress_disable;
 extern int zfs_qat_decompress_disable;
 extern int zfs_qat_cpa_dc_level;
 extern char *zfs_qat_cpa_dc_hufftype;
-extern int zfs_qat_dc_max_buf_size;
+extern char *zfs_qat_dc_max_buf_size;
 extern int zfs_qat_dc_max_instances;
 extern int zfs_qat_dc_coalesce_src;
 extern int zfs_qat_dc_coalesce_dst;
