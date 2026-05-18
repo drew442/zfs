@@ -191,8 +191,7 @@ derived_metrics_csv() {
 		elapsed_s = elapsed_ms / 1000
 		cpu_active_s = elapsed_s * cpu_count * cpu_active_pct / 100
 		cpu_system_s = elapsed_s * cpu_count * cpu[2] / 100
-		qat_service_ns = comp_setup_delta + comp_submit_delta +
-		    comp_wait_delta + comp_cleanup_delta
+		qat_service_ns = comp_setup_delta + comp_submit_delta + comp_wait_delta + comp_cleanup_delta
 
 		printf "%s,%.2f,%s,%s,%s,%s,%s,%s,%s,%s",
 		    cpu_count,

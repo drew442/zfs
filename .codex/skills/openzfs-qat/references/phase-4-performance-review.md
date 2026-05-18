@@ -1220,3 +1220,49 @@ Policy-matrix follow-up:
 - Compression level and Huffman type are session-global today. They are valid
   bias-profile candidates, but they cannot be selected per record without a
   multi-session QAT DC implementation.
+
+## Methodology Scorecard Run
+
+Run date: 2026-05-18.
+
+This run used the updated benchmark harness with derived QAT byte-share,
+fallback-share, and CPU-seconds-per-GiB columns.
+
+Source CSV:
+
+```text
+/root/zfs-qat-phase4-methodology-current-policy-20260518.csv
+
+Repo copy:
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-phase4-methodology-current-policy-20260518.csv
+```
+
+Settings:
+
+```text
+NumberCyInstances = 0
+NumberDcInstances = 6
+zfs_qat_dc_async=1
+zfs_qat_dc_async_cap_policy=recordsize
+zfs_qat_decompress_disable=1
+zfs_qat_dc_coalesce_src=0
+zfs_qat_dc_coalesce_dst=0
+VERIFY_MODE=sw
+JOBS=4
+ITERS=3
+RECORDS="128K 256K 1M"
+```
+
+| Record | QAT Avg | Software Avg | QAT vs Software | QAT CPU s/GiB | SW CPU s/GiB | QAT Byte Share | Fallback Share | Outcome |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| 128K | 1065.855 ms | 1050.781 ms | 1.4% slower | 10.001 | 12.192 | 37.1% | 62.9% | CPU-offload win |
+| 256K | 953.253 ms | 987.853 ms | 3.5% faster | 9.585 | 11.772 | 27.0% | 73.0% | Hybrid-policy win |
+| 1M | 846.853 ms | 916.498 ms | 7.6% faster | 8.613 | 11.221 | 32.0% | 68.1% | Hybrid-policy win |
+
+Interpretation:
+
+- The `256K` and `1M` rows are useful policy wins, but they are not QAT engine
+  wins because most bytes fell back to software.
+- The `128K` row is a CPU-offload win, not a latency win.
+- This confirms the need to keep elapsed-time policy evaluation separate from
+  QAT engine evaluation.

@@ -2146,3 +2146,65 @@ Result:
 - The strongest `1M` QAT row was source+destination coalescing, but it was
   effectively equal to software and only modestly ahead of the off row in a
   noisy benchmark window.
+
+### Benchmark Methodology Scorecard Run
+
+Run date: 2026-05-18.
+
+The benchmark harness now appends derived metrics for QAT byte share,
+completion/fallback/cap-skip share, CPU seconds per GiB, and QAT service/wait
+nanoseconds per MiB. This run validates the new interpretation rule: elapsed
+wins with low QAT share are hybrid-policy wins, not QAT engine improvements.
+
+Source CSV:
+
+```text
+/root/zfs-qat-phase4-methodology-current-policy-20260518.csv
+
+Repo copy:
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-phase4-methodology-current-policy-20260518.csv
+```
+
+Test settings:
+
+```text
+NumberCyInstances = 0
+NumberDcInstances = 6
+zfs_qat_cpa_dc_level=4
+zfs_qat_cpa_dc_hufftype=dynamic
+zfs_qat_dc_async=1
+zfs_qat_dc_async_submit_retries=8
+zfs_qat_dc_async_retry_us=100
+zfs_qat_dc_async_max_inflight=96
+zfs_qat_dc_async_cap_policy=recordsize
+zfs_qat_dc_coalesce_src=0
+zfs_qat_dc_coalesce_dst=0
+zfs_qat_decompress_disable=1
+VERIFY_MODE=sw
+JOBS=4
+ITERS=3
+RECORDS="128K 256K 1M"
+```
+
+Results:
+
+```text
+record qat_ms   sw_ms    qat_vs_sw qat_cpu_s/GiB sw_cpu_s/GiB qat_byte_share fallback outcome
+128K   1065.855 1050.781 +1.4%     10.001        12.192       37.1%          62.9%    cpu-offload-win
+256K   953.253  987.853  -3.5%     9.585         11.772       27.0%          73.0%    hybrid-policy-win
+1M     846.853  916.498  -7.6%     8.613         11.221       32.0%          68.1%    hybrid-policy-win
+```
+
+Result:
+
+- The `256K` and `1M` QAT-labelled rows beat software and used materially less
+  CPU, but they completed only `27.0-32.0%` of input bytes through QAT.
+- These are valid hybrid-policy wins and CPU-offload wins. They are not proof
+  that the QAT engine path itself improved.
+- The `128K` row was `1.4%` slower than software but used `18.0%` fewer active
+  CPU seconds per GiB, so it is best described as a CPU-offload win rather than
+  a latency win.
+- Compression ratio remained slightly better with QAT in all three rows:
+  `17.01x` vs `16.90x`, `21.74x` vs `21.60x`, and `25.35x` vs `25.26x`.
+- Future policy decisions should continue using QAT byte share and CPU seconds
+  per GiB alongside elapsed time.
