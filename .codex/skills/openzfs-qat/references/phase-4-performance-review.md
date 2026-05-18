@@ -1312,3 +1312,62 @@ Dual-card success criteria:
 - QAT service and wait nanoseconds per MiB should not increase materially.
 - If elapsed time improves only because software fallback changes, classify the
   result as a hybrid-policy win, not a QAT engine improvement.
+
+## Dual-Card Scale Test
+
+Run date: 2026-05-18.
+
+The second DH895XCC card was installed and configured as another DC-only QAT
+device. The host was rebooted before benchmarking so ZFS QAT DC initialization
+could see both cards.
+
+Recorded scale state:
+
+```text
+qat_pci_dh895xcc_count=2
+qat_conf_file_count=2
+qat_kernel_cy_instances_total=0
+qat_kernel_dc_instances_total=12
+```
+
+Source CSVs:
+
+```text
+/root/zfs-qat-scale-dual-card-jobs4-20260518.csv
+/root/zfs-qat-scale-dual-card-jobs8-20260518.csv
+
+Repo copies:
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-scale-dual-card-jobs4-20260518.csv
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-scale-dual-card-jobs8-20260518.csv
+```
+
+| Jobs | Record | QAT Avg | Software Avg | QAT vs Software | QAT CPU s/GiB | SW CPU s/GiB | QAT Byte Share | Fallback Share | Outcome |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|---|
+| 4 | 128K | 1112.824 ms | 1052.599 ms | 5.7% slower | 9.416 | 12.218 | 56.7% | 43.3% | CPU-offload win |
+| 4 | 256K | 957.795 ms | 1018.140 ms | 5.9% faster | 8.400 | 11.936 | 44.7% | 55.3% | Hybrid-policy win |
+| 4 | 1M | 887.080 ms | 890.151 ms | 0.3% faster | 7.484 | 11.467 | 47.1% | 53.1% | CPU-offload win |
+| 8 | 128K | 1571.288 ms | 1483.652 ms | 5.9% slower | 8.691 | 13.248 | 67.2% | 32.8% | CPU-offload win |
+| 8 | 256K | 1383.344 ms | 1444.475 ms | 4.2% faster | 8.274 | 13.210 | 49.0% | 51.0% | Hybrid-policy win |
+| 8 | 1M | 1346.845 ms | 1455.752 ms | 7.5% faster | 8.399 | 12.132 | 48.2% | 52.1% | Hybrid-policy win |
+
+Scale comparison versus single-card QAT:
+
+| Jobs | Record | Elapsed Change | QAT Byte Share Change | CPU s/GiB Change | Service ns/MiB Change | Wait ns/MiB Change |
+|---:|---|---:|---:|---:|---:|---:|
+| 4 | 128K | 1.8% slower | +20.0 pp | 6.8% lower | 48.1% lower | 48.1% lower |
+| 4 | 256K | 2.8% faster | +17.9 pp | 12.1% lower | 49.8% lower | 49.9% lower |
+| 4 | 1M | 2.1% slower | +14.7 pp | 12.3% lower | 47.7% lower | 48.2% lower |
+| 8 | 128K | 0.6% slower | +28.9 pp | 13.9% lower | 48.3% lower | 48.3% lower |
+| 8 | 256K | 5.2% faster | +19.4 pp | 17.8% lower | 48.7% lower | 48.8% lower |
+| 8 | 1M | 17.5% faster | +12.0 pp | 27.8% lower | 56.5% lower | 56.6% lower |
+
+Interpretation:
+
+- The second card is being used: QAT byte share increased materially and QAT
+  service/wait cost per completed MiB fell by about half.
+- Scale helps most at `256K` and `1M`, especially `JOBS=8`.
+- Scale does not solve the `128K` latency problem, so that path is still
+  dominated by per-request overhead and should remain a CPU-offload case unless
+  later policy changes prove otherwise.
+- Even with two cards, fallback remains high enough that these are hybrid
+  policy results rather than pure-QAT throughput results.

@@ -54,10 +54,11 @@ cat /sys/bus/pci/devices/0000:45:00.0/numa_node
 
 ## QAT Hardware
 
-One Intel QAT accelerator is present and up:
+Two Intel QAT accelerators are present and up:
 
 ```text
 0000:45:00.0 Intel DH895XCC Series QAT [8086:0435]
+0000:64:00.0 Intel DH895XCC Series QAT [8086:0435]
 Kernel driver: dh895xcc
 Kernel module: qat_dh895xcc
 ```
@@ -66,6 +67,7 @@ Kernel module: qat_dh895xcc
 
 ```text
 qat_dev0 - type: dh895xcc, inst_id: 0, node_id: 2, bsf: 0000:45:00.0, #accel: 6 #engines: 12 state: up
+qat_dev1 - type: dh895xcc, inst_id: 1, node_id: 3, bsf: 0000:64:00.0, #accel: 6 #engines: 12 state: up
 ```
 
 Loaded QAT-related modules:
@@ -147,10 +149,11 @@ find /root/QAT/QAT.L.4.28.0-00004 -maxdepth 3 -type f \
 
 ## QAT Runtime Configuration
 
-Active config file:
+Active config files:
 
 ```text
 /etc/dh895xcc_dev0.conf
+/etc/dh895xcc_dev1.conf
 ```
 
 Observed non-comment service and instance settings:
@@ -209,6 +212,12 @@ reboot. The previous config was backed up as:
 /etc/dh895xcc_dev0.conf.pre-dc6-20260517T013612Z
 /etc/dh895xcc_dev0.conf.pre-dc6.latest -> /etc/dh895xcc_dev0.conf.pre-dc6-20260517T013612Z
 ```
+
+Second-card scale note: on 2026-05-18 `/etc/dh895xcc_dev1.conf` was created by
+copying the DC-only `/etc/dh895xcc_dev0.conf`, then the host was rebooted so
+ZFS QAT DC initialization could see both cards. The active scale configuration
+is two DH895XCC devices with `12` total `[KERNEL_QAT]` DC instances and `0`
+total `[KERNEL_QAT]` crypto instances.
 
 Observation: `adf_ctl` and the kernel can report the device up while ZFS QAT kstats remain at zero. Do not infer from driver state alone that ZFS has processed QAT-accelerated I/O.
 
@@ -481,6 +490,8 @@ Recent phase 4 policy benchmark artifacts:
 /root/zfs-qat-phase4-methodology-current-policy-20260518.csv
 /root/zfs-qat-scale-single-card-jobs4-20260518.csv
 /root/zfs-qat-scale-single-card-jobs8-20260518.csv
+/root/zfs-qat-scale-dual-card-jobs4-20260518.csv
+/root/zfs-qat-scale-dual-card-jobs8-20260518.csv
 ```
 
 Current QAT async policy parameters after the 2026-05-18 methodology benchmark
