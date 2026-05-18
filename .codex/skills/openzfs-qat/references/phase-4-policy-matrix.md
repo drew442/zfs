@@ -149,6 +149,37 @@ Interpretation:
 - Higher caps remain valid candidates for a future `throughput` or `offload`
   profile. They should not be silently promoted to the default balanced policy.
 
+### Midpoint Profile Sweep
+
+The next sweep tested caps between the balanced DC6 ceiling and linear DC12
+endpoint at `JOBS=8`.
+
+```text
+record cap  kind      qat_ms   sw_ms    qat_vs_sw qat_byte fallback
+128K   768  balanced  1571.288 1483.652 +5.9%     67.2%    32.8%
+128K   1024 midpoint  1702.346 1749.028 -2.7%     76.9%    23.1%
+128K   1280 midpoint  1581.038 1558.804 +1.4%     72.6%    27.4%
+128K   1536 linear    1622.120 1522.491 +6.5%     82.1%    18.0%
+256K   192  balanced  1383.344 1444.475 -4.2%     49.0%    51.0%
+256K   256  midpoint  1481.648 1453.743 +1.9%     62.3%    37.8%
+256K   320  midpoint  1475.804 1402.650 +5.2%     60.7%    39.4%
+256K   384  linear    1452.347 1503.671 -3.4%     62.9%    37.1%
+1M     96   balanced  1346.845 1455.752 -7.5%     48.2%    52.1%
+1M     128  midpoint  1390.585 1452.624 -4.3%     57.2%    43.3%
+1M     160  midpoint  1317.327 1400.008 -5.9%     63.3%    37.2%
+1M     192  linear    1360.608 1561.182 -12.8%    73.1%    27.5%
+```
+
+Policy interpretation:
+
+- Keep `128K` and `256K` on the balanced caps. Higher caps increase QAT share
+  but do not produce a stable elapsed-time win.
+- Repeat `1M` cap `160`; it is the only new cap that improved elapsed time while
+  increasing QAT byte share and lowering system CPU cost versus the balanced
+  cap in this sweep.
+- Treat `1M` cap `192` as an offload-biased candidate only. It gives more QAT
+  share and lower system CPU, but it is slower than cap `160` in this pass.
+
 ## Async Coalescing Follow-Up
 
 Source CSVs:
@@ -286,9 +317,11 @@ Initial behavior should be conservative:
    QAT 1.x async gzip.
 2. Keep coalescing out of automatic policy for now. It is technically
    compatible with async, but the focused repeat does not show a stable win.
-3. If coalescing is revisited, test a second data source or a workload with a
+3. Repeat the `1M` cap `160` candidate before adding a throughput/offload
+   profile action.
+4. If coalescing is revisited, test a second data source or a workload with a
    materially different compression ratio before adding profile behavior.
-4. Do not make compression level or Huffman type per-record until the code can
+5. Do not make compression level or Huffman type per-record until the code can
    maintain multiple QAT DC sessions per instance.
-5. Add bias-profile parameters only after the policy actions they control are
+6. Add bias-profile parameters only after the policy actions they control are
    implementable and benchmark-backed.

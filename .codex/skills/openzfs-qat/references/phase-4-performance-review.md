@@ -72,6 +72,10 @@ Benchmark interpretation note:
   balanced policy now uses active DC instance count but caps at the measured DC6
   ceiling; higher caps should be benchmarked as profile behavior, not default
   behavior.
+- A midpoint cap sweep found no useful higher-cap candidate for `128K` or
+  `256K`. The only promising profile candidate is `1M` cap `160`, which improved
+  elapsed time and CPU cost versus the balanced cap while increasing QAT byte
+  share.
 
 ## Current Latency Diagnosis
 
@@ -138,6 +142,7 @@ service time.
 | DC6 cap sweep | Swept `zfs_qat_dc_async_max_inflight` over `96`, `192`, `384`, `768`, and uncapped. | Higher caps are not generally better. Cap choice is record-size dependent; uncapped mode is slower and causes submit failures. |
 | Dual-card scale | Tested two DH895XCC cards with 12 configured DC instances. | QAT byte share increased and service/wait cost per QAT-completed MiB fell by roughly half, but `128K` remained slower than software. |
 | Linear DC12 caps | Tested caps scaled directly from DC6 to DC12. | QAT byte share increased, but elapsed time regressed versus the conservative dual-card policy in every row. Keep DC6 ceilings for the balanced profile. |
+| Midpoint cap profile sweep | Tested caps between balanced DC6 ceilings and linear DC12 endpoints at `JOBS=8`. | `128K` and `256K` do not justify higher caps. `1M` cap `160` is worth repeating as a throughput/offload profile candidate. |
 
 ## Current Fair Comparison
 

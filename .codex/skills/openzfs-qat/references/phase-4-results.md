@@ -2421,3 +2421,78 @@ Result:
 - The repo code was adjusted after this test to keep active-DC observability and
   DC-count cap calculation while limiting the balanced record-size policy to the
   DC6 measured ceiling.
+
+### Cap Profile Midpoint Sweep
+
+Run date: 2026-05-18.
+
+This sweep tested caps between the conservative balanced DC6 ceiling and the
+linear DC12 endpoint. It used fixed caps one record size at a time so each row
+could be interpreted as a candidate for a future throughput/offload profile,
+not as a default balanced-policy change.
+
+Source CSVs:
+
+```text
+/root/zfs-qat-profile-cap-128k-cap1024-jobs8-20260518.csv
+/root/zfs-qat-profile-cap-128k-cap1280-jobs8-20260518.csv
+/root/zfs-qat-profile-cap-256k-cap256-jobs8-20260518.csv
+/root/zfs-qat-profile-cap-256k-cap320-jobs8-20260518.csv
+/root/zfs-qat-profile-cap-1m-cap128-jobs8-20260518.csv
+/root/zfs-qat-profile-cap-1m-cap160-jobs8-20260518.csv
+
+Repo copies:
+.codex/skills/openzfs-qat/references/benchmarks/
+```
+
+Test settings:
+
+```text
+qat_pci_dh895xcc_count=2
+qat_kernel_dc_instances_total=12
+zfs_qat_dc_instances=12
+zfs_qat_dc_async=1
+zfs_qat_dc_async_cap_policy=fixed
+zfs_qat_dc_async_submit_retries=8
+zfs_qat_dc_async_retry_us=100
+zfs_qat_decompress_disable=1
+zfs_qat_dc_coalesce_src=0
+zfs_qat_dc_coalesce_dst=0
+VERIFY_MODE=sw
+JOBS=8
+ITERS=3
+```
+
+Results:
+
+```text
+record cap  kind      qat_ms   sw_ms    qat_vs_sw qat_byte fallback sysCPU/GiB service_ns/MiB
+128K   768  balanced  1571.288 1483.652 +5.9%     67.2%    32.8%    8.63       172067371
+128K   1024 midpoint  1702.346 1749.028 -2.7%     76.9%    23.1%    9.75       217778741
+128K   1280 midpoint  1581.038 1558.804 +1.4%     72.6%    27.4%    8.28       251317688
+128K   1536 linear    1622.120 1522.491 +6.5%     82.1%    18.0%    9.42       281922002
+256K   192  balanced  1383.344 1444.475 -4.2%     49.0%    51.0%    8.21       49353659
+256K   256  midpoint  1481.648 1453.743 +1.9%     62.3%    37.8%    9.36       71320857
+256K   320  midpoint  1475.804 1402.650 +5.2%     60.7%    39.4%    8.06       83981483
+256K   384  linear    1452.347 1503.671 -3.4%     62.9%    37.1%    9.00       102687159
+1M     96   balanced  1346.845 1455.752 -7.5%     48.2%    52.1%    8.33       25114634
+1M     128  midpoint  1390.585 1452.624 -4.3%     57.2%    43.3%    7.54       30462370
+1M     160  midpoint  1317.327 1400.008 -5.9%     63.3%    37.2%    7.18       34002147
+1M     192  linear    1360.608 1561.182 -12.8%    73.1%    27.5%    6.67       39375024
+```
+
+Result:
+
+- `128K`: higher caps increased QAT byte share but did not produce a stable
+  throughput/latency result. Service cost rose with cap. Keep `128K` at the
+  balanced cap for now.
+- `256K`: both midpoint caps were worse than the balanced cap. Keep `256K` at
+  the balanced cap.
+- `1M`: cap `160` is the best new profile candidate. It produced the lowest
+  elapsed time in this sweep, raised QAT byte share to `63.3%`, and lowered
+  system CPU seconds per GiB versus the balanced cap.
+- Cap `192` remains a CPU-offload candidate for `1M`, but it trades away some
+  elapsed time versus cap `160`. It should not be the default throughput choice
+  without a repeat.
+- This does not change the balanced policy. It identifies `1M` cap `160` as the
+  only cap-profile candidate worth repeating before adding a bias-profile knob.

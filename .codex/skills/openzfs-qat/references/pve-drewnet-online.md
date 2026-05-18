@@ -499,6 +499,12 @@ Recent phase 4 policy benchmark artifacts:
 /root/zfs-qat-scale-dual-card-jobs8-20260518.csv
 /root/zfs-qat-scale-dual-card-perinst-policy-jobs4-20260518.csv
 /root/zfs-qat-scale-dual-card-perinst-policy-jobs8-20260518.csv
+/root/zfs-qat-profile-cap-128k-cap1024-jobs8-20260518.csv
+/root/zfs-qat-profile-cap-128k-cap1280-jobs8-20260518.csv
+/root/zfs-qat-profile-cap-256k-cap256-jobs8-20260518.csv
+/root/zfs-qat-profile-cap-256k-cap320-jobs8-20260518.csv
+/root/zfs-qat-profile-cap-1m-cap128-jobs8-20260518.csv
+/root/zfs-qat-profile-cap-1m-cap160-jobs8-20260518.csv
 ```
 
 Current QAT async policy parameters after the 2026-05-18 methodology benchmark
