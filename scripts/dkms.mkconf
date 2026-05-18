@@ -20,14 +20,13 @@ if [ -z "${pkgname}" ] || [ -z "${pkgver}" ] || [ -z "${filename}" ] ||
 	exit 1
 fi
 
+qat_dkms_icp_root="${ZFS_DKMS_QAT_ICP_ROOT:-/usr/src/qat-4.28.0-00004}"
+
 exec cat >"${filename}" <<EOF
 PACKAGE_NAME="${pkgname}"
 PACKAGE_VERSION="${pkgver}"
 PACKAGE_CONFIG="${pkgcfg}"
-$(
-  [ -n "${ICP_ROOT:-}" ] && \
-    echo "ICP_ROOT=\"\${ICP_ROOT:-${ICP_ROOT}}\""
-)
+ICP_ROOT="\${ICP_ROOT:-${qat_dkms_icp_root}}"
 NO_WEAK_MODULES="yes"
 PRE_BUILD="configure
   --disable-dependency-tracking

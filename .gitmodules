@@ -1,3 +1,7 @@
 [submodule "scripts/zfs-images"]
 	path = scripts/zfs-images
 	url = https://github.com/openzfs/zfs-images
+[submodule "contrib/qat/QAT.L.4.28.0-00004"]
+	path = contrib/qat/QAT.L.4.28.0-00004
+	url = https://github.com/drew442/QAT.L.4.28.0-00004.git
+	branch = codex/openzfs-qat-submodule

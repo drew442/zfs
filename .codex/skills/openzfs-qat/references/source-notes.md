@@ -36,7 +36,9 @@ These notes capture stable, primary-source details useful when reviewing this fo
 - This tree's `config/kernel.m4` expects the external driver source under `ICP_ROOT` to expose `quickassist/include/cpa.h`.
 - The same configure logic expects build objects under `--with-qat-obj`, defaulting to `$ICP_ROOT/build`, and accepts either `icp_qa_al.ko` or `qat_api.ko`.
 - QAT symbol detection needs the access-layer `Module.symvers` containing `qat_api` CPA exports such as `cpaDcGetNumInstances`; QAT 4.28 may also provide `quickassist/qat/Module.symvers` for driver symbols.
-- `scripts/dkms.mkconf` passes `--with-qat="${ICP_ROOT}"`; when `ICP_ROOT` is set during `dkms.conf` generation, the generated file keeps that path as the default for later DKMS rebuilds.
+- The project carries QAT 4.28 as a submodule at `contrib/qat/QAT.L.4.28.0-00004` on branch `codex/openzfs-qat-submodule`.
+- The initial QAT DKMS package identity is `qat/4.28.0-00004`, with source installed to `/usr/src/qat-4.28.0-00004`.
+- `scripts/dkms.mkconf` emits `ICP_ROOT="${ICP_ROOT:-/usr/src/qat-4.28.0-00004}"`, so generated ZFS DKMS configs use the QAT DKMS source path for `--with-qat` by default. Override `ICP_ROOT` or set `ZFS_DKMS_QAT_ICP_ROOT` while generating the ZFS DKMS config when testing a different QAT tree.
 - Intel documents `--enable-kapi` as enabling the Intel QuickAssist API in kernel space. Treat this as relevant to OpenZFS direct kernel API integration when building the out-of-tree driver.
 - Intel documents `--enable-icp-sriov` with `host` and `guest` modes. SR-IOV setup claims from community posts should be verified against Intel virtualization docs and the actual hardware/driver generation.
 - Intel's current docs distinguish in-tree and out-of-tree stacks and state that QAT Gen4 and later development is moving toward in-tree drivers. Gen4/in-tree-only behavior is outside this project's target unless it also applies to QAT 1.x.
