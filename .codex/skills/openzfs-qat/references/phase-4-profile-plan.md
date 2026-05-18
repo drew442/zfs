@@ -158,12 +158,13 @@ Notes:
 ## Implementation Order
 
 1. Add `zfs_qat_dc_profile_recordsize` with default `131072` and validation for
-   `128K`, `256K`, `512K`, and `1M`.
+   `128K`, `256K`, `512K`, and `1M`. Initial implementation accepts numeric
+   byte values.
 2. Add `zfs_qat_dc_profile=balanced` and
    `zfs_qat_dc_ratio_profile=balanced` as validated string parameters.
 3. Convert the first profile-owned tunables to accept `profile` plus concrete
-   manual values. Start with async enablement and async cap policy because those
-   have measured profile actions.
+   manual values. Start with async cap policy because it has measured profile
+   actions and does not by itself enable async QAT.
 4. Implement effective-profile helper functions. The raw module parameter value
    describes operator intent; helper functions provide the effective runtime
    value.
@@ -175,6 +176,21 @@ Notes:
 7. Add kstats or benchmark columns showing selected profiles, target record
    size, raw tunable state, and effective runtime choices.
 8. Only then consider profile-managed coalescing or ratio/performance profiles.
+
+Initial implementation status:
+
+- `zfs_qat_dc_profile`, `zfs_qat_dc_profile_recordsize`, and
+  `zfs_qat_dc_ratio_profile` exist as validated module parameters.
+- `zfs_qat_dc_async_cap_policy` accepts `profile`, `fixed`, `recordsize`, and
+  `throughput`, and defaults to `profile`.
+- When `zfs_qat_dc_async_cap_policy=profile`, the effective cap behavior is
+  computed from `zfs_qat_dc_profile` and `zfs_qat_dc_profile_recordsize`.
+- Current profile action is intentionally narrow:
+  `throughput` or `offload` with target record size `1M` uses the measured
+  `throughput` cap behavior; all other profile combinations use balanced
+  `recordsize` behavior.
+- `zfs_qat_dc_async` remains an integer and remains disabled by default. This
+  profile slice does not automatically enable async QAT.
 
 ## Mixed Dataset Guidance
 

@@ -508,6 +508,7 @@ Recent phase 4 policy benchmark artifacts:
 /root/zfs-qat-profile-cap-1m-cap96-repeat-jobs8-20260518.csv
 /root/zfs-qat-profile-cap-1m-cap160-repeat-jobs8-20260518.csv
 /root/zfs-qat-profile-cap-1m-cap192-repeat-jobs8-20260518.csv
+/root/zfs-qat-profile-params-smoke-20260518.csv
 ```
 
 Current QAT async policy parameters after the 2026-05-18 methodology benchmark
@@ -523,11 +524,24 @@ zfs_qat_decompress_disable=0
 ```
 
 The installed ZFS module includes `zfs_qat_dc_async_cap_policy`,
-`dc_instances` kstat observability, and conservative active-DC cap calculation.
-It reported `srcversion 998DC210F230A0F688640C2` after the 2026-05-18
-throughput-policy DKMS rebuild, initramfs update, and reboot. The live host
-rejected invalid cap-policy values with `EINVAL` and accepted `fixed`,
-`recordsize`, and `throughput`.
+`zfs_qat_dc_profile`, `zfs_qat_dc_profile_recordsize`,
+`zfs_qat_dc_ratio_profile`, `dc_instances` kstat observability, and
+conservative active-DC cap calculation. It reported
+`srcversion 16975019E0003C1241D4DF7` after the 2026-05-18 profile-parameter
+DKMS rebuild, initramfs update, and reboot. The live host rejected invalid
+profile, ratio-profile, target-recordsize, and cap-policy values with `EINVAL`.
+It accepted cap-policy values `profile`, `fixed`, `recordsize`, and
+`throughput`.
+
+Default profile state after the 2026-05-18 profile-parameter build:
+
+```text
+zfs_qat_dc_async=0
+zfs_qat_dc_async_cap_policy=profile
+zfs_qat_dc_profile=balanced
+zfs_qat_dc_profile_recordsize=131072
+zfs_qat_dc_ratio_profile=balanced
+```
 
 Recent DC-count policy build artifacts:
 
@@ -544,6 +558,9 @@ Recent DC-count policy build artifacts:
 /root/zfs-qat-throughput-policy-dkms-build-20260518.log
 /root/zfs-qat-throughput-policy-dkms-install-20260518.log
 /root/zfs-qat-throughput-policy-initramfs-20260518.log
+/root/zfs-qat-profile-params-dkms-build-20260518.log
+/root/zfs-qat-profile-params-dkms-install-20260518.log
+/root/zfs-qat-profile-params-initramfs-20260518.log
 ```
 
 The async-compatible coalescing DKMS build reported

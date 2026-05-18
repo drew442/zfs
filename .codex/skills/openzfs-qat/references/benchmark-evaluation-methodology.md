@@ -116,6 +116,10 @@ Scale-test runs also append these hardware-state fields:
 - `qat_kernel_dc_instances_total`: summed `[KERNEL_QAT]` compression instances.
 - `zfs_qat_dc_instances`: active QAT DC instances initialized and usable by
   ZFS, from `/proc/spl/kstat/zfs/qat`.
+- `zfs_qat_dc_profile`: selected QAT compression profile.
+- `zfs_qat_dc_profile_recordsize`: operator-selected target record size for
+  profile decisions.
+- `zfs_qat_dc_ratio_profile`: selected ratio/performance profile.
 
 Use byte share as the primary offload-share metric. Request-count share remains
 useful, but it can mislead when comparing different record sizes or mixed

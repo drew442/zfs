@@ -2535,3 +2535,50 @@ Result:
   It preserves the balanced record-size policy for `128K`, `256K`, and untested
   `512K`, and only allows the higher linear active-DC cap for records of `1M`
   and larger.
+
+### Profile Parameter Shell
+
+Run date: 2026-05-18.
+
+The first profile implementation slice added validated host-level profile
+selectors and made async cap policy profile-managed by default:
+
+```text
+zfs_qat_dc_profile=balanced|latency|throughput|offload
+zfs_qat_dc_profile_recordsize=131072|262144|524288|1048576
+zfs_qat_dc_ratio_profile=balanced|performance|ratio
+zfs_qat_dc_async_cap_policy=profile|fixed|recordsize|throughput
+```
+
+Default state:
+
+```text
+zfs_qat_dc_async=0
+zfs_qat_dc_async_cap_policy=profile
+zfs_qat_dc_profile=balanced
+zfs_qat_dc_profile_recordsize=131072
+zfs_qat_dc_ratio_profile=balanced
+```
+
+Effective behavior:
+
+- Concrete `zfs_qat_dc_async_cap_policy` values still act as manual overrides.
+- `zfs_qat_dc_async_cap_policy=profile` computes the cap policy from
+  `zfs_qat_dc_profile` and `zfs_qat_dc_profile_recordsize`.
+- `throughput` or `offload` with target record size `1048576` uses the measured
+  higher `1M+` throughput cap behavior.
+- All other initial profile combinations use balanced `recordsize` cap
+  behavior.
+- Async QAT remains disabled by default; this change does not make async writes
+  active unless `zfs_qat_dc_async=1`.
+
+Validation:
+
+```text
+srcversion: 16975019E0003C1241D4DF7
+/root/zfs-qat-profile-params-smoke-20260518.csv
+```
+
+The host accepted valid profile, ratio-profile, target-recordsize, and
+cap-policy values, rejected invalid values, and the benchmark harness smoke CSV
+recorded the new profile columns with `127` aligned columns.

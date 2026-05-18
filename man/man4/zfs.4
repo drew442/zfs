@@ -2180,8 +2180,14 @@ A value of
 .Sy 0
 disables the cap.
 .
-.It Sy zfs_qat_dc_async_cap_policy Ns = Ns Sy fixed Ns | Ns Sy recordsize Ns | Ns Sy throughput Pq charp
+.It Sy zfs_qat_dc_async_cap_policy Ns = Ns Sy profile Ns | Ns Sy fixed Ns | Ns Sy recordsize Ns | Ns Sy throughput Pq charp
 Policy for selecting the asynchronous QAT gzip in-flight cap.
+.Sy profile
+uses
+.Sy zfs_qat_dc_profile
+and
+.Sy zfs_qat_dc_profile_recordsize
+to select the effective cap policy.
 .Sy fixed
 uses
 .Sy zfs_qat_dc_async_max_inflight
@@ -2197,6 +2203,45 @@ data-compression instances.
 This option is experimental and is only used when
 .Sy zfs_qat_dc_async
 is enabled.
+The default is
+.Sy profile .
+.
+.It Sy zfs_qat_dc_profile Ns = Ns Sy balanced Ns | Ns Sy latency Ns | Ns Sy throughput Ns | Ns Sy offload Pq charp
+Selects the host-level QAT compression profile used by tunables set to
+.Sy profile .
+.Sy balanced
+preserves conservative fallback behavior and avoids measured regressions.
+.Sy latency
+is intended to avoid offload choices that do not repeatedly beat software
+latency.
+.Sy throughput
+allows measured higher-throughput choices for the configured target record size.
+.Sy offload
+prefers higher QAT byte share or lower CPU cost when correctness and compression
+ratio are acceptable.
+The default is
+.Sy balanced .
+.
+.It Sy zfs_qat_dc_profile_recordsize Ns = Ns Sy 131072 Ns | Ns Sy 262144 Ns | Ns Sy 524288 Ns | Ns Sy 1048576 Pq int
+Representative record size for host-level QAT profile decisions.
+The default is
+.Sy 131072 ,
+matching the OpenZFS default dataset
+.Sy recordsize
+of 128 KiB.
+.
+.It Sy zfs_qat_dc_ratio_profile Ns = Ns Sy balanced Ns | Ns Sy performance Ns | Ns Sy ratio Pq charp
+Selects the compression-ratio side of host-level QAT profile decisions.
+.Sy balanced
+preserves the current conservative ratio behavior.
+.Sy performance
+may choose lower compression effort only when the operator accepts ratio
+tradeoff.
+.Sy ratio
+prefers compression-ratio-preserving choices, accepting latency only when
+explicitly selected.
+The default is
+.Sy balanced .
 .
 .It Sy zfs_qat_dc_max_instances Ns = Ns Sy 48 Pq int
 Maximum number of QAT data-compression instances to use.

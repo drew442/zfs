@@ -143,7 +143,10 @@ int zfs_qat_dc_async = 0;
 int zfs_qat_dc_async_submit_retries = 8;
 int zfs_qat_dc_async_retry_us = 100;
 int zfs_qat_dc_async_max_inflight = 96;
-char *zfs_qat_dc_async_cap_policy = "fixed";
+char *zfs_qat_dc_async_cap_policy = "profile";
+char *zfs_qat_dc_profile = "balanced";
+int zfs_qat_dc_profile_recordsize = 128 * 1024;
+char *zfs_qat_dc_ratio_profile = "balanced";
 
 boolean_t
 qat_dc_compress_use_accel(size_t s_len)
@@ -208,9 +211,49 @@ qat_dc_valid_max_buf_size(int max_buf_size)
 }
 
 static boolean_t
+qat_dc_profile(const char *value)
+{
+	return (strcmp(value, "balanced") == 0 ||
+	    strcmp(value, "balanced\n") == 0 ||
+	    strcmp(value, "latency") == 0 ||
+	    strcmp(value, "latency\n") == 0 ||
+	    strcmp(value, "throughput") == 0 ||
+	    strcmp(value, "throughput\n") == 0 ||
+	    strcmp(value, "offload") == 0 ||
+	    strcmp(value, "offload\n") == 0);
+}
+
+static boolean_t
+qat_dc_ratio_profile(const char *value)
+{
+	return (strcmp(value, "balanced") == 0 ||
+	    strcmp(value, "balanced\n") == 0 ||
+	    strcmp(value, "performance") == 0 ||
+	    strcmp(value, "performance\n") == 0 ||
+	    strcmp(value, "ratio") == 0 ||
+	    strcmp(value, "ratio\n") == 0);
+}
+
+static boolean_t
+qat_dc_valid_profile_recordsize(int recordsize)
+{
+	switch (recordsize) {
+	case 128 * 1024:
+	case 256 * 1024:
+	case 512 * 1024:
+	case 1024 * 1024:
+		return (B_TRUE);
+	default:
+		return (B_FALSE);
+	}
+}
+
+static boolean_t
 qat_dc_async_valid_cap_policy(const char *value)
 {
-	return (strcmp(value, "fixed") == 0 ||
+	return (strcmp(value, "profile") == 0 ||
+	    strcmp(value, "profile\n") == 0 ||
+	    strcmp(value, "fixed") == 0 ||
 	    strcmp(value, "fixed\n") == 0 ||
 	    strcmp(value, "recordsize") == 0 ||
 	    strcmp(value, "recordsize\n") == 0 ||
@@ -256,9 +299,22 @@ qat_dc_async_recordsize_cap(int src_len, int *cap, boolean_t throughput)
 }
 
 static boolean_t
+qat_dc_profile_throughput_cap(void)
+{
+	return ((strcmp(zfs_qat_dc_profile, "throughput") == 0 ||
+	    strcmp(zfs_qat_dc_profile, "offload") == 0) &&
+	    zfs_qat_dc_profile_recordsize >= 1024 * 1024);
+}
+
+static boolean_t
 qat_dc_async_effective_cap(int src_len, int *cap)
 {
 	*cap = zfs_qat_dc_async_max_inflight;
+
+	if (strcmp(zfs_qat_dc_async_cap_policy, "profile") == 0) {
+		return (qat_dc_async_recordsize_cap(src_len, cap,
+		    qat_dc_profile_throughput_cap()));
+	}
 
 	if (strcmp(zfs_qat_dc_async_cap_policy, "recordsize") == 0)
 		return (qat_dc_async_recordsize_cap(src_len, cap, B_FALSE));
@@ -2005,12 +2061,70 @@ param_set_qat_dc_async_cap_policy(const char *val, zfs_kernel_param_t *kp)
 	if (!qat_dc_async_valid_cap_policy(val))
 		return (-EINVAL);
 
-	if (strncmp(val, "recordsize", 10) == 0)
+	if (strncmp(val, "profile", 7) == 0)
+		*pvalue = "profile";
+	else if (strncmp(val, "recordsize", 10) == 0)
 		*pvalue = "recordsize";
 	else if (strncmp(val, "throughput", 10) == 0)
 		*pvalue = "throughput";
 	else
 		*pvalue = "fixed";
+	return (0);
+}
+
+static int
+param_set_qat_dc_profile(const char *val, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+
+	if (!qat_dc_profile(val))
+		return (-EINVAL);
+
+	if (strncmp(val, "latency", 7) == 0)
+		*pvalue = "latency";
+	else if (strncmp(val, "throughput", 10) == 0)
+		*pvalue = "throughput";
+	else if (strncmp(val, "offload", 7) == 0)
+		*pvalue = "offload";
+	else
+		*pvalue = "balanced";
+	return (0);
+}
+
+static int
+param_set_qat_dc_ratio_profile(const char *val, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+
+	if (!qat_dc_ratio_profile(val))
+		return (-EINVAL);
+
+	if (strncmp(val, "performance", 11) == 0)
+		*pvalue = "performance";
+	else if (strncmp(val, "ratio", 5) == 0)
+		*pvalue = "ratio";
+	else
+		*pvalue = "balanced";
+	return (0);
+}
+
+static int
+param_set_qat_dc_profile_recordsize(const char *val, zfs_kernel_param_t *kp)
+{
+	int ret;
+	int old_value;
+	int *pvalue = kp->arg;
+
+	old_value = *pvalue;
+	ret = param_set_int(val, kp);
+	if (ret != 0)
+		return (ret);
+
+	if (!qat_dc_valid_profile_recordsize(*pvalue)) {
+		*pvalue = old_value;
+		return (-EINVAL);
+	}
+
 	return (0);
 }
 
@@ -2072,6 +2186,22 @@ module_param_call(zfs_qat_dc_async_cap_policy,
     param_set_qat_dc_async_cap_policy, param_get_charp,
     &zfs_qat_dc_async_cap_policy, 0644);
 MODULE_PARM_DESC(zfs_qat_dc_async_cap_policy,
-    "QAT async cap policy: fixed, recordsize, or throughput");
+    "QAT async cap policy: profile, fixed, recordsize, or throughput");
+
+module_param_call(zfs_qat_dc_profile, param_set_qat_dc_profile,
+    param_get_charp, &zfs_qat_dc_profile, 0644);
+MODULE_PARM_DESC(zfs_qat_dc_profile,
+    "QAT compression profile: balanced, latency, throughput, or offload");
+
+module_param_call(zfs_qat_dc_profile_recordsize,
+    param_set_qat_dc_profile_recordsize, param_get_int,
+    &zfs_qat_dc_profile_recordsize, 0644);
+MODULE_PARM_DESC(zfs_qat_dc_profile_recordsize,
+    "QAT compression profile target record size");
+
+module_param_call(zfs_qat_dc_ratio_profile, param_set_qat_dc_ratio_profile,
+    param_get_charp, &zfs_qat_dc_ratio_profile, 0644);
+MODULE_PARM_DESC(zfs_qat_dc_ratio_profile,
+    "QAT compression ratio profile: balanced, performance, or ratio");
 
 #endif

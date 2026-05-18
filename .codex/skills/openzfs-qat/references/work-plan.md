@@ -235,6 +235,9 @@ Next profile work:
 - Compute effective settings for async cap policy, large-record eligibility,
   decompression policy, and eventually compression level/Huffman type from the
   active profile when the relevant tunable is set to `profile`.
+- Initial implementation starts with `zfs_qat_dc_async_cap_policy=profile`
+  only. It does not automatically enable async QAT because `zfs_qat_dc_async`
+  remains disabled by default.
 - Apply session-global settings such as QAT compression level and Huffman type
   only before QAT DC initialization, and reject profile changes that would
   require changing active QAT DC sessions.

@@ -191,12 +191,16 @@ cap qat_ms   sw_ms    qat_vs_sw qat_byte fallback sysCPU/GiB
 Implemented profile behavior:
 
 ```text
-zfs_qat_dc_async_cap_policy=throughput
+zfs_qat_dc_profile=throughput|offload
+zfs_qat_dc_profile_recordsize=1048576
+zfs_qat_dc_async_cap_policy=profile
 ```
 
-`throughput` uses the same admission rules as `recordsize`, keeps `128K`,
-`256K`, and untested `512K` at the balanced DC6 ceiling, and uses linear active
-DC-instance scaling only for records of `1M` and larger.
+When cap policy is `profile`, the `throughput` and `offload` profiles use the
+same admission rules as `recordsize`, keep `128K`, `256K`, and untested `512K`
+at the balanced DC6 ceiling, and use linear active DC-instance scaling only for
+records of `1M` and larger. Concrete cap-policy values remain available for
+manual benchmarking.
 
 ## Async Coalescing Follow-Up
 
@@ -353,10 +357,10 @@ Detailed profile design is in `phase-4-profile-plan.md`.
    QAT 1.x async gzip.
 2. Keep coalescing out of automatic policy for now. It is technically
    compatible with async, but the focused repeat does not show a stable win.
-3. Add profile and target-recordsize parameters, using
-   `phase-4-profile-plan.md` as the contract.
-4. Validate `zfs_qat_dc_async_cap_policy=throughput` through the profile helper
-   path, not only as a low-level manual cap policy.
+3. Validate `zfs_qat_dc_async_cap_policy=profile` through the profile helper
+   path after DKMS deployment.
+4. Convert the next profile-managed tunable only after the cap-policy profile
+   path has been validated.
 5. If coalescing is revisited, test a second data source or a workload with a
    materially different compression ratio before adding profile behavior.
 6. Do not make compression level or Huffman type per-record until the code can
