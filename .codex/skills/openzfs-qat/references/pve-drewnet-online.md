@@ -511,18 +511,26 @@ Recent phase 4 policy benchmark artifacts:
 /root/zfs-qat-profile-params-smoke-20260518.csv
 /root/zfs-qat-profile-maxbuf-smoke-20260518.csv
 /root/zfs-qat-profile-level-smoke-20260518.csv
+/root/zfs-qat-profile-remaining-smoke-20260518.csv
 ```
 
-Current QAT async policy parameters after the 2026-05-18 methodology benchmark
-restore:
+Current QAT profile parameters after the 2026-05-18 remaining-profile build:
 
 ```text
-zfs_qat_dc_async=0
-zfs_qat_dc_async_max_inflight=96
-zfs_qat_dc_async_cap_policy=fixed
-zfs_qat_dc_coalesce_src=0
-zfs_qat_dc_coalesce_dst=0
-zfs_qat_decompress_disable=0
+zfs_qat_decompress_disable=profile
+zfs_qat_cpa_dc_level=profile
+zfs_qat_cpa_dc_hufftype=profile
+zfs_qat_dc_max_buf_size=profile
+zfs_qat_dc_coalesce_src=profile
+zfs_qat_dc_coalesce_dst=profile
+zfs_qat_dc_async=profile
+zfs_qat_dc_async_submit_retries=profile
+zfs_qat_dc_async_retry_us=profile
+zfs_qat_dc_async_max_inflight=profile
+zfs_qat_dc_async_cap_policy=profile
+zfs_qat_dc_profile=balanced
+zfs_qat_dc_profile_recordsize=131072
+zfs_qat_dc_ratio_profile=balanced
 ```
 
 The installed ZFS module includes `zfs_qat_dc_async_cap_policy`,
@@ -545,6 +553,14 @@ zfs_qat_dc_profile_recordsize=131072
 zfs_qat_dc_ratio_profile=balanced
 zfs_qat_dc_max_buf_size=profile
 zfs_qat_cpa_dc_level=profile
+zfs_qat_cpa_dc_hufftype=profile
+zfs_qat_decompress_disable=profile
+zfs_qat_dc_coalesce_src=profile
+zfs_qat_dc_coalesce_dst=profile
+zfs_qat_dc_async=profile
+zfs_qat_dc_async_submit_retries=profile
+zfs_qat_dc_async_retry_us=profile
+zfs_qat_dc_async_max_inflight=profile
 ```
 
 The installed ZFS module includes profile-managed
@@ -587,6 +603,28 @@ The previous persistent modprobe config was backed up before changing
 /etc/modprobe.d/zfs-qat.conf.pre-profile-level-20260518
 ```
 
+The installed ZFS module includes the remaining planned profile-owned tunables:
+`zfs_qat_cpa_dc_hufftype`, `zfs_qat_decompress_disable`, async enablement,
+async retry/cap values, and source/destination coalescing. After the
+2026-05-18 remaining-profile build and reboot, the module reported:
+
+```text
+srcversion 62EF6B1D2C6A51421EB3DD2
+zfs_qat_cpa_dc_hufftype=profile
+zfs_qat_effective_cpa_dc_hufftype=dynamic
+zfs_qat_dc_async=profile
+zfs_qat_dc_effective_async=0
+zfs_qat_dc_async_max_inflight=profile
+zfs_qat_dc_effective_async_max_inflight=96
+```
+
+The previous persistent modprobe config was backed up before the
+remaining-profile build:
+
+```text
+/etc/modprobe.d/zfs-qat.conf.pre-profile-remaining-20260518
+```
+
 Recent DC-count policy build artifacts:
 
 ```text
@@ -615,6 +653,9 @@ Recent DC-count policy build artifacts:
 /root/zfs-qat-profile-level-dkms-build-20260518.log
 /root/zfs-qat-profile-level-dkms-install-20260518.log
 /root/zfs-qat-profile-level-initramfs-20260518.log
+/root/zfs-qat-profile-remaining-dkms-build-20260518.log
+/root/zfs-qat-profile-remaining-dkms-install-20260518.log
+/root/zfs-qat-profile-remaining-initramfs-20260518.log
 ```
 
 The async-compatible coalescing DKMS build reported

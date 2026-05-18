@@ -2103,9 +2103,21 @@ Disable QAT hardware acceleration for gzip compression and decompression.
 May be unset after the ZFS modules have been loaded to initialize the QAT
 hardware as long as support is compiled in and the QAT driver is present.
 .
-.It Sy zfs_qat_decompress_disable Ns = Ns Sy 0 Ns | Ns 1 Pq int
+.It Sy zfs_qat_decompress_disable Ns = Ns Sy profile Ns | Ns Sy 0 Ns | Ns 1 Pq charp
 Disable QAT hardware acceleration for gzip decompression while leaving QAT
 compression eligible.
+The default is
+.Sy profile .
+When profile-managed,
+.Sy latency
+and
+.Sy throughput
+QAT DC profiles disable QAT decompression, while
+.Sy balanced
+and
+.Sy offload
+profiles keep it enabled.
+Concrete values manually override the profile-managed value.
 This option is useful when QAT write-side compression saves CPU, but synchronous
 QAT read-side decompression adds too much latency.
 The
@@ -2128,8 +2140,14 @@ This is a global QAT data-compression session setting, not a per-dataset
 setting.
 It must be set before QAT compression sessions are initialized.
 .
-.It Sy zfs_qat_cpa_dc_hufftype Ns = Ns Sy dynamic Ns | Ns static Pq charp
+.It Sy zfs_qat_cpa_dc_hufftype Ns = Ns Sy profile Ns | Ns Sy dynamic Ns | Ns static Pq charp
 QAT Huffman tree type for gzip compression.
+The default is
+.Sy profile .
+When profile-managed,
+.Sy zfs_qat_dc_ratio_profile Ns = Ns Sy performance
+uses static Huffman trees and other ratio profiles use dynamic Huffman trees.
+Concrete values manually override the profile-managed value.
 .Sy dynamic
 uses full dynamic Huffman trees, which may improve compression ratio but
 requires more QAT compression work.
@@ -2158,15 +2176,23 @@ hardware.
 It must be set before QAT compression sessions are initialized.
 Records larger than the effective value use software gzip fallback.
 .
-.It Sy zfs_qat_dc_coalesce_src Ns = Ns Sy 0 Ns | Ns 1 Pq int
+.It Sy zfs_qat_dc_coalesce_src Ns = Ns Sy profile Ns | Ns Sy 0 Ns | Ns 1 Pq charp
 Enable experimental QAT gzip compression source-buffer coalescing.
+The default is
+.Sy profile ,
+which currently resolves to disabled because repeat benchmarks have not shown a
+broad benefit.
 When enabled, the QAT compression path copies each source record into one
 contiguous QAT input buffer before submission.
 This reduces QAT source buffer-list entries, but adds allocation and copy cost.
 The default is disabled.
 .
-.It Sy zfs_qat_dc_coalesce_dst Ns = Ns Sy 0 Ns | Ns 1 Pq int
+.It Sy zfs_qat_dc_coalesce_dst Ns = Ns Sy profile Ns | Ns Sy 0 Ns | Ns 1 Pq charp
 Enable experimental QAT gzip compression destination-buffer coalescing.
+The default is
+.Sy profile ,
+which currently resolves to disabled because repeat benchmarks have not shown a
+broad benefit.
 When enabled, the QAT compression path writes into one contiguous QAT output
 buffer and copies the successful compressed result back to the ZFS destination
 buffer.
@@ -2174,20 +2200,42 @@ This reduces QAT destination buffer-list entries, but adds allocation and copy
 cost.
 The default is disabled.
 .
-.It Sy zfs_qat_dc_async Ns = Ns Sy 0 Ns | Ns 1 Pq int
+.It Sy zfs_qat_dc_async Ns = Ns Sy profile Ns | Ns Sy 0 Ns | Ns 1 Pq charp
 Enable experimental asynchronous QAT gzip write compression.
-The default is disabled.
+The default is
+.Sy profile .
+When profile-managed,
+.Sy throughput
+and
+.Sy offload
+QAT DC profiles enable asynchronous QAT compression, while
+.Sy balanced
+and
+.Sy latency
+profiles keep it disabled.
 .
-.It Sy zfs_qat_dc_async_submit_retries Ns = Ns Sy 8 Pq int
+.It Sy zfs_qat_dc_async_submit_retries Ns = Ns Sy profile Ns | Ns Ar integer Pq charp
 Number of submit retries after
 .Sy CPA_STATUS_RETRY
 when experimental asynchronous QAT gzip write compression is enabled.
+The default is
+.Sy profile ,
+which currently resolves to
+.Sy 8 .
 .
-.It Sy zfs_qat_dc_async_retry_us Ns = Ns Sy 100 Pq int
+.It Sy zfs_qat_dc_async_retry_us Ns = Ns Sy profile Ns | Ns Ar integer Pq charp
 Backoff delay, in microseconds, between asynchronous QAT gzip submit retries.
+The default is
+.Sy profile ,
+which currently resolves to
+.Sy 100 .
 .
-.It Sy zfs_qat_dc_async_max_inflight Ns = Ns Sy 96 Pq int
+.It Sy zfs_qat_dc_async_max_inflight Ns = Ns Sy profile Ns | Ns Ar integer Pq charp
 Maximum in-flight experimental asynchronous QAT gzip compression requests.
+The default is
+.Sy profile ,
+which currently resolves to
+.Sy 96 .
 A value of
 .Sy 0
 disables the cap.

@@ -122,8 +122,18 @@ Scale-test runs also append these hardware-state fields:
 - `zfs_qat_dc_ratio_profile`: selected ratio/performance profile.
 - `zfs_qat_effective_cpa_dc_level`: effective QAT compression level after
   resolving `zfs_qat_cpa_dc_level=profile`.
+- `zfs_qat_effective_cpa_dc_hufftype`: effective QAT Huffman type after
+  resolving `zfs_qat_cpa_dc_hufftype=profile`.
 - `zfs_qat_dc_effective_max_buf_size`: effective QAT maximum buffer size after
   resolving `zfs_qat_dc_max_buf_size=profile`.
+- `zfs_qat_dc_effective_async`, `zfs_qat_dc_effective_async_max_inflight`,
+  `zfs_qat_dc_effective_async_submit_retries`, and
+  `zfs_qat_dc_effective_async_retry_us`: effective async policy after resolving
+  profile-managed async tunables.
+- `zfs_qat_dc_effective_coalesce_src`,
+  `zfs_qat_dc_effective_coalesce_dst`, and
+  `zfs_qat_effective_decompress_disable`: effective source/destination
+  coalescing and decompression policy after resolving profile-managed tunables.
 
 Use byte share as the primary offload-share metric. Request-count share remains
 useful, but it can mislead when comparing different record sizes or mixed

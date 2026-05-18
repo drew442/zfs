@@ -131,22 +131,38 @@ static qat_dc_buffer_pool_t buffer_pools[QAT_DC_MAX_INSTANCES];
 static Cpa16U num_inst = 0;
 static Cpa32U inst_num = 0;
 static boolean_t qat_dc_init_done = B_FALSE;
+static int qat_dc_effective_decompress_disable(void);
 static int qat_dc_effective_level(void);
+static const char *qat_dc_effective_hufftype(void);
 static int qat_dc_effective_max_buf_size(void);
+static int qat_dc_effective_coalesce_src(void);
+static int qat_dc_effective_coalesce_dst(void);
+static int qat_dc_effective_async(void);
+static int qat_dc_effective_async_submit_retries(void);
+static int qat_dc_effective_async_retry_us(void);
+static int qat_dc_effective_async_max_inflight(void);
 int zfs_qat_compress_disable = 0;
-int zfs_qat_decompress_disable = 0;
+char *zfs_qat_decompress_disable = "profile";
+static int zfs_qat_decompress_disable_value = 0;
 char *zfs_qat_cpa_dc_level = "profile";
 static int zfs_qat_cpa_dc_level_value = 1;
-char *zfs_qat_cpa_dc_hufftype = "dynamic";
+char *zfs_qat_cpa_dc_hufftype = "profile";
+static const char *zfs_qat_cpa_dc_hufftype_value = "dynamic";
 char *zfs_qat_dc_max_buf_size = "profile";
 static int zfs_qat_dc_max_buf_size_value = QAT_DC_DEFAULT_MAX_BUF_SIZE;
 int zfs_qat_dc_max_instances = QAT_DC_MAX_INSTANCES;
-int zfs_qat_dc_coalesce_src = 0;
-int zfs_qat_dc_coalesce_dst = 0;
-int zfs_qat_dc_async = 0;
-int zfs_qat_dc_async_submit_retries = 8;
-int zfs_qat_dc_async_retry_us = 100;
-int zfs_qat_dc_async_max_inflight = 96;
+char *zfs_qat_dc_coalesce_src = "profile";
+static int zfs_qat_dc_coalesce_src_value = 0;
+char *zfs_qat_dc_coalesce_dst = "profile";
+static int zfs_qat_dc_coalesce_dst_value = 0;
+char *zfs_qat_dc_async = "profile";
+static int zfs_qat_dc_async_value = 0;
+char *zfs_qat_dc_async_submit_retries = "profile";
+static int zfs_qat_dc_async_submit_retries_value = 8;
+char *zfs_qat_dc_async_retry_us = "profile";
+static int zfs_qat_dc_async_retry_us_value = 100;
+char *zfs_qat_dc_async_max_inflight = "profile";
+static int zfs_qat_dc_async_max_inflight_value = 96;
 char *zfs_qat_dc_async_cap_policy = "profile";
 char *zfs_qat_dc_profile = "balanced";
 int zfs_qat_dc_profile_recordsize = 128 * 1024;
@@ -169,7 +185,7 @@ qat_dc_decompress_use_accel(size_t s_len)
 	int max_buf_size = qat_dc_effective_max_buf_size();
 
 	return (!zfs_qat_compress_disable &&
-	    !zfs_qat_decompress_disable &&
+	    !qat_dc_effective_decompress_disable() &&
 	    qat_dc_init_done &&
 	    s_len >= QAT_DC_MIN_BUF_SIZE &&
 	    s_len <= max_buf_size);
@@ -269,6 +285,137 @@ qat_dc_ratio_profile(const char *value)
 	    strcmp(value, "ratio\n") == 0);
 }
 
+static int
+qat_dc_profile_decompress_disable(const char *dc_profile)
+{
+	if (strcmp(dc_profile, "latency") == 0 ||
+	    strcmp(dc_profile, "throughput") == 0)
+		return (1);
+
+	return (0);
+}
+
+static int
+qat_dc_effective_decompress_disable(void)
+{
+	if (strcmp(zfs_qat_decompress_disable, "profile") == 0)
+		return (qat_dc_profile_decompress_disable(zfs_qat_dc_profile));
+
+	return (zfs_qat_decompress_disable_value);
+}
+
+static const char *
+qat_dc_profile_hufftype(const char *ratio_profile)
+{
+	if (strcmp(ratio_profile, "performance") == 0)
+		return ("static");
+
+	return ("dynamic");
+}
+
+static const char *
+qat_dc_effective_hufftype(void)
+{
+	if (strcmp(zfs_qat_cpa_dc_hufftype, "profile") == 0)
+		return (qat_dc_profile_hufftype(zfs_qat_dc_ratio_profile));
+
+	return (zfs_qat_cpa_dc_hufftype_value);
+}
+
+static int
+qat_dc_profile_coalesce_src(void)
+{
+	return (0);
+}
+
+static int
+qat_dc_effective_coalesce_src(void)
+{
+	if (strcmp(zfs_qat_dc_coalesce_src, "profile") == 0)
+		return (qat_dc_profile_coalesce_src());
+
+	return (zfs_qat_dc_coalesce_src_value);
+}
+
+static int
+qat_dc_profile_coalesce_dst(void)
+{
+	return (0);
+}
+
+static int
+qat_dc_effective_coalesce_dst(void)
+{
+	if (strcmp(zfs_qat_dc_coalesce_dst, "profile") == 0)
+		return (qat_dc_profile_coalesce_dst());
+
+	return (zfs_qat_dc_coalesce_dst_value);
+}
+
+static int
+qat_dc_profile_async(const char *dc_profile)
+{
+	if (strcmp(dc_profile, "throughput") == 0 ||
+	    strcmp(dc_profile, "offload") == 0)
+		return (1);
+
+	return (0);
+}
+
+static int
+qat_dc_effective_async(void)
+{
+	if (strcmp(zfs_qat_dc_async, "profile") == 0)
+		return (qat_dc_profile_async(zfs_qat_dc_profile));
+
+	return (zfs_qat_dc_async_value);
+}
+
+static int
+qat_dc_profile_async_submit_retries(void)
+{
+	return (8);
+}
+
+static int
+qat_dc_effective_async_submit_retries(void)
+{
+	if (strcmp(zfs_qat_dc_async_submit_retries, "profile") == 0)
+		return (qat_dc_profile_async_submit_retries());
+
+	return (zfs_qat_dc_async_submit_retries_value);
+}
+
+static int
+qat_dc_profile_async_retry_us(void)
+{
+	return (100);
+}
+
+static int
+qat_dc_effective_async_retry_us(void)
+{
+	if (strcmp(zfs_qat_dc_async_retry_us, "profile") == 0)
+		return (qat_dc_profile_async_retry_us());
+
+	return (zfs_qat_dc_async_retry_us_value);
+}
+
+static int
+qat_dc_profile_async_max_inflight(void)
+{
+	return (96);
+}
+
+static int
+qat_dc_effective_async_max_inflight(void)
+{
+	if (strcmp(zfs_qat_dc_async_max_inflight, "profile") == 0)
+		return (qat_dc_profile_async_max_inflight());
+
+	return (zfs_qat_dc_async_max_inflight_value);
+}
+
 static boolean_t
 qat_dc_valid_profile_recordsize(int recordsize)
 {
@@ -344,7 +491,7 @@ qat_dc_profile_throughput_cap(void)
 static boolean_t
 qat_dc_async_effective_cap(int src_len, int *cap)
 {
-	*cap = zfs_qat_dc_async_max_inflight;
+	*cap = qat_dc_effective_async_max_inflight();
 
 	if (strcmp(zfs_qat_dc_async_cap_policy, "profile") == 0) {
 		return (qat_dc_async_recordsize_cap(src_len, cap,
@@ -380,7 +527,7 @@ qat_dc_selected_hufftype(void)
 {
 	CpaDcHuffType huff_type = CPA_DC_HT_FULL_DYNAMIC;
 
-	(void) qat_dc_hufftype(zfs_qat_cpa_dc_hufftype, &huff_type);
+	(void) qat_dc_hufftype(qat_dc_effective_hufftype(), &huff_type);
 
 	return (huff_type);
 }
@@ -532,7 +679,7 @@ qat_dc_try_coalesce_src(char **src, int src_len, void **coalesced_src)
 	hrtime_t start;
 	hrtime_t end;
 
-	if (!zfs_qat_dc_coalesce_src)
+	if (!qat_dc_effective_coalesce_src())
 		return (B_FALSE);
 
 	QAT_STAT_BUMP(dc_compress_coalesce_requests);
@@ -589,7 +736,7 @@ qat_dc_try_coalesce_dst(char **dst, int dst_len, int add_len,
 	hrtime_t start;
 	hrtime_t end;
 
-	if (!zfs_qat_dc_coalesce_dst)
+	if (!qat_dc_effective_coalesce_dst())
 		return (B_FALSE);
 
 	QAT_STAT_BUMP(dc_compress_dst_coalesce_requests);
@@ -1011,7 +1158,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	src_coalesced = (dir == QAT_COMPRESS &&
 	    qat_dc_try_coalesce_src(&src, src_len, &coalesced_src));
 	dst_coalesce_requested = (dir == QAT_COMPRESS &&
-	    zfs_qat_dc_coalesce_dst);
+	    qat_dc_effective_coalesce_dst());
 	dst_coalesced = B_FALSE;
 
 	num_src_buf = src_coalesced ? 1 : ((src_len >> PAGE_SHIFT) + 2);
@@ -1407,7 +1554,7 @@ qat_compress(qat_compress_dir_t dir, char *src, int src_len,
 	if (dir == QAT_COMPRESS) {
 		add_len = qat_dc_compress_scratch_len(src_len, dst_len);
 		scratch_start = gethrtime();
-		if (add_len > 0 && !zfs_qat_dc_coalesce_dst)
+		if (add_len > 0 && !qat_dc_effective_coalesce_dst())
 			add = zio_data_buf_alloc(add_len);
 		scratch_end = gethrtime();
 		QAT_STAT_ADD_TIME(dc_compress_scratch_alloc_ns, scratch_start,
@@ -1432,7 +1579,7 @@ qat_compress(qat_compress_dir_t dir, char *src, int src_len,
 boolean_t
 qat_dc_compress_async_enabled(void)
 {
-	return (zfs_qat_dc_async);
+	return (qat_dc_effective_async());
 }
 
 static void
@@ -1611,7 +1758,7 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	req->add_len = qat_dc_compress_scratch_len(src_len, dst_len);
 	src_coalesced = qat_dc_try_coalesce_src(&req->src, req->src_len,
 	    &req->coalesced_src);
-	dst_coalesce_requested = zfs_qat_dc_coalesce_dst;
+	dst_coalesce_requested = qat_dc_effective_coalesce_dst();
 
 	num_src_buf = src_coalesced ? 1 : ((src_len >> PAGE_SHIFT) + 2);
 	num_dst_buf = dst_coalesce_requested ? 1 :
@@ -1814,8 +1961,8 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	req->callback_ctx.type = QAT_DC_CALLBACK_ASYNC;
 	req->callback_ctx.u.async = req;
 
-	retry_limit = (zfs_qat_dc_async_submit_retries > 0) ?
-	    zfs_qat_dc_async_submit_retries : 0;
+	retry_limit = (qat_dc_effective_async_submit_retries() > 0) ?
+	    qat_dc_effective_async_submit_retries() : 0;
 	for (;;) {
 		phase_start = gethrtime();
 		req->submit_end = phase_start;
@@ -1835,9 +1982,9 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 
 		attempt++;
 		QAT_STAT_BUMP(dc_compress_async_submit_retries);
-		if (zfs_qat_dc_async_retry_us > 0) {
-			usleep_range(zfs_qat_dc_async_retry_us,
-			    zfs_qat_dc_async_retry_us + 10);
+		if (qat_dc_effective_async_retry_us() > 0) {
+			usleep_range(qat_dc_effective_async_retry_us(),
+			    qat_dc_effective_async_retry_us() + 10);
 		}
 	}
 
@@ -1974,20 +2121,53 @@ param_set_qat_compress(const char *val, zfs_kernel_param_t *kp)
 	return (ret);
 }
 
+static boolean_t
+qat_dc_param_profile(const char *val)
+{
+	return (strcmp(val, "profile") == 0 || strcmp(val, "profile\n") == 0);
+}
+
+static int
+qat_dc_parse_int_range(const char *val, int min, int max, int *out)
+{
+	int ret;
+	int new_value;
+
+	ret = kstrtoint(val, 0, &new_value);
+	if (ret != 0)
+		return (ret);
+
+	if (new_value < min || new_value > max)
+		return (-EINVAL);
+
+	*out = new_value;
+	return (0);
+}
+
 static int
 param_set_qat_decompress(const char *val, zfs_kernel_param_t *kp)
 {
-	int ret;
-	int *pvalue = kp->arg;
+	int new_value;
+	char **pvalue = kp->arg;
+	int ret = 0;
 
-	ret = param_set_int(val, kp);
-	if (ret)
-		return (ret);
+	if (qat_dc_param_profile(val)) {
+		*pvalue = "profile";
+		new_value = qat_dc_effective_decompress_disable();
+	} else {
+		ret = qat_dc_parse_int_range(val, 0, 1, &new_value);
+		if (ret != 0)
+			return (ret);
+
+		zfs_qat_decompress_disable_value = new_value;
+		*pvalue = "manual";
+	}
+
 	/*
 	 * zfs_qat_decompress_disable = 0: enable QAT decompression policy.
 	 * The master compression disable still gates all QAT DC use.
 	 */
-	if (*pvalue == 0 && !zfs_qat_compress_disable && !qat_dc_init_done) {
+	if (new_value == 0 && !zfs_qat_compress_disable && !qat_dc_init_done) {
 		ret = qat_dc_init();
 		if (ret != 0) {
 			zfs_qat_compress_disable = 1;
@@ -1998,6 +2178,17 @@ param_set_qat_decompress(const char *val, zfs_kernel_param_t *kp)
 }
 
 static int
+param_get_qat_decompress(char *buffer, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+
+	if (strcmp(*pvalue, "profile") == 0)
+		return (sprintf(buffer, "profile\n"));
+
+	return (sprintf(buffer, "%d\n", zfs_qat_decompress_disable_value));
+}
+
+static int
 param_set_qat_cpa_dc_level(const char *val, zfs_kernel_param_t *kp)
 {
 	unsigned int new_value;
@@ -2005,7 +2196,7 @@ param_set_qat_cpa_dc_level(const char *val, zfs_kernel_param_t *kp)
 	int ret;
 	char **pvalue = kp->arg;
 
-	if (strcmp(val, "profile") == 0 || strcmp(val, "profile\n") == 0) {
+	if (qat_dc_param_profile(val)) {
 		if (qat_dc_init_done &&
 		    qat_dc_effective_level() !=
 		    qat_dc_profile_level(zfs_qat_dc_ratio_profile)) {
@@ -2075,15 +2266,43 @@ param_set_qat_cpa_dc_hufftype(const char *val, zfs_kernel_param_t *kp)
 	CpaDcHuffType old_huff_type;
 	char **pvalue = kp->arg;
 
+	if (qat_dc_param_profile(val)) {
+		if (!qat_dc_hufftype(qat_dc_profile_hufftype(
+		    zfs_qat_dc_ratio_profile), &huff_type)) {
+			return (-EINVAL);
+		}
+
+		(void) qat_dc_hufftype(qat_dc_effective_hufftype(),
+		    &old_huff_type);
+		if (qat_dc_init_done && huff_type != old_huff_type)
+			return (-EBUSY);
+
+		*pvalue = "profile";
+		return (0);
+	}
+
 	if (!qat_dc_hufftype(val, &huff_type))
 		return (-EINVAL);
 
-	(void) qat_dc_hufftype(*pvalue, &old_huff_type);
+	(void) qat_dc_hufftype(qat_dc_effective_hufftype(), &old_huff_type);
 	if (qat_dc_init_done && huff_type != old_huff_type)
 		return (-EBUSY);
 
-	*pvalue = (huff_type == CPA_DC_HT_STATIC) ? "static" : "dynamic";
+	zfs_qat_cpa_dc_hufftype_value =
+	    (huff_type == CPA_DC_HT_STATIC) ? "static" : "dynamic";
+	*pvalue = "manual";
 	return (0);
+}
+
+static int
+param_get_qat_cpa_dc_hufftype(char *buffer, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+
+	if (strcmp(*pvalue, "profile") == 0)
+		return (sprintf(buffer, "profile\n"));
+
+	return (sprintf(buffer, "%s\n", zfs_qat_cpa_dc_hufftype_value));
 }
 
 static int
@@ -2094,7 +2313,7 @@ param_set_qat_dc_max_buf_size(const char *val, zfs_kernel_param_t *kp)
 	char **pvalue = kp->arg;
 	int ret;
 
-	if (strcmp(val, "profile") == 0 || strcmp(val, "profile\n") == 0) {
+	if (qat_dc_param_profile(val)) {
 		if (qat_dc_init_done &&
 		    qat_dc_effective_max_buf_size() !=
 		    zfs_qat_dc_profile_recordsize) {
@@ -2130,6 +2349,199 @@ param_get_qat_dc_max_buf_size(char *buffer, zfs_kernel_param_t *kp)
 		return (sprintf(buffer, "profile\n"));
 
 	return (sprintf(buffer, "%d\n", zfs_qat_dc_max_buf_size_value));
+}
+
+static int
+param_set_qat_dc_coalesce_src(const char *val, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+	int new_value;
+	int ret;
+
+	if (qat_dc_param_profile(val)) {
+		*pvalue = "profile";
+		return (0);
+	}
+
+	ret = qat_dc_parse_int_range(val, 0, 1, &new_value);
+	if (ret != 0)
+		return (ret);
+
+	zfs_qat_dc_coalesce_src_value = new_value;
+	*pvalue = "manual";
+	return (0);
+}
+
+static int
+param_get_qat_dc_coalesce_src(char *buffer, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+
+	if (strcmp(*pvalue, "profile") == 0)
+		return (sprintf(buffer, "profile\n"));
+
+	return (sprintf(buffer, "%d\n", zfs_qat_dc_coalesce_src_value));
+}
+
+static int
+param_set_qat_dc_coalesce_dst(const char *val, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+	int new_value;
+	int ret;
+
+	if (qat_dc_param_profile(val)) {
+		*pvalue = "profile";
+		return (0);
+	}
+
+	ret = qat_dc_parse_int_range(val, 0, 1, &new_value);
+	if (ret != 0)
+		return (ret);
+
+	zfs_qat_dc_coalesce_dst_value = new_value;
+	*pvalue = "manual";
+	return (0);
+}
+
+static int
+param_get_qat_dc_coalesce_dst(char *buffer, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+
+	if (strcmp(*pvalue, "profile") == 0)
+		return (sprintf(buffer, "profile\n"));
+
+	return (sprintf(buffer, "%d\n", zfs_qat_dc_coalesce_dst_value));
+}
+
+static int
+param_set_qat_dc_async(const char *val, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+	int new_value;
+	int ret;
+
+	if (qat_dc_param_profile(val)) {
+		*pvalue = "profile";
+		return (0);
+	}
+
+	ret = qat_dc_parse_int_range(val, 0, 1, &new_value);
+	if (ret != 0)
+		return (ret);
+
+	zfs_qat_dc_async_value = new_value;
+	*pvalue = "manual";
+	return (0);
+}
+
+static int
+param_get_qat_dc_async(char *buffer, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+
+	if (strcmp(*pvalue, "profile") == 0)
+		return (sprintf(buffer, "profile\n"));
+
+	return (sprintf(buffer, "%d\n", zfs_qat_dc_async_value));
+}
+
+static int
+param_set_qat_dc_async_submit_retries(const char *val, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+	int new_value;
+	int ret;
+
+	if (qat_dc_param_profile(val)) {
+		*pvalue = "profile";
+		return (0);
+	}
+
+	ret = qat_dc_parse_int_range(val, 0, INT_MAX, &new_value);
+	if (ret != 0)
+		return (ret);
+
+	zfs_qat_dc_async_submit_retries_value = new_value;
+	*pvalue = "manual";
+	return (0);
+}
+
+static int
+param_get_qat_dc_async_submit_retries(char *buffer, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+
+	if (strcmp(*pvalue, "profile") == 0)
+		return (sprintf(buffer, "profile\n"));
+
+	return (sprintf(buffer, "%d\n",
+	    zfs_qat_dc_async_submit_retries_value));
+}
+
+static int
+param_set_qat_dc_async_retry_us(const char *val, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+	int new_value;
+	int ret;
+
+	if (qat_dc_param_profile(val)) {
+		*pvalue = "profile";
+		return (0);
+	}
+
+	ret = qat_dc_parse_int_range(val, 0, INT_MAX, &new_value);
+	if (ret != 0)
+		return (ret);
+
+	zfs_qat_dc_async_retry_us_value = new_value;
+	*pvalue = "manual";
+	return (0);
+}
+
+static int
+param_get_qat_dc_async_retry_us(char *buffer, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+
+	if (strcmp(*pvalue, "profile") == 0)
+		return (sprintf(buffer, "profile\n"));
+
+	return (sprintf(buffer, "%d\n", zfs_qat_dc_async_retry_us_value));
+}
+
+static int
+param_set_qat_dc_async_max_inflight(const char *val, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+	int new_value;
+	int ret;
+
+	if (qat_dc_param_profile(val)) {
+		*pvalue = "profile";
+		return (0);
+	}
+
+	ret = qat_dc_parse_int_range(val, 0, INT_MAX, &new_value);
+	if (ret != 0)
+		return (ret);
+
+	zfs_qat_dc_async_max_inflight_value = new_value;
+	*pvalue = "manual";
+	return (0);
+}
+
+static int
+param_get_qat_dc_async_max_inflight(char *buffer, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+
+	if (strcmp(*pvalue, "profile") == 0)
+		return (sprintf(buffer, "profile\n"));
+
+	return (sprintf(buffer, "%d\n", zfs_qat_dc_async_max_inflight_value));
 }
 
 static int
@@ -2192,6 +2604,13 @@ param_set_qat_dc_ratio_profile(const char *val, zfs_kernel_param_t *kp)
 		return (-EBUSY);
 	}
 
+	if (qat_dc_init_done &&
+	    strcmp(zfs_qat_cpa_dc_hufftype, "profile") == 0 &&
+	    strcmp(qat_dc_profile_hufftype(new_value),
+	    qat_dc_effective_hufftype()) != 0) {
+		return (-EBUSY);
+	}
+
 	*pvalue = (char *)new_value;
 	return (0);
 }
@@ -2229,9 +2648,9 @@ MODULE_PARM_DESC(zfs_qat_compress_disable,
     "Enable/Disable QAT compression and decompression");
 
 module_param_call(zfs_qat_decompress_disable, param_set_qat_decompress,
-    param_get_int, &zfs_qat_decompress_disable, 0644);
+    param_get_qat_decompress, &zfs_qat_decompress_disable, 0644);
 MODULE_PARM_DESC(zfs_qat_decompress_disable,
-    "Enable/Disable QAT decompression");
+    "Enable/Disable QAT decompression: profile, 0, or 1");
 
 module_param_call(zfs_qat_cpa_dc_level, param_set_qat_cpa_dc_level,
     param_get_qat_cpa_dc_level, &zfs_qat_cpa_dc_level, 0644);
@@ -2239,9 +2658,9 @@ MODULE_PARM_DESC(zfs_qat_cpa_dc_level,
     "QAT compression level: profile, 1, 2, 3, or 4");
 
 module_param_call(zfs_qat_cpa_dc_hufftype, param_set_qat_cpa_dc_hufftype,
-    param_get_charp, &zfs_qat_cpa_dc_hufftype, 0644);
+    param_get_qat_cpa_dc_hufftype, &zfs_qat_cpa_dc_hufftype, 0644);
 MODULE_PARM_DESC(zfs_qat_cpa_dc_hufftype,
-    "QAT compression Huffman type: dynamic or static");
+    "QAT compression Huffman type: profile, dynamic, or static");
 
 module_param_call(zfs_qat_dc_max_buf_size, param_set_qat_dc_max_buf_size,
     param_get_qat_dc_max_buf_size, &zfs_qat_dc_max_buf_size, 0644);
@@ -2253,29 +2672,45 @@ module_param_call(zfs_qat_dc_max_instances, param_set_qat_dc_max_instances,
 MODULE_PARM_DESC(zfs_qat_dc_max_instances,
     "Maximum QAT compression instances to use");
 
-module_param(zfs_qat_dc_coalesce_src, int, 0644);
+module_param_call(zfs_qat_dc_coalesce_src, param_set_qat_dc_coalesce_src,
+    param_get_qat_dc_coalesce_src, &zfs_qat_dc_coalesce_src, 0644);
 MODULE_PARM_DESC(zfs_qat_dc_coalesce_src,
-    "Enable/Disable experimental QAT compression source coalescing");
+    "Enable/Disable experimental QAT compression source coalescing: "
+    "profile, 0, or 1");
 
-module_param(zfs_qat_dc_coalesce_dst, int, 0644);
+module_param_call(zfs_qat_dc_coalesce_dst, param_set_qat_dc_coalesce_dst,
+    param_get_qat_dc_coalesce_dst, &zfs_qat_dc_coalesce_dst, 0644);
 MODULE_PARM_DESC(zfs_qat_dc_coalesce_dst,
-    "Enable/Disable experimental QAT compression destination coalescing");
+    "Enable/Disable experimental QAT compression destination coalescing: "
+    "profile, 0, or 1");
 
-module_param(zfs_qat_dc_async, int, 0644);
+module_param_call(zfs_qat_dc_async, param_set_qat_dc_async,
+    param_get_qat_dc_async, &zfs_qat_dc_async, 0644);
 MODULE_PARM_DESC(zfs_qat_dc_async,
-    "Enable/Disable experimental asynchronous QAT compression");
+    "Enable/Disable experimental asynchronous QAT compression: profile, "
+    "0, or 1");
 
-module_param(zfs_qat_dc_async_submit_retries, int, 0644);
+module_param_call(zfs_qat_dc_async_submit_retries,
+    param_set_qat_dc_async_submit_retries,
+    param_get_qat_dc_async_submit_retries,
+    &zfs_qat_dc_async_submit_retries, 0644);
 MODULE_PARM_DESC(zfs_qat_dc_async_submit_retries,
-    "QAT async compression submit retries after CPA_STATUS_RETRY");
+    "QAT async compression submit retries after CPA_STATUS_RETRY: profile "
+    "or integer");
 
-module_param(zfs_qat_dc_async_retry_us, int, 0644);
+module_param_call(zfs_qat_dc_async_retry_us, param_set_qat_dc_async_retry_us,
+    param_get_qat_dc_async_retry_us, &zfs_qat_dc_async_retry_us, 0644);
 MODULE_PARM_DESC(zfs_qat_dc_async_retry_us,
-    "QAT async compression submit retry backoff in microseconds");
+    "QAT async compression submit retry backoff in microseconds: profile "
+    "or integer");
 
-module_param(zfs_qat_dc_async_max_inflight, int, 0644);
+module_param_call(zfs_qat_dc_async_max_inflight,
+    param_set_qat_dc_async_max_inflight,
+    param_get_qat_dc_async_max_inflight,
+    &zfs_qat_dc_async_max_inflight, 0644);
 MODULE_PARM_DESC(zfs_qat_dc_async_max_inflight,
-    "Maximum in-flight experimental asynchronous QAT compression requests");
+    "Maximum in-flight experimental asynchronous QAT compression requests: "
+    "profile or integer");
 
 module_param_call(zfs_qat_dc_async_cap_policy,
     param_set_qat_dc_async_cap_policy, param_get_charp,

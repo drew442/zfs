@@ -2668,3 +2668,64 @@ zfs_qat_cpa_dc_level=profile
 zfs_qat_effective_cpa_dc_level=1
 zfs_qat_dc_ratio_profile=balanced
 ```
+
+### Remaining Profile-Owned Tunables
+
+Run date: 2026-05-18.
+
+The fourth profile implementation slice converted the remaining planned
+profile-owned tunables:
+
+```text
+zfs_qat_cpa_dc_hufftype=profile|dynamic|static
+zfs_qat_decompress_disable=profile|0|1
+zfs_qat_dc_async=profile|0|1
+zfs_qat_dc_async_submit_retries=profile|integer
+zfs_qat_dc_async_retry_us=profile|integer
+zfs_qat_dc_async_max_inflight=profile|integer
+zfs_qat_dc_coalesce_src=profile|0|1
+zfs_qat_dc_coalesce_dst=profile|0|1
+```
+
+Effective behavior:
+
+- `zfs_qat_cpa_dc_hufftype=profile` resolves to `static` only for
+  `zfs_qat_dc_ratio_profile=performance`; otherwise it resolves to `dynamic`.
+- `zfs_qat_decompress_disable=profile` disables QAT decompression for
+  `latency` and `throughput`, and keeps QAT decompression enabled for
+  `balanced` and `offload`.
+- `zfs_qat_dc_async=profile` keeps async disabled for `balanced` and `latency`,
+  and enables async for `throughput` and `offload`.
+- Profile-managed async retries, retry backoff, and max in-flight resolve to
+  `8`, `100`, and `96`.
+- Profile-managed source and destination coalescing currently resolve to
+  disabled for every profile because repeat results have not shown a broad win.
+- Concrete values remain per-tunable manual overrides.
+- Huffman changes that would alter initialized QAT DC sessions are rejected
+  with `EBUSY`.
+
+Validation:
+
+```text
+srcversion: 62EF6B1D2C6A51421EB3DD2
+/root/zfs-qat-profile-remaining-smoke-20260518.csv
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-profile-remaining-smoke-20260518.csv
+```
+
+The host booted with the remaining tunables at `profile`, accepted concrete
+manual overrides where runtime-safe, returned each to `profile`, and rejected
+invalid values. After QAT DC sessions were initialized, the host accepted a
+manual Huffman value equivalent to the effective profile value and rejected
+manual `static`, which would have changed the active session.
+
+The benchmark harness smoke CSV recorded `137` aligned columns and included
+stored plus effective values:
+
+```text
+zfs_qat_cpa_dc_hufftype=profile
+zfs_qat_effective_cpa_dc_hufftype=dynamic
+zfs_qat_dc_async=profile
+zfs_qat_dc_effective_async=0
+zfs_qat_dc_async_max_inflight=profile
+zfs_qat_dc_effective_async_max_inflight=96
+```

@@ -245,6 +245,11 @@ Next profile work:
 - The third implementation adds `zfs_qat_cpa_dc_level=profile`, so the
   compression-effort level follows `zfs_qat_dc_ratio_profile` unless the
   operator supplies a concrete per-tunable override.
+- The fourth implementation converts the remaining planned profile-owned
+  tunables: Huffman type, decompression policy, async enablement/retry/cap
+  values, and source/destination coalescing toggles. Balanced defaults preserve
+  conservative behavior; throughput/offload profiles may enable async, and the
+  performance ratio profile may select static Huffman.
 - Apply session-global settings such as QAT compression level and Huffman type
   only before QAT DC initialization, and reject profile changes that would
   require changing active QAT DC sessions.
@@ -326,8 +331,12 @@ Acceptance:
 
 ## Immediate Next Steps
 
-1. Implement the async QAT gzip API skeleton and kstats without changing default behavior.
-2. Add an opt-in `zfs_qat_dc_async=0` module parameter and wire only gzip write compression to the async path when enabled.
-3. Smoke-test async mode on `pve.drewnet.online` with `128K`, `JOBS=1`, software readback verification, and explicit host restore.
-4. Benchmark async mode against the level 1 best-case CSVs if smoke passes.
-5. Defer checksum and encryption policy changes until compression behavior is stable.
+1. Run a focused profile sweep comparing `balanced`, `latency`, `throughput`,
+   and `offload` at the configured target record sizes.
+2. Evaluate profile outcomes using QAT byte share, software fallback share,
+   elapsed time, latency percentiles, CPU seconds per GiB, compression ratio,
+   and QAT service/wait nanoseconds per MiB.
+3. Promote only repeatable profile wins into the documented default mappings;
+   keep weak or mixed results as manual overrides.
+4. Defer checksum and encryption policy changes until compression profile
+   behavior is stable.

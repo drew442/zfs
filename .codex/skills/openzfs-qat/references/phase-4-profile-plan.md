@@ -135,25 +135,27 @@ recipe, but should not be mutated dynamically by a ZFS profile.
 
 ## Initial Profile Mapping
 
-Current evidence supports only a small first step:
+Current evidence supports conservative defaults plus opt-in profile behavior:
 
 ```text
-target recordsize profile     cap policy  max buf   coalesce  level/huff
-128K              balanced    recordsize  128K+     off       unchanged
-256K              balanced    recordsize  256K+     off       unchanged
-1M                balanced    recordsize  1M        off       unchanged
-1M                throughput  throughput  1M        off       unchanged
-1M                offload     throughput  1M        off       unchanged
+profile     ratio profile cap policy  async  decomp  level  huff     coalesce
+balanced    balanced      recordsize  off    qat     1      dynamic  off
+latency     balanced      recordsize  off    sw      1      dynamic  off
+throughput  balanced      profile*    on     sw      1      dynamic  off
+offload     balanced      profile*    on     qat     1      dynamic  off
+any         performance   unchanged   same   same    1      static   off
+any         ratio         unchanged   same   same    4      dynamic  off
 ```
 
 Notes:
 
-- `throughput` cap policy currently only changes `1M+` caps. It keeps `128K`,
-  `256K`, and untested `512K` at balanced caps.
+- `profile*` means the cap policy uses `throughput` only for
+  `throughput/offload` profiles with a target record size of `1M`; otherwise it
+  uses balanced `recordsize` behavior.
 - Coalescing is technically profile-eligible, but current repeat data does not
   justify enabling it automatically.
-- Compression level and Huffman type are profile-eligible, but require a
-  profile-aware initialization path because they are QAT DC session settings.
+- Compression level and Huffman type are profile-managed session settings.
+  Changes that would alter initialized QAT DC sessions are rejected.
 
 ## Implementation Order
 
@@ -189,14 +191,24 @@ Initial implementation status:
 - `zfs_qat_cpa_dc_level` accepts `profile` or a concrete level and defaults to
   `profile`; its effective value is level `1` for `balanced` and
   `performance` ratio profiles, and level `4` for the `ratio` profile.
+- `zfs_qat_cpa_dc_hufftype` accepts `profile`, `dynamic`, or `static`, and
+  defaults to `profile`; its effective value is `static` only for the
+  `performance` ratio profile.
+- `zfs_qat_decompress_disable`, `zfs_qat_dc_async`,
+  `zfs_qat_dc_async_max_inflight`, `zfs_qat_dc_async_submit_retries`,
+  `zfs_qat_dc_async_retry_us`, `zfs_qat_dc_coalesce_src`, and
+  `zfs_qat_dc_coalesce_dst` accept `profile` or a concrete manual value.
 - When `zfs_qat_dc_async_cap_policy=profile`, the effective cap behavior is
   computed from `zfs_qat_dc_profile` and `zfs_qat_dc_profile_recordsize`.
 - Current profile action is intentionally narrow:
   `throughput` or `offload` with target record size `1M` uses the measured
   `throughput` cap behavior; all other profile combinations use balanced
   `recordsize` behavior.
-- `zfs_qat_dc_async` remains an integer and remains disabled by default. This
-  profile slice does not automatically enable async QAT.
+- `zfs_qat_dc_async=profile` keeps async disabled for `balanced` and `latency`
+  profiles, and enables async for `throughput` and `offload`.
+- `zfs_qat_dc_coalesce_src=profile` and `zfs_qat_dc_coalesce_dst=profile`
+  currently resolve to disabled for every profile because repeat tests have not
+  shown a broad benefit.
 
 ## Mixed Dataset Guidance
 

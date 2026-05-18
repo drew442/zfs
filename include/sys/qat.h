@@ -267,17 +267,17 @@ typedef struct qat_stats {
 
 extern qat_stats_t qat_stats;
 extern int zfs_qat_compress_disable;
-extern int zfs_qat_decompress_disable;
+extern char *zfs_qat_decompress_disable;
 extern char *zfs_qat_cpa_dc_level;
 extern char *zfs_qat_cpa_dc_hufftype;
 extern char *zfs_qat_dc_max_buf_size;
 extern int zfs_qat_dc_max_instances;
-extern int zfs_qat_dc_coalesce_src;
-extern int zfs_qat_dc_coalesce_dst;
-extern int zfs_qat_dc_async;
-extern int zfs_qat_dc_async_submit_retries;
-extern int zfs_qat_dc_async_retry_us;
-extern int zfs_qat_dc_async_max_inflight;
+extern char *zfs_qat_dc_coalesce_src;
+extern char *zfs_qat_dc_coalesce_dst;
+extern char *zfs_qat_dc_async;
+extern char *zfs_qat_dc_async_submit_retries;
+extern char *zfs_qat_dc_async_retry_us;
+extern char *zfs_qat_dc_async_max_inflight;
 extern char *zfs_qat_dc_async_cap_policy;
 extern char *zfs_qat_dc_profile;
 extern int zfs_qat_dc_profile_recordsize;
