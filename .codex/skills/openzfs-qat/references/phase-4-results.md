@@ -2764,3 +2764,6 @@ Result:
   it saves CPU but regressed elapsed time in this window.
 - Repeat the `target=1M`, `profile=throughput`, `record=1M` result with more
   iterations and `JOBS=8` before changing profile mappings again.
+- The next optimization target should pivot to QAT-side driver/platform
+  configuration before adding more ZFS performance code. See
+  `.codex/skills/openzfs-qat/references/performance-optimization-next-steps.md`.

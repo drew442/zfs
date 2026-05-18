@@ -337,7 +337,11 @@ Acceptance:
 2. Repeat the strongest candidate from the profile sweep:
    `target=1M`, `profile=throughput`, `record=1M`, first with more iterations
    at `JOBS=4`, then at `JOBS=8`.
-3. Promote only repeatable profile wins into the documented default mappings;
+3. Capture and evaluate QAT-side optimization state before adding more ZFS
+   performance code: service split, polling mode, PCIe link state, NUMA
+   placement, parameter-checking options, and alignment behavior. See
+   `performance-optimization-next-steps.md`.
+4. Promote only repeatable profile wins into the documented default mappings;
    keep weak, mixed, or software-fallback-only results as manual overrides.
-4. Defer checksum and encryption policy changes until compression profile
+5. Defer checksum and encryption policy changes until compression profile
    behavior is stable.

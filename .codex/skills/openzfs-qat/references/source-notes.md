@@ -18,6 +18,10 @@ These notes capture stable, primary-source details useful when reviewing this fo
 
 - QAT overview and resource hub: https://www.intel.com/content/www/us/en/developer/topic-technology/open/quick-assist-technology/overview.html
 - QAT documentation hub: https://intel.github.io/quickassist/index.html
+- QAT performance optimization guide PDF: https://cdrdv2.intel.com/v1/dl/getContent/709209?fileName=qat-performance-optimization-guide.pdf
+  - Intel document number `330687-008`, revision `008`, December 2021.
+  - Covers QAT 1.x-relevant platforms including the Intel Communications
+    Chipset 8925 to 8955 series and Intel C620 Series Chipsets.
 - QAT CE Linux driver download page: https://www.intel.com/content/www/us/en/download/19734/intel-quickassist-technology-intel-qat-driver-for-linux-for-customer-enabling-ce-release.html
 - Getting Started / installation guide: https://intel.github.io/quickassist/GSG/2.X/installation.html
 - Programmer's Guide, in-tree vs out-of-tree: https://intel.github.io/quickassist/PG/in_tree_vs_oot.html
@@ -67,8 +71,48 @@ These notes capture stable, primary-source details useful when reviewing this fo
 ## Performance And Memory Guidance
 
 - Intel's performance guide frames QAT tuning around throughput, latency, and offload cost. Keep this distinction when changing thresholds or queueing behavior.
+- Intel's performance optimization guide describes QAT integration choices as
+  application-dependent and explicitly separates software design choices from
+  platform/application tuning.
+- Intel's performance optimization guide identifies polling/interrupt/epoll
+  behavior, Data Plane API usage, synchronous versus asynchronous operation,
+  buffer lists, maximum concurrent requests, session reuse, backpressure, load
+  balancing within a QAT endpoint, and PCIe bottlenecks as software-design
+  performance topics.
 - The hardware interface is request/response oriented. Intel recommends asynchronous operation for best performance, but this repository exposes synchronous-looking helper calls around QAT requests; account for waiting, polling, and callback costs.
 - Intel recommends minimizing buffer-list entries and says a single buffer per list gives best throughput. This matters because ZFS buffers may span pages and this implementation builds QAT buffer lists per request.
+- Intel's performance optimization guide recommends enough concurrent requests
+  to keep the accelerator busy, while avoiding resource exhaustion through an
+  application-level backpressure mechanism.
+- Intel's performance optimization guide recommends reusing QAT sessions rather
+  than repeatedly initializing session state. This repository already maintains
+  per-instance compression sessions, so session reuse is not the current primary
+  performance gap.
+- Intel's performance optimization guide says QAT payload pointers should be at
+  least 8-byte aligned and that 64-byte alignment is optimal. It also notes that
+  unaligned payload memory works functionally but can reduce performance.
+- Intel's performance optimization guide says SGL buffer entries should be
+  64-byte aligned and multiples of 64 bytes.
+- Intel's performance optimization guide calls out PCIe lane width/speed as a
+  performance prerequisite.
+- Intel's performance optimization guide recommends checking BIOS/platform
+  performance settings, using physical cores rather than hyperthreads when
+  possible, ensuring memory bandwidth/local memory is not the bottleneck, and
+  keeping QAT memory local to the device NUMA node on dual-processor systems.
+- Intel's performance optimization guide recommends disabling unused QAT
+  services because enabling both compression and crypto partitions internal
+  resources and can affect throughput at larger payload sizes.
+- Intel's performance optimization guide documents embedded SRAM as relevant
+  only to Intel Communications Chipset 8900 to 8920 series and Intel Atom C2000
+  software. Treat this as not applicable to dh895x/C620 unless a platform guide
+  for those devices says otherwise.
+- Intel's performance optimization guide notes that driver parameter checking
+  consumes IA cycles and can be controlled by `ICP_PARAM_CHECK` or configure
+  options when available. Treat this as a QAT-driver-side experiment requiring
+  safety review, not a ZFS policy default.
+- Intel's performance optimization guide describes polling interval tuning as a
+  throughput/latency/offload-cost tradeoff. Treat polling mode and interval as a
+  QAT-side target if supported by the QAT 1.x CE driver and kernel API path.
 - Phase 4 buffer-list shape measurements on dh895xcc/QAT 4.28 showed QAT gzip compression source lists with 32 buffers at 128 KiB, 64 buffers at 256 KiB, and 256 buffers at 1 MiB. Experimental source coalescing reduced source buffers to 1, but introduced allocation/copy overhead and was mixed by record size.
 - Phase 4 destination coalescing reduced QAT gzip compression destination plus scratch output buffers to one contiguous output buffer for 128 KiB, 256 KiB, and 1 MiB records. Single-job results were mixed; four-job results improved modestly at all tested record sizes.
 - Phase 4 destination coalescing reuse reduced allocation cost after warmup, but still did not produce a clear elapsed-time win. This weakens the case for more buffer-list shaping work until QAT wait/service time is addressed.
