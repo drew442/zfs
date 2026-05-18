@@ -217,6 +217,29 @@ Workstream F: optimization bias controls:
 - Do not assume every QAT tuning knob cleanly maps to one bias. `zfs_qat_cpa_dc_level` directly affects QAT compression effort, but larger record eligibility, allocation reuse, and software fallback thresholds may affect throughput and latency without improving ratio.
 - Initial implementation should keep explicit low-level parameters available for controlled benchmarking. Bias parameters can later set coherent defaults for those lower-level knobs once measurements prove the policies.
 
+Status update: global tunables should participate in profiles rather than
+remaining manual forever. Because a host can contain multiple pools or datasets
+with different record sizes, the profile must use an operator-selected target
+record size instead of inferring one automatically. See
+`phase-4-profile-plan.md`.
+
+Next profile work:
+
+- Add a target record-size parameter such as `zfs_qat_dc_profile_recordsize`.
+- Add profile selectors such as `zfs_qat_dc_profile` and
+  `zfs_qat_dc_ratio_profile`.
+- Keep `manual` as the default so existing low-level parameters remain
+  authoritative.
+- In non-manual profiles, compute effective settings for async cap policy,
+  large-record eligibility, decompression policy, and eventually compression
+  level/Huffman type.
+- Apply session-global settings such as QAT compression level and Huffman type
+  only before QAT DC initialization, and reject profile changes that would
+  require changing active QAT DC sessions.
+- Keep deployment/resource settings such as DC/CY split, max-instance caps,
+  checksum disablement, and encryption disablement as host-profile recipe items
+  rather than dynamically mutated profile state.
+
 Acceptance:
 
 - QAT gzip has a documented comparison against software gzip for throughput, p50/p95/p99 latency, CPU cost, compression ratio, and correctness.

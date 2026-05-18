@@ -306,28 +306,41 @@ knobs until a different workload or repeated matrix shows a stable win.
 ## Bias Profiles
 
 Bias profiles are useful, but they should be layered on top of the record-size
-admission/cap policy rather than replacing it.
+admission/cap policy rather than replacing it. Global tunables should not be
+left manual only because they are global; they should be controlled by a host
+profile whose representative record size is selected by the operator.
 
 Recommended initial profile model:
 
 ```text
-zfs_qat_dc_policy=fixed|recordsize|profile
-zfs_qat_dc_perf_bias=balanced|latency|throughput
-zfs_qat_dc_ratio_bias=balanced|performance|ratio
+zfs_qat_dc_profile=manual|balanced|latency|throughput|offload
+zfs_qat_dc_profile_recordsize=0|131072|262144|524288|1048576
+zfs_qat_dc_ratio_profile=balanced|performance|ratio
 ```
 
 Initial behavior should be conservative:
 
+- `manual`: existing low-level module parameters remain authoritative.
 - `balanced`: current recordsize/DC-count admission and cap policy.
 - `latency`: same as balanced, but avoid any record size that does not
   repeatedly beat software.
 - `throughput`: allow higher measured caps where repeated throughput wins exist,
   never uncapped.
+- `offload`: allow higher QAT byte share or lower CPU seconds per GiB when
+  correctness and ratio are acceptable, even if elapsed time is neutral.
 - `performance`: eventually prefer lower QAT compression level or static
   Huffman if repeated evidence proves a speed win and the operator accepts ratio
   loss.
 - `ratio`: prefer dynamic Huffman and higher QAT compression level, accepting
   higher latency only when explicitly selected.
+
+`zfs_qat_dc_profile_recordsize` is required because one host can contain
+multiple pools or datasets with different record sizes. The kernel should not
+infer a global QAT session profile from whichever dataset happens to initialize
+QAT first. A value of `0` means no target was selected and profile behavior
+must stay balanced-safe.
+
+Detailed profile design is in `phase-4-profile-plan.md`.
 
 ## Implementation Order
 
@@ -335,10 +348,13 @@ Initial behavior should be conservative:
    QAT 1.x async gzip.
 2. Keep coalescing out of automatic policy for now. It is technically
    compatible with async, but the focused repeat does not show a stable win.
-3. Validate `zfs_qat_dc_async_cap_policy=throughput` after DKMS deployment.
-4. If coalescing is revisited, test a second data source or a workload with a
+3. Add profile and target-recordsize parameters, using
+   `phase-4-profile-plan.md` as the contract.
+4. Validate `zfs_qat_dc_async_cap_policy=throughput` through the profile helper
+   path, not only as a low-level manual cap policy.
+5. If coalescing is revisited, test a second data source or a workload with a
    materially different compression ratio before adding profile behavior.
-5. Do not make compression level or Huffman type per-record until the code can
+6. Do not make compression level or Huffman type per-record until the code can
    maintain multiple QAT DC sessions per instance.
-6. Add bias-profile parameters only after the policy actions they control are
-   implementable and benchmark-backed.
+7. Add ratio/performance profile actions only after the policy actions they
+   control are implementable and benchmark-backed.
