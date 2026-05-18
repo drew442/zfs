@@ -2496,3 +2496,42 @@ Result:
   without a repeat.
 - This does not change the balanced policy. It identifies `1M` cap `160` as the
   only cap-profile candidate worth repeating before adding a bias-profile knob.
+
+### Cap Profile 1M Repeat
+
+Run date: 2026-05-18.
+
+The follow-up repeated `1M` caps `96`, `160`, and `192` with six iterations at
+`JOBS=8`.
+
+Source CSVs:
+
+```text
+/root/zfs-qat-profile-cap-1m-cap96-repeat-jobs8-20260518.csv
+/root/zfs-qat-profile-cap-1m-cap160-repeat-jobs8-20260518.csv
+/root/zfs-qat-profile-cap-1m-cap192-repeat-jobs8-20260518.csv
+
+Repo copies:
+.codex/skills/openzfs-qat/references/benchmarks/
+```
+
+Results:
+
+```text
+cap qat_ms   sw_ms    qat_vs_sw qat_byte fallback sysCPU/GiB service_ns/MiB outcome
+96  1493.861 1483.583 +0.7%     57.6%    42.9%    8.76       25887884       regression
+160 1399.584 1440.617 -2.8%     67.3%    33.2%    7.03       36893909       hybrid-policy-win
+192 1284.636 1468.952 -12.5%    64.4%    36.1%    6.73       41482042       hybrid-policy-win
+```
+
+Result:
+
+- Cap `160` did not repeat as the best candidate.
+- Cap `192` was the fastest repeated `1M` result in this window and also had
+  the lowest system CPU seconds per GiB.
+- Higher service nanoseconds per QAT-completed MiB show this is not a pure QAT
+  engine improvement. It is a hybrid-policy win for `1M` under `JOBS=8`.
+- The code now has an explicit `zfs_qat_dc_async_cap_policy=throughput` mode.
+  It preserves the balanced record-size policy for `128K`, `256K`, and untested
+  `512K`, and only allows the higher linear active-DC cap for records of `1M`
+  and larger.

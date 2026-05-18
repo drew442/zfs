@@ -174,11 +174,29 @@ Policy interpretation:
 
 - Keep `128K` and `256K` on the balanced caps. Higher caps increase QAT share
   but do not produce a stable elapsed-time win.
-- Repeat `1M` cap `160`; it is the only new cap that improved elapsed time while
-  increasing QAT byte share and lowering system CPU cost versus the balanced
-  cap in this sweep.
-- Treat `1M` cap `192` as an offload-biased candidate only. It gives more QAT
-  share and lower system CPU, but it is slower than cap `160` in this pass.
+- The `1M` repeat changed the candidate: cap `192` beat caps `96` and `160` in
+  the six-iteration `JOBS=8` repeat.
+- Treat `1M+` linear active-DC caps as an explicit throughput/offload profile,
+  not as balanced behavior.
+
+Repeat result:
+
+```text
+cap qat_ms   sw_ms    qat_vs_sw qat_byte fallback sysCPU/GiB
+96  1493.861 1483.583 +0.7%     57.6%    42.9%    8.76
+160 1399.584 1440.617 -2.8%     67.3%    33.2%    7.03
+192 1284.636 1468.952 -12.5%    64.4%    36.1%    6.73
+```
+
+Implemented profile behavior:
+
+```text
+zfs_qat_dc_async_cap_policy=throughput
+```
+
+`throughput` uses the same admission rules as `recordsize`, keeps `128K`,
+`256K`, and untested `512K` at the balanced DC6 ceiling, and uses linear active
+DC-instance scaling only for records of `1M` and larger.
 
 ## Async Coalescing Follow-Up
 
@@ -317,8 +335,7 @@ Initial behavior should be conservative:
    QAT 1.x async gzip.
 2. Keep coalescing out of automatic policy for now. It is technically
    compatible with async, but the focused repeat does not show a stable win.
-3. Repeat the `1M` cap `160` candidate before adding a throughput/offload
-   profile action.
+3. Validate `zfs_qat_dc_async_cap_policy=throughput` after DKMS deployment.
 4. If coalescing is revisited, test a second data source or a workload with a
    materially different compression ratio before adding profile behavior.
 5. Do not make compression level or Huffman type per-record until the code can

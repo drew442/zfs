@@ -213,11 +213,13 @@ qat_dc_async_valid_cap_policy(const char *value)
 	return (strcmp(value, "fixed") == 0 ||
 	    strcmp(value, "fixed\n") == 0 ||
 	    strcmp(value, "recordsize") == 0 ||
-	    strcmp(value, "recordsize\n") == 0);
+	    strcmp(value, "recordsize\n") == 0 ||
+	    strcmp(value, "throughput") == 0 ||
+	    strcmp(value, "throughput\n") == 0);
 }
 
 static boolean_t
-qat_dc_async_recordsize_cap(int src_len, int *cap)
+qat_dc_async_recordsize_cap(int src_len, int *cap, boolean_t throughput)
 {
 	uint_t cap_instances;
 	int per_inst_cap;
@@ -229,10 +231,13 @@ qat_dc_async_recordsize_cap(int src_len, int *cap)
 	 * Base caps on active initialized DC instances, not card count. The
 	 * balanced policy is intentionally capped at the measured DC6 ceiling:
 	 * linear DC12 scaling increased QAT share but regressed latency in
-	 * follow-up testing. Higher caps belong in a future throughput/offload
-	 * profile, not the default record-size policy.
+	 * follow-up testing. The throughput profile raises only the measured
+	 * 1M+ cap for hosts with more active DC instances.
 	 */
 	cap_instances = MIN(num_inst, 6);
+	if (throughput && src_len >= 1024 * 1024)
+		cap_instances = num_inst;
+
 	if (cap_instances == 0)
 		return (B_FALSE);
 
@@ -256,7 +261,10 @@ qat_dc_async_effective_cap(int src_len, int *cap)
 	*cap = zfs_qat_dc_async_max_inflight;
 
 	if (strcmp(zfs_qat_dc_async_cap_policy, "recordsize") == 0)
-		return (qat_dc_async_recordsize_cap(src_len, cap));
+		return (qat_dc_async_recordsize_cap(src_len, cap, B_FALSE));
+
+	if (strcmp(zfs_qat_dc_async_cap_policy, "throughput") == 0)
+		return (qat_dc_async_recordsize_cap(src_len, cap, B_TRUE));
 
 	return (B_TRUE);
 }
@@ -1997,8 +2005,12 @@ param_set_qat_dc_async_cap_policy(const char *val, zfs_kernel_param_t *kp)
 	if (!qat_dc_async_valid_cap_policy(val))
 		return (-EINVAL);
 
-	*pvalue = (strncmp(val, "recordsize", 10) == 0) ?
-	    "recordsize" : "fixed";
+	if (strncmp(val, "recordsize", 10) == 0)
+		*pvalue = "recordsize";
+	else if (strncmp(val, "throughput", 10) == 0)
+		*pvalue = "throughput";
+	else
+		*pvalue = "fixed";
 	return (0);
 }
 
@@ -2060,6 +2072,6 @@ module_param_call(zfs_qat_dc_async_cap_policy,
     param_set_qat_dc_async_cap_policy, param_get_charp,
     &zfs_qat_dc_async_cap_policy, 0644);
 MODULE_PARM_DESC(zfs_qat_dc_async_cap_policy,
-    "QAT async cap policy: fixed or recordsize");
+    "QAT async cap policy: fixed, recordsize, or throughput");
 
 #endif

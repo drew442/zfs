@@ -505,6 +505,9 @@ Recent phase 4 policy benchmark artifacts:
 /root/zfs-qat-profile-cap-256k-cap320-jobs8-20260518.csv
 /root/zfs-qat-profile-cap-1m-cap128-jobs8-20260518.csv
 /root/zfs-qat-profile-cap-1m-cap160-jobs8-20260518.csv
+/root/zfs-qat-profile-cap-1m-cap96-repeat-jobs8-20260518.csv
+/root/zfs-qat-profile-cap-1m-cap160-repeat-jobs8-20260518.csv
+/root/zfs-qat-profile-cap-1m-cap192-repeat-jobs8-20260518.csv
 ```
 
 Current QAT async policy parameters after the 2026-05-18 methodology benchmark
@@ -521,10 +524,10 @@ zfs_qat_decompress_disable=0
 
 The installed ZFS module includes `zfs_qat_dc_async_cap_policy`,
 `dc_instances` kstat observability, and conservative active-DC cap calculation.
-It reported `srcversion 3113C7A062DD66A0FCD30A7` after the 2026-05-18
-forced DC-count policy DKMS rebuild, initramfs update, and reboot. The live host
-rejected invalid cap-policy values with `EINVAL` and accepted both `fixed` and
-`recordsize`.
+It reported `srcversion 998DC210F230A0F688640C2` after the 2026-05-18
+throughput-policy DKMS rebuild, initramfs update, and reboot. The live host
+rejected invalid cap-policy values with `EINVAL` and accepted `fixed`,
+`recordsize`, and `throughput`.
 
 Recent DC-count policy build artifacts:
 
@@ -538,6 +541,9 @@ Recent DC-count policy build artifacts:
 /root/zfs-qat-dc-count-policy-dkms-build-20260518-r3.log
 /root/zfs-qat-dc-count-policy-dkms-install-20260518-r3.log
 /root/zfs-qat-dc-count-policy-initramfs-20260518-r3.log
+/root/zfs-qat-throughput-policy-dkms-build-20260518.log
+/root/zfs-qat-throughput-policy-dkms-install-20260518.log
+/root/zfs-qat-throughput-policy-initramfs-20260518.log
 ```
 
 The async-compatible coalescing DKMS build reported

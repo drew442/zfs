@@ -2180,7 +2180,7 @@ A value of
 .Sy 0
 disables the cap.
 .
-.It Sy zfs_qat_dc_async_cap_policy Ns = Ns Sy fixed Ns | Ns Sy recordsize Pq charp
+.It Sy zfs_qat_dc_async_cap_policy Ns = Ns Sy fixed Ns | Ns Sy recordsize Ns | Ns Sy throughput Pq charp
 Policy for selecting the asynchronous QAT gzip in-flight cap.
 .Sy fixed
 uses
@@ -2190,6 +2190,10 @@ for every eligible record.
 uses an experimental QAT 1.x policy based on the ZFS record size and active QAT
 data-compression instance count, falling back to the fixed cap for untested
 combinations.
+.Sy throughput
+uses the same record-size admission policy, but permits the measured higher
+cap for records of 1 MiB and larger on hosts with more than six active QAT
+data-compression instances.
 This option is experimental and is only used when
 .Sy zfs_qat_dc_async
 is enabled.
