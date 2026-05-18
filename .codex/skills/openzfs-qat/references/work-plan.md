@@ -242,6 +242,9 @@ Next profile work:
   effective large-record eligibility window follows
   `zfs_qat_dc_profile_recordsize` unless the operator supplies a concrete
   per-tunable override.
+- The third implementation adds `zfs_qat_cpa_dc_level=profile`, so the
+  compression-effort level follows `zfs_qat_dc_ratio_profile` unless the
+  operator supplies a concrete per-tunable override.
 - Apply session-global settings such as QAT compression level and Huffman type
   only before QAT DC initialization, and reject profile changes that would
   require changing active QAT DC sessions.

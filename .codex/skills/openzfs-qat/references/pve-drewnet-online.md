@@ -334,8 +334,8 @@ Observed module parameters:
 zfs_qat_checksum_disable=1
 zfs_qat_compress_disable=0
 zfs_qat_decompress_disable=0
-zfs_qat_cpa_dc_level=4
-zfs_qat_dc_max_buf_size=1048576
+zfs_qat_cpa_dc_level=profile
+zfs_qat_dc_max_buf_size=profile
 zfs_qat_dc_max_instances=48
 zfs_qat_encrypt_disable=1
 zfs_qat_cy_max_instances=48
@@ -344,7 +344,7 @@ zfs_qat_cy_max_instances=48
 `/etc/modprobe.d/zfs-qat.conf` contains:
 
 ```text
-options zfs zfs_qat_compress_disable=0 zfs_qat_checksum_disable=1 zfs_qat_encrypt_disable=1 zfs_qat_cpa_dc_level=4 zfs_qat_dc_max_buf_size=1048576
+options zfs zfs_qat_compress_disable=0 zfs_qat_checksum_disable=1 zfs_qat_encrypt_disable=1 zfs_qat_cpa_dc_level=profile zfs_qat_dc_max_buf_size=profile
 ```
 
 The previous modprobe config was backed up as:
@@ -510,6 +510,7 @@ Recent phase 4 policy benchmark artifacts:
 /root/zfs-qat-profile-cap-1m-cap192-repeat-jobs8-20260518.csv
 /root/zfs-qat-profile-params-smoke-20260518.csv
 /root/zfs-qat-profile-maxbuf-smoke-20260518.csv
+/root/zfs-qat-profile-level-smoke-20260518.csv
 ```
 
 Current QAT async policy parameters after the 2026-05-18 methodology benchmark
@@ -543,6 +544,7 @@ zfs_qat_dc_profile=balanced
 zfs_qat_dc_profile_recordsize=131072
 zfs_qat_dc_ratio_profile=balanced
 zfs_qat_dc_max_buf_size=profile
+zfs_qat_cpa_dc_level=profile
 ```
 
 The installed ZFS module includes profile-managed
@@ -563,6 +565,26 @@ The previous persistent modprobe config was backed up before changing
 
 ```text
 /etc/modprobe.d/zfs-qat.conf.pre-profile-maxbuf-20260518
+```
+
+The installed ZFS module includes profile-managed
+`zfs_qat_cpa_dc_level=profile|1|2|3|4`. The profile value uses
+`zfs_qat_dc_ratio_profile`: `balanced` and `performance` resolve to level `1`,
+and `ratio` resolves to level `4`. After the 2026-05-18 profile-level build,
+reboot, and persistent modprobe config update, the module reported:
+
+```text
+srcversion 8AF72BE5032A7356514A5C4
+zfs_qat_cpa_dc_level=profile
+zfs_qat_effective_cpa_dc_level=1
+zfs_qat_dc_ratio_profile=balanced
+```
+
+The previous persistent modprobe config was backed up before changing
+`zfs_qat_cpa_dc_level=4` to `profile`:
+
+```text
+/etc/modprobe.d/zfs-qat.conf.pre-profile-level-20260518
 ```
 
 Recent DC-count policy build artifacts:
@@ -590,6 +612,9 @@ Recent DC-count policy build artifacts:
 /root/zfs-qat-profile-maxbuf-dkms-install-20260518-r2.log
 /root/zfs-qat-profile-maxbuf-initramfs-20260518-r2.log
 /root/zfs-qat-profile-maxbuf-host-config-initramfs-20260518.log
+/root/zfs-qat-profile-level-dkms-build-20260518.log
+/root/zfs-qat-profile-level-dkms-install-20260518.log
+/root/zfs-qat-profile-level-initramfs-20260518.log
 ```
 
 The async-compatible coalescing DKMS build reported

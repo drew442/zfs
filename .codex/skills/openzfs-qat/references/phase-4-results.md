@@ -2621,3 +2621,50 @@ zfs_qat_dc_max_buf_size=profile
 zfs_qat_dc_effective_max_buf_size=131072
 zfs_qat_dc_profile_recordsize=131072
 ```
+
+### Profile Compression Level
+
+Run date: 2026-05-18.
+
+The third profile implementation slice made the QAT DC compression level
+profile-managed by default:
+
+```text
+zfs_qat_cpa_dc_level=profile|1|2|3|4
+```
+
+Effective behavior:
+
+- `profile` uses `zfs_qat_dc_ratio_profile` to select the effective QAT
+  compression level.
+- `balanced` and `performance` resolve to level `1`, matching the previous best
+  performance-biased candidate under concurrent work.
+- `ratio` resolves to level `4`, preserving the highest-ratio behavior when the
+  operator explicitly selects ratio preference.
+- Concrete values remain manual overrides for this tunable only.
+- Changes that would alter initialized QAT DC session compression level are
+  rejected with `EBUSY`.
+
+Validation:
+
+```text
+srcversion: 8AF72BE5032A7356514A5C4
+/root/zfs-qat-profile-level-smoke-20260518.csv
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-profile-level-smoke-20260518.csv
+```
+
+The host booted with persistent `zfs_qat_cpa_dc_level=profile`. Before QAT DC
+session initialization, the host accepted valid profile and manual values and
+rejected invalid string and numeric values. After a QAT smoke workload
+initialized DC sessions, the host rejected a profile change from effective level
+`1` to level `4`, rejected manual level `4`, and accepted manual level `1`
+because it did not require changing the active session level.
+
+The benchmark harness smoke CSV recorded `129` aligned columns and included
+both the stored value and the effective value:
+
+```text
+zfs_qat_cpa_dc_level=profile
+zfs_qat_effective_cpa_dc_level=1
+zfs_qat_dc_ratio_profile=balanced
+```

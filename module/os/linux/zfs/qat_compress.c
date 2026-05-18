@@ -131,10 +131,12 @@ static qat_dc_buffer_pool_t buffer_pools[QAT_DC_MAX_INSTANCES];
 static Cpa16U num_inst = 0;
 static Cpa32U inst_num = 0;
 static boolean_t qat_dc_init_done = B_FALSE;
+static int qat_dc_effective_level(void);
 static int qat_dc_effective_max_buf_size(void);
 int zfs_qat_compress_disable = 0;
 int zfs_qat_decompress_disable = 0;
-int zfs_qat_cpa_dc_level = 1;
+char *zfs_qat_cpa_dc_level = "profile";
+static int zfs_qat_cpa_dc_level_value = 1;
 char *zfs_qat_cpa_dc_hufftype = "dynamic";
 char *zfs_qat_dc_max_buf_size = "profile";
 static int zfs_qat_dc_max_buf_size_value = QAT_DC_DEFAULT_MAX_BUF_SIZE;
@@ -177,6 +179,24 @@ static boolean_t
 qat_dc_valid_level(int level)
 {
 	return (level >= 1 && level <= 4);
+}
+
+static int
+qat_dc_profile_level(const char *ratio_profile)
+{
+	if (strcmp(ratio_profile, "ratio") == 0)
+		return (4);
+
+	return (1);
+}
+
+static int
+qat_dc_effective_level(void)
+{
+	if (strcmp(zfs_qat_cpa_dc_level, "profile") == 0)
+		return (qat_dc_profile_level(zfs_qat_dc_ratio_profile));
+
+	return (zfs_qat_cpa_dc_level_value);
 }
 
 static boolean_t
@@ -343,7 +363,7 @@ qat_dc_async_effective_cap(int src_len, int *cap)
 static CpaDcCompLvl
 qat_dc_level(void)
 {
-	switch (zfs_qat_cpa_dc_level) {
+	switch (qat_dc_effective_level()) {
 	case 2:
 		return (CPA_DC_L2);
 	case 3:
@@ -1980,26 +2000,47 @@ param_set_qat_decompress(const char *val, zfs_kernel_param_t *kp)
 static int
 param_set_qat_cpa_dc_level(const char *val, zfs_kernel_param_t *kp)
 {
-	int ret;
+	unsigned int new_value;
 	int old_value;
-	int *pvalue = kp->arg;
+	int ret;
+	char **pvalue = kp->arg;
 
-	old_value = *pvalue;
-	ret = param_set_int(val, kp);
+	if (strcmp(val, "profile") == 0 || strcmp(val, "profile\n") == 0) {
+		if (qat_dc_init_done &&
+		    qat_dc_effective_level() !=
+		    qat_dc_profile_level(zfs_qat_dc_ratio_profile)) {
+			return (-EBUSY);
+		}
+
+		*pvalue = "profile";
+		return (0);
+	}
+
+	ret = kstrtouint(val, 0, &new_value);
 	if (ret != 0)
 		return (ret);
 
-	if (!qat_dc_valid_level(*pvalue)) {
-		*pvalue = old_value;
+	if (!qat_dc_valid_level((int)new_value))
 		return (-EINVAL);
-	}
 
-	if (qat_dc_init_done && *pvalue != old_value) {
-		*pvalue = old_value;
+	old_value = qat_dc_effective_level();
+	if (qat_dc_init_done && (int)new_value != old_value)
 		return (-EBUSY);
-	}
 
+	zfs_qat_cpa_dc_level_value = (int)new_value;
+	*pvalue = "manual";
 	return (0);
+}
+
+static int
+param_get_qat_cpa_dc_level(char *buffer, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+
+	if (strcmp(*pvalue, "profile") == 0)
+		return (sprintf(buffer, "profile\n"));
+
+	return (sprintf(buffer, "%d\n", zfs_qat_cpa_dc_level_value));
 }
 
 static int
@@ -2132,17 +2173,26 @@ param_set_qat_dc_profile(const char *val, zfs_kernel_param_t *kp)
 static int
 param_set_qat_dc_ratio_profile(const char *val, zfs_kernel_param_t *kp)
 {
+	const char *new_value;
 	char **pvalue = kp->arg;
 
 	if (!qat_dc_ratio_profile(val))
 		return (-EINVAL);
 
 	if (strncmp(val, "performance", 11) == 0)
-		*pvalue = "performance";
+		new_value = "performance";
 	else if (strncmp(val, "ratio", 5) == 0)
-		*pvalue = "ratio";
+		new_value = "ratio";
 	else
-		*pvalue = "balanced";
+		new_value = "balanced";
+
+	if (qat_dc_init_done &&
+	    strcmp(zfs_qat_cpa_dc_level, "profile") == 0 &&
+	    qat_dc_profile_level(new_value) != qat_dc_effective_level()) {
+		return (-EBUSY);
+	}
+
+	*pvalue = (char *)new_value;
 	return (0);
 }
 
@@ -2184,9 +2234,9 @@ MODULE_PARM_DESC(zfs_qat_decompress_disable,
     "Enable/Disable QAT decompression");
 
 module_param_call(zfs_qat_cpa_dc_level, param_set_qat_cpa_dc_level,
-    param_get_int, &zfs_qat_cpa_dc_level, 0644);
+    param_get_qat_cpa_dc_level, &zfs_qat_cpa_dc_level, 0644);
 MODULE_PARM_DESC(zfs_qat_cpa_dc_level,
-    "QAT compression level: 1, 2, 3, or 4");
+    "QAT compression level: profile, 1, 2, 3, or 4");
 
 module_param_call(zfs_qat_cpa_dc_hufftype, param_set_qat_cpa_dc_hufftype,
     param_get_charp, &zfs_qat_cpa_dc_hufftype, 0644);

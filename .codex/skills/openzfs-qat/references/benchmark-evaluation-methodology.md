@@ -120,6 +120,8 @@ Scale-test runs also append these hardware-state fields:
 - `zfs_qat_dc_profile_recordsize`: operator-selected target record size for
   profile decisions.
 - `zfs_qat_dc_ratio_profile`: selected ratio/performance profile.
+- `zfs_qat_effective_cpa_dc_level`: effective QAT compression level after
+  resolving `zfs_qat_cpa_dc_level=profile`.
 - `zfs_qat_dc_effective_max_buf_size`: effective QAT maximum buffer size after
   resolving `zfs_qat_dc_max_buf_size=profile`.
 

@@ -186,6 +186,9 @@ Initial implementation status:
 - `zfs_qat_dc_max_buf_size` accepts `profile` or a concrete size and defaults
   to `profile`; its effective value is the profile target record size unless
   the operator supplies a concrete manual override.
+- `zfs_qat_cpa_dc_level` accepts `profile` or a concrete level and defaults to
+  `profile`; its effective value is level `1` for `balanced` and
+  `performance` ratio profiles, and level `4` for the `ratio` profile.
 - When `zfs_qat_dc_async_cap_policy=profile`, the effective cap behavior is
   computed from `zfs_qat_dc_profile` and `zfs_qat_dc_profile_recordsize`.
 - Current profile action is intentionally narrow:
