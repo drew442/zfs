@@ -107,6 +107,19 @@ read_cpu() {
 	}' /proc/stat
 }
 
+online_cpu_count() {
+	if command -v getconf >/dev/null 2>&1; then
+		getconf _NPROCESSORS_ONLN 2>/dev/null && return
+	fi
+
+	if command -v nproc >/dev/null 2>&1; then
+		nproc && return
+	fi
+
+	awk '/^processor[[:space:]]*:/ { n++ }
+	    END { print n > 0 ? n : 1 }' /proc/cpuinfo
+}
+
 cpu_delta_csv() {
 	local before="$1"
 	local after="$2"
@@ -133,6 +146,65 @@ cpu_delta_csv() {
 		    100 * (ds + dirq + dsoft) / dtotal,
 		    100 * diowait / dtotal,
 		    100 * didle / dtotal
+	}'
+}
+
+derived_metrics_csv() {
+	local total_bytes="$1"
+	local elapsed_ms="$2"
+	local cpu_csv="$3"
+	local comp_in_delta="$4"
+	local async_submits_delta="$5"
+	local async_completions_delta="$6"
+	local async_fallbacks_delta="$7"
+	local async_cap_skips_delta="$8"
+	local comp_setup_delta="$9"
+	local comp_submit_delta="${10}"
+	local comp_wait_delta="${11}"
+	local comp_cleanup_delta="${12}"
+
+	awk -v total_bytes="$total_bytes" \
+	    -v elapsed_ms="$elapsed_ms" \
+	    -v cpu_csv="$cpu_csv" \
+	    -v cpu_count="$CPU_COUNT" \
+	    -v comp_in_delta="$comp_in_delta" \
+	    -v async_submits_delta="$async_submits_delta" \
+	    -v async_completions_delta="$async_completions_delta" \
+	    -v async_fallbacks_delta="$async_fallbacks_delta" \
+	    -v async_cap_skips_delta="$async_cap_skips_delta" \
+	    -v comp_setup_delta="$comp_setup_delta" \
+	    -v comp_submit_delta="$comp_submit_delta" \
+	    -v comp_wait_delta="$comp_wait_delta" \
+	    -v comp_cleanup_delta="$comp_cleanup_delta" '
+	function pct(n, d) {
+		return d > 0 ? sprintf("%.2f", 100 * n / d) : "na"
+	}
+	function seconds_per_gib(seconds, bytes) {
+		return bytes > 0 ? sprintf("%.6f", seconds / (bytes / 1073741824)) : "na"
+	}
+	function ns_per_mib(ns, bytes) {
+		return bytes > 0 ? sprintf("%.0f", ns / (bytes / 1048576)) : "na"
+	}
+	BEGIN {
+		split(cpu_csv, cpu, ",")
+		cpu_active_pct = cpu[1] + cpu[2]
+		elapsed_s = elapsed_ms / 1000
+		cpu_active_s = elapsed_s * cpu_count * cpu_active_pct / 100
+		cpu_system_s = elapsed_s * cpu_count * cpu[2] / 100
+		qat_service_ns = comp_setup_delta + comp_submit_delta +
+		    comp_wait_delta + comp_cleanup_delta
+
+		printf "%s,%.2f,%s,%s,%s,%s,%s,%s,%s,%s",
+		    cpu_count,
+		    cpu_active_pct,
+		    seconds_per_gib(cpu_active_s, total_bytes),
+		    seconds_per_gib(cpu_system_s, total_bytes),
+		    pct(comp_in_delta, total_bytes),
+		    pct(async_completions_delta, async_submits_delta),
+		    pct(async_fallbacks_delta, async_submits_delta),
+		    pct(async_cap_skips_delta, async_submits_delta),
+		    ns_per_mib(qat_service_ns, comp_in_delta),
+		    ns_per_mib(comp_wait_delta, comp_in_delta)
 	}'
 }
 
@@ -350,6 +422,16 @@ run_one() {
 	local verify_mode
 	local decompress_disable
 	local pids=()
+	local comp_in_delta
+	local comp_setup_delta
+	local comp_submit_delta
+	local comp_wait_delta
+	local comp_cleanup_delta
+	local async_submits_delta
+	local async_completions_delta
+	local async_fallbacks_delta
+	local async_cap_skips_delta
+	local derived_csv
 
 	cleanup_ds "$ds"
 	zfs create -o compression=gzip-1 -o checksum=sha256 \
@@ -536,12 +618,26 @@ run_one() {
 	ratio="$(zfs get -H -o value compressratio "$ds")"
 	used="$(zfs get -H -o value used "$ds")"
 	logicalused="$(zfs get -H -o value logicalused "$ds")"
+	comp_in_delta="$((comp_in_after - comp_in_before))"
+	comp_setup_delta="$((comp_setup_after - comp_setup_before))"
+	comp_submit_delta="$((comp_submit_after - comp_submit_before))"
+	comp_wait_delta="$((comp_wait_after - comp_wait_before))"
+	comp_cleanup_delta="$((comp_cleanup_after - comp_cleanup_before))"
+	async_submits_delta="$((async_submits_after - async_submits_before))"
+	async_completions_delta="$((async_completions_after - async_completions_before))"
+	async_fallbacks_delta="$((async_fallbacks_after - async_fallbacks_before))"
+	async_cap_skips_delta="$((async_cap_skips_after - async_cap_skips_before))"
+	derived_csv="$(derived_metrics_csv "$total_bytes" "$elapsed_ms" \
+	    "$cpu_csv" "$comp_in_delta" "$async_submits_delta" \
+	    "$async_completions_delta" "$async_fallbacks_delta" \
+	    "$async_cap_skips_delta" "$comp_setup_delta" "$comp_submit_delta" \
+	    "$comp_wait_delta" "$comp_cleanup_delta")"
 
 	raw_row=(raw "$mode" "$verify_mode" "$record" "$iter" "$JOBS"
 	    "$SOURCE_LABEL" "$total_bytes" "$elapsed_ms" "" "" "" "" ""
 	    "$mib_s" "$cpu_csv" "$ratio" "$used" "$logicalused"
 	    "$((comp_after - comp_before))"
-	    "$((comp_in_after - comp_in_before))"
+	    "$comp_in_delta"
 	    "$((comp_out_after - comp_out_before))"
 	    "$((decomp_after - decomp_before))"
 	    "$((decomp_in_after - decomp_in_before))"
@@ -583,21 +679,21 @@ run_one() {
 	    "$((dst_coalesce_free_after - dst_coalesce_free_before))"
 	    "$((comp_scratch_alloc_after - comp_scratch_alloc_before))"
 	    "$((comp_scratch_free_after - comp_scratch_free_before))"
-	    "$((comp_setup_after - comp_setup_before))"
-	    "$((comp_submit_after - comp_submit_before))"
-	    "$((comp_wait_after - comp_wait_before))"
-	    "$((comp_cleanup_after - comp_cleanup_before))"
+	    "$comp_setup_delta"
+	    "$comp_submit_delta"
+	    "$comp_wait_delta"
+	    "$comp_cleanup_delta"
 	    "$((decomp_setup_after - decomp_setup_before))"
 	    "$((decomp_submit_after - decomp_submit_before))"
 	    "$((decomp_wait_after - decomp_wait_before))"
 	    "$((decomp_cleanup_after - decomp_cleanup_before))"
 	    "$comp_inflight_after" "$comp_inflight_max_after"
 	    "$decomp_inflight_after" "$decomp_inflight_max_after"
-	    "$((async_submits_after - async_submits_before))"
+	    "$async_submits_delta"
 	    "$((async_submit_fails_after - async_submit_fails_before))"
-	    "$((async_completions_after - async_completions_before))"
+	    "$async_completions_delta"
 	    "$((async_resumes_after - async_resumes_before))"
-	    "$((async_fallbacks_after - async_fallbacks_before))"
+	    "$async_fallbacks_delta"
 	    "$((async_cancels_after - async_cancels_before))"
 	    "$((async_retries_after - async_retries_before))"
 	    "$((async_retry_success_after - async_retry_success_before))"
@@ -605,7 +701,7 @@ run_one() {
 	    "$((async_fail_resource_after - async_fail_resource_before))"
 	    "$((async_fail_other_after - async_fail_other_before))"
 	    "$async_inflight_after" "$async_inflight_max_after"
-	    "$((async_cap_skips_after - async_cap_skips_before))"
+	    "$async_cap_skips_delta"
 	    "$sha_ok" "$QAT_DC_LEVEL" "$QAT_DC_HUFFTYPE"
 	    "$QAT_DC_MAX_BUF_SIZE" "$QAT_DC_MAX_INSTANCES"
 	    "$QAT_DC_COALESCE_SRC" "$QAT_DC_COALESCE_DST"
@@ -613,7 +709,8 @@ run_one() {
 	    "$QAT_DC_ASYNC_MAX_INFLIGHT" "$QAT_DC_ASYNC_CAP_POLICY"
 	    "$decompress_disable"
 	    "$QAT_KERNEL_CY_INSTANCES"
-	    "$QAT_KERNEL_DC_INSTANCES" "$ZFS_SRCVERSION")
+	    "$QAT_KERNEL_DC_INSTANCES" "$ZFS_SRCVERSION"
+	    "$derived_csv")
 	(IFS=,; printf "%s\n" "${raw_row[*]}") | tee -a "$OUT"
 
 	printf "%s\n" "$elapsed_ms" >> "$LATENCY_FILE"
@@ -644,9 +741,10 @@ QAT_DC_ASYNC_CAP_POLICY="$(read_param zfs_qat_dc_async_cap_policy)"
 QAT_KERNEL_CY_INSTANCES="$(qat_conf_value NumberCyInstances)"
 QAT_KERNEL_DC_INSTANCES="$(qat_conf_value NumberDcInstances)"
 ZFS_SRCVERSION="$(modinfo zfs | awk '$1 == "srcversion:" { print $2 }')"
+CPU_COUNT="$(online_cpu_count)"
 
 mkdir -p "$(dirname "$OUT")"
-printf "row_type,mode,verify_mode,recordsize,iter,jobs,source_label,source_bytes,elapsed_ms,latency_avg_ms,latency_p50_ms,latency_p95_ms,latency_p99_ms,latency_max_ms,write_bw_mib_s,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct,compressratio,used,logicalused,comp_requests_delta,comp_in_delta,comp_out_delta,decomp_requests_delta,decomp_in_delta,decomp_out_delta,dc_fails_delta,dc_buffer_reuse_hits_delta,dc_buffer_reuse_misses_delta,dc_compress_bound_requests_delta,dc_compress_bound_fails_delta,dc_compress_bound_ns_delta,dc_compress_bound_total_bytes_delta,dc_compress_dst_total_bytes_delta,dc_compress_scratch_bytes_delta,dc_compress_scratch_saved_bytes_delta,dc_compress_overflows_delta,dc_compress_incompressible_delta,dc_compress_src_buffers_delta,dc_compress_dst_buffers_delta,dc_compress_add_buffers_delta,dc_compress_dst_total_buffers_delta,dc_compress_src_buffers_max,dc_compress_dst_buffers_max,dc_compress_add_buffers_max,dc_compress_dst_total_buffers_max,dc_compress_coalesce_requests_delta,dc_compress_coalesce_success_delta,dc_compress_coalesce_fails_delta,dc_compress_coalesce_bytes_delta,dc_compress_coalesce_alloc_ns_delta,dc_compress_coalesce_copy_ns_delta,dc_compress_coalesce_free_ns_delta,dc_compress_dst_coalesce_requests_delta,dc_compress_dst_coalesce_success_delta,dc_compress_dst_coalesce_fails_delta,dc_compress_dst_coalesce_reuse_hits_delta,dc_compress_dst_coalesce_reuse_misses_delta,dc_compress_dst_coalesce_alloc_bytes_delta,dc_compress_dst_coalesce_copy_bytes_delta,dc_compress_dst_coalesce_alloc_ns_delta,dc_compress_dst_coalesce_copy_ns_delta,dc_compress_dst_coalesce_free_ns_delta,dc_compress_scratch_alloc_ns_delta,dc_compress_scratch_free_ns_delta,dc_compress_setup_ns_delta,dc_compress_submit_ns_delta,dc_compress_wait_ns_delta,dc_compress_cleanup_ns_delta,dc_decompress_setup_ns_delta,dc_decompress_submit_ns_delta,dc_decompress_wait_ns_delta,dc_decompress_cleanup_ns_delta,dc_compress_inflight,dc_compress_inflight_max,dc_decompress_inflight,dc_decompress_inflight_max,dc_compress_async_submits_delta,dc_compress_async_submit_fails_delta,dc_compress_async_completions_delta,dc_compress_async_resumes_delta,dc_compress_async_fallbacks_delta,dc_compress_async_cancels_delta,dc_compress_async_submit_retries_delta,dc_compress_async_retry_success_delta,dc_compress_async_fail_retry_delta,dc_compress_async_fail_resource_delta,dc_compress_async_fail_other_delta,dc_compress_async_inflight,dc_compress_async_inflight_max,dc_compress_async_cap_skips_delta,sha_ok,zfs_qat_cpa_dc_level,zfs_qat_cpa_dc_hufftype,zfs_qat_dc_max_buf_size,zfs_qat_dc_max_instances,zfs_qat_dc_coalesce_src,zfs_qat_dc_coalesce_dst,zfs_qat_dc_async,zfs_qat_dc_async_submit_retries,zfs_qat_dc_async_retry_us,zfs_qat_dc_async_max_inflight,zfs_qat_dc_async_cap_policy,zfs_qat_decompress_disable,qat_kernel_cy_instances,qat_kernel_dc_instances,zfs_srcversion\n" > "$OUT"
+printf "row_type,mode,verify_mode,recordsize,iter,jobs,source_label,source_bytes,elapsed_ms,latency_avg_ms,latency_p50_ms,latency_p95_ms,latency_p99_ms,latency_max_ms,write_bw_mib_s,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct,compressratio,used,logicalused,comp_requests_delta,comp_in_delta,comp_out_delta,decomp_requests_delta,decomp_in_delta,decomp_out_delta,dc_fails_delta,dc_buffer_reuse_hits_delta,dc_buffer_reuse_misses_delta,dc_compress_bound_requests_delta,dc_compress_bound_fails_delta,dc_compress_bound_ns_delta,dc_compress_bound_total_bytes_delta,dc_compress_dst_total_bytes_delta,dc_compress_scratch_bytes_delta,dc_compress_scratch_saved_bytes_delta,dc_compress_overflows_delta,dc_compress_incompressible_delta,dc_compress_src_buffers_delta,dc_compress_dst_buffers_delta,dc_compress_add_buffers_delta,dc_compress_dst_total_buffers_delta,dc_compress_src_buffers_max,dc_compress_dst_buffers_max,dc_compress_add_buffers_max,dc_compress_dst_total_buffers_max,dc_compress_coalesce_requests_delta,dc_compress_coalesce_success_delta,dc_compress_coalesce_fails_delta,dc_compress_coalesce_bytes_delta,dc_compress_coalesce_alloc_ns_delta,dc_compress_coalesce_copy_ns_delta,dc_compress_coalesce_free_ns_delta,dc_compress_dst_coalesce_requests_delta,dc_compress_dst_coalesce_success_delta,dc_compress_dst_coalesce_fails_delta,dc_compress_dst_coalesce_reuse_hits_delta,dc_compress_dst_coalesce_reuse_misses_delta,dc_compress_dst_coalesce_alloc_bytes_delta,dc_compress_dst_coalesce_copy_bytes_delta,dc_compress_dst_coalesce_alloc_ns_delta,dc_compress_dst_coalesce_copy_ns_delta,dc_compress_dst_coalesce_free_ns_delta,dc_compress_scratch_alloc_ns_delta,dc_compress_scratch_free_ns_delta,dc_compress_setup_ns_delta,dc_compress_submit_ns_delta,dc_compress_wait_ns_delta,dc_compress_cleanup_ns_delta,dc_decompress_setup_ns_delta,dc_decompress_submit_ns_delta,dc_decompress_wait_ns_delta,dc_decompress_cleanup_ns_delta,dc_compress_inflight,dc_compress_inflight_max,dc_decompress_inflight,dc_decompress_inflight_max,dc_compress_async_submits_delta,dc_compress_async_submit_fails_delta,dc_compress_async_completions_delta,dc_compress_async_resumes_delta,dc_compress_async_fallbacks_delta,dc_compress_async_cancels_delta,dc_compress_async_submit_retries_delta,dc_compress_async_retry_success_delta,dc_compress_async_fail_retry_delta,dc_compress_async_fail_resource_delta,dc_compress_async_fail_other_delta,dc_compress_async_inflight,dc_compress_async_inflight_max,dc_compress_async_cap_skips_delta,sha_ok,zfs_qat_cpa_dc_level,zfs_qat_cpa_dc_hufftype,zfs_qat_dc_max_buf_size,zfs_qat_dc_max_instances,zfs_qat_dc_coalesce_src,zfs_qat_dc_coalesce_dst,zfs_qat_dc_async,zfs_qat_dc_async_submit_retries,zfs_qat_dc_async_retry_us,zfs_qat_dc_async_max_inflight,zfs_qat_dc_async_cap_policy,zfs_qat_decompress_disable,qat_kernel_cy_instances,qat_kernel_dc_instances,zfs_srcversion,cpu_count,cpu_active_pct,cpu_active_s_per_gib,cpu_system_s_per_gib,qat_byte_share_pct,qat_completion_share_pct,qat_fallback_share_pct,qat_cap_skip_share_pct,qat_service_ns_per_mib,qat_wait_ns_per_mib\n" > "$OUT"
 
 echo "Results: $OUT" >&2
 echo "Source: $SOURCE ($SOURCE_BYTES bytes)" >&2
@@ -685,7 +783,7 @@ for mode in $MODES; do
 		    "$QAT_DC_ASYNC_RETRY_US" "$QAT_DC_ASYNC_MAX_INFLIGHT"
 		    "$QAT_DC_ASYNC_CAP_POLICY" "" "$QAT_KERNEL_CY_INSTANCES"
 		    "$QAT_KERNEL_DC_INSTANCES"
-		    "$ZFS_SRCVERSION")
+		    "$ZFS_SRCVERSION" "" "" "" "" "" "" "" "" "" "")
 		(IFS=,; printf "%s\n" "${summary_row[*]}") | tee -a "$OUT"
 	done
 done

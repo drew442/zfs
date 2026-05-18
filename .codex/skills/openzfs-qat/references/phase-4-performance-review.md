@@ -1,6 +1,6 @@
 # Phase 4 Performance Review
 
-Last updated: 2026-05-17.
+Last updated: 2026-05-18.
 
 This is a human-readable review of phase 4 performance work. It summarizes what
 changed and what the measured result was. It intentionally avoids implementation
@@ -34,6 +34,18 @@ Important comparability note:
 - The later harness also validates data with `cmp`, so it includes readback and QAT decompression.
 - Compare QAT vs software within the same table/run. Do not compare absolute latency from early CSVs directly against later harness CSVs.
 
+Benchmark interpretation note:
+
+- Async rows with QAT cap skips are hybrid QAT/software rows, not pure-QAT
+  measurements.
+- Lower elapsed time with lower QAT share should be treated as a possible
+  hybrid-policy win, not as evidence that the QAT engine became faster.
+- Future summaries should report QAT byte share, QAT completion share, fallback
+  share, CPU seconds per GiB, compression ratio, and failures alongside elapsed
+  time.
+- The detailed interpretation rules are in
+  `benchmark-evaluation-methodology.md`.
+
 ## Executive Summary
 
 - QAT compression is correct and stable for the tested matrix: all file comparisons passed and `dc_fails=0` after the 4 KiB threshold fix.
@@ -45,6 +57,9 @@ Important comparability note:
 - Compression ratio is close between QAT and software in the best-case level 1 comparison. Level 4 gives QAT a small ratio advantage, but it is not the performance winner.
 - A later level 1-4 matrix showed no single QAT compression level wins every case. Level 4 gives the best ratio, level 1 is generally strongest under four concurrent streams, and level 3 was fastest for single-stream 128K and 1M in that run.
 - The async in-flight cap improves admission behavior but creates adaptive hybrid QAT/software rows whenever cap skips are nonzero. These rows should not be described as pure-QAT performance.
+- Future async-policy comparisons must separate hybrid-policy wins from QAT
+  engine improvements. QAT byte share and CPU seconds per GiB are first-class
+  metrics alongside latency, throughput, and compression ratio.
 - In the Cap-96 small-record follow-up, software gzip won every four-job row and three of four single-job rows. The only QAT-labelled win was single-job `32K`, and that row was already `57.3%` QAT / `42.7%` software fallback.
 - The host can run the ZFS QAT API service as six DC instances and zero crypto instances. In the larger-record Cap-96 repeat, this was near parity at four-job `128K`, slightly slower at `256K`, and faster at `1M`, but still mostly software fallback under the in-flight cap.
 - The DC6 small-record repeat did not produce a win: four-job `8K` was effectively parity, while `16K`, `32K`, and `64K` remained slower than software.
