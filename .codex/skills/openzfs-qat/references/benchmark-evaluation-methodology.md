@@ -108,6 +108,13 @@ New `qat-phase4-benchmark.sh` runs append these derived fields:
   nanoseconds per QAT-completed MiB.
 - `qat_wait_ns_per_mib`: QAT compression wait nanoseconds per QAT-completed MiB.
 
+Scale-test runs also append these hardware-state fields:
+
+- `qat_pci_dh895xcc_count`: detected DH895XCC PCI device count.
+- `qat_conf_file_count`: readable `/etc/dh895xcc_dev*.conf` file count.
+- `qat_kernel_cy_instances_total`: summed `[KERNEL_QAT]` crypto instances.
+- `qat_kernel_dc_instances_total`: summed `[KERNEL_QAT]` compression instances.
+
 Use byte share as the primary offload-share metric. Request-count share remains
 useful, but it can mislead when comparing different record sizes or mixed
 workloads.

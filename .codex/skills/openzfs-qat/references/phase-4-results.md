@@ -2208,3 +2208,71 @@ Result:
   `17.01x` vs `16.90x`, `21.74x` vs `21.60x`, and `25.35x` vs `25.26x`.
 - Future policy decisions should continue using QAT byte share and CPU seconds
   per GiB alongside elapsed time.
+
+### Single-Card Scale Baseline
+
+Run date: 2026-05-18.
+
+This is the pre-install baseline for comparing one DH895XCC card against a
+future two-card configuration.
+
+Source CSVs:
+
+```text
+/root/zfs-qat-scale-single-card-jobs4-20260518.csv
+/root/zfs-qat-scale-single-card-jobs8-20260518.csv
+
+Repo copies:
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-scale-single-card-jobs4-20260518.csv
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-scale-single-card-jobs8-20260518.csv
+```
+
+Scale state recorded in the CSV:
+
+```text
+qat_pci_dh895xcc_count=1
+qat_conf_file_count=1
+qat_kernel_cy_instances_total=0
+qat_kernel_dc_instances_total=6
+```
+
+Test settings:
+
+```text
+zfs_qat_cpa_dc_level=4
+zfs_qat_cpa_dc_hufftype=dynamic
+zfs_qat_dc_async=1
+zfs_qat_dc_async_submit_retries=8
+zfs_qat_dc_async_retry_us=100
+zfs_qat_dc_async_max_inflight=96
+zfs_qat_dc_async_cap_policy=recordsize
+zfs_qat_dc_coalesce_src=0
+zfs_qat_dc_coalesce_dst=0
+zfs_qat_decompress_disable=1
+VERIFY_MODE=sw
+ITERS=3
+RECORDS="128K 256K 1M"
+MODES="qat sw"
+```
+
+Results:
+
+```text
+jobs record qat_ms   sw_ms    qat_vs_sw qat_cpu_s/GiB sw_cpu_s/GiB qat_byte fallback outcome
+4    128K   1093.410 1061.340 +3.0%     10.104        12.319       36.7%    63.3%    cpu-offload-win
+4    256K   985.632  969.663  +1.6%     9.558         11.568       26.7%    73.3%    cpu-offload-win
+4    1M     868.412  927.999  -6.4%     8.535         11.250       32.4%    67.7%    hybrid-policy-win
+8    128K   1561.836 1572.868 -0.7%     10.098        14.492       38.3%    61.7%    cpu-offload-win
+8    256K   1459.295 1365.003 +6.9%     10.069        13.070       29.6%    70.5%    cpu-offload-win
+8    1M     1631.944 1710.485 -4.6%     11.629        18.970       36.3%    64.0%    hybrid-policy-win
+```
+
+Result:
+
+- Single-card QAT byte share remained low: `26.7-38.3%`.
+- `1M` is the strongest elapsed-time hybrid-policy win at both `JOBS=4` and
+  `JOBS=8`.
+- `128K` and `256K` mostly remain CPU-offload wins, not latency wins.
+- The dual-card test should use the same matrix and compare whether QAT byte
+  share rises without increasing QAT service nanoseconds per MiB or CPU seconds
+  per GiB.

@@ -1266,3 +1266,49 @@ Interpretation:
 - The `128K` row is a CPU-offload win, not a latency win.
 - This confirms the need to keep elapsed-time policy evaluation separate from
   QAT engine evaluation.
+
+## Single-Card Scale Baseline
+
+Run date: 2026-05-18.
+
+This is the pre-install baseline for testing whether a second DH895XCC card
+raises useful QAT byte share or only exposes the same per-request bottleneck.
+
+Source CSVs:
+
+```text
+/root/zfs-qat-scale-single-card-jobs4-20260518.csv
+/root/zfs-qat-scale-single-card-jobs8-20260518.csv
+
+Repo copies:
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-scale-single-card-jobs4-20260518.csv
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-scale-single-card-jobs8-20260518.csv
+```
+
+Recorded scale state:
+
+```text
+qat_pci_dh895xcc_count=1
+qat_conf_file_count=1
+qat_kernel_cy_instances_total=0
+qat_kernel_dc_instances_total=6
+```
+
+| Jobs | Record | QAT Avg | Software Avg | QAT vs Software | QAT CPU s/GiB | SW CPU s/GiB | QAT Byte Share | Fallback Share | Outcome |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|---|
+| 4 | 128K | 1093.410 ms | 1061.340 ms | 3.0% slower | 10.104 | 12.319 | 36.7% | 63.3% | CPU-offload win |
+| 4 | 256K | 985.632 ms | 969.663 ms | 1.6% slower | 9.558 | 11.568 | 26.7% | 73.3% | CPU-offload win |
+| 4 | 1M | 868.412 ms | 927.999 ms | 6.4% faster | 8.535 | 11.250 | 32.4% | 67.7% | Hybrid-policy win |
+| 8 | 128K | 1561.836 ms | 1572.868 ms | 0.7% faster | 10.098 | 14.492 | 38.3% | 61.7% | CPU-offload win |
+| 8 | 256K | 1459.295 ms | 1365.003 ms | 6.9% slower | 10.069 | 13.070 | 29.6% | 70.5% | CPU-offload win |
+| 8 | 1M | 1631.944 ms | 1710.485 ms | 4.6% faster | 11.629 | 18.970 | 36.3% | 64.0% | Hybrid-policy win |
+
+Dual-card success criteria:
+
+- QAT byte share should rise materially from the single-card `26.7-38.3%`
+  range.
+- CPU seconds per GiB should stay lower than software and not regress versus
+  the single-card QAT rows.
+- QAT service and wait nanoseconds per MiB should not increase materially.
+- If elapsed time improves only because software fallback changes, classify the
+  result as a hybrid-policy win, not a QAT engine improvement.
