@@ -96,6 +96,10 @@ typedef struct qat_stats {
 	 */
 	kstat_named_t dc_fails;
 	/*
+	 * Number of active QAT DC instances initialized by ZFS.
+	 */
+	kstat_named_t dc_instances;
+	/*
 	 * Number of QAT compression requests that reused preallocated
 	 * per-instance buffer-list metadata.
 	 */

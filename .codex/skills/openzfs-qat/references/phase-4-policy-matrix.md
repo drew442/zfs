@@ -1,6 +1,6 @@
 # Phase 4 QAT Policy Matrix
 
-Date: 2026-05-17.
+Date: 2026-05-18.
 
 This note converts the Phase 4 tuning evidence into policy decisions. It is
 intended to prevent old one-off tunables from being folded into the default path
@@ -28,7 +28,9 @@ Record size is not sufficient by itself. The policy also needs:
 ## Current Constraints
 
 - `zfs_qat_dc_async_cap_policy` is a per-request decision and can safely use
-  record size and active DC instance count.
+  record size and active DC instance count. The balanced policy should not
+  blindly scale caps linearly beyond measured DC6 ceilings; the first DC12
+  linear test increased QAT share but regressed elapsed time.
 - `zfs_qat_dc_coalesce_src` and `zfs_qat_dc_coalesce_dst` can now run with the
   async path. They remain record-size/profile candidates because the measured
   results are mixed.
@@ -54,7 +56,7 @@ unknown    Needs fresh benchmark evidence under the current DC6 async setup.
 | Tunable | Scope | 8K | 16K | 32K | 64K | 128K | 256K | 1M | Policy Decision |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---|
 | Async QAT admission | per request | disable | disable | disable | disable | enable | enable | enable | Use record-size policy. |
-| Async in-flight cap | per request | software | software | software | software | 768 on DC6 | 192 on DC6 | 96 on DC6 | Keep record-size/DC-count policy. |
+| Async in-flight cap | per request | software | software | software | software | 128 per DC, DC6 ceiling | 32 per DC, DC6 ceiling | 16 per DC, DC6 ceiling | Keep conservative record-size/DC-count policy; test higher caps as profile behavior. |
 | Source coalescing | per request path | manual | manual | manual | manual | disable | manual | manual | Technically unblocked, but repeat data does not justify policy enablement. |
 | Destination coalescing | per request path | manual | manual | manual | manual | disable | manual | manual | Technically unblocked, but repeat data does not justify policy enablement. |
 | Compression level | QAT session | manual | manual | manual | manual | manual | manual | manual | Bias-profile candidate, not per-record today. |
@@ -106,6 +108,46 @@ recordsize sw  921.995 791.7 n/a       n/a       25.26x
 Result: fixed and recordsize both use cap `96` for `1M`, and the measured
 difference between them is noise-level. The recordsize policy should keep
 `1M+ = 96` on DC6.
+
+## DC Instance Scaling
+
+The policy target is OpenZFS/QAT generally, not the current card count on
+`pve.drewnet.online`. Cap decisions should therefore use active ZFS QAT DC
+instances, not card count. A host may expose one, two, or more cards, and the
+useful scheduling unit for this code path is the initialized DC instance count.
+
+The first DC12 experiment tested linear scaling from the DC6 caps:
+
+```text
+record DC6 cap linear DC12 cap
+128K   768     1536
+256K   192     384
+1M     96      192
+```
+
+Result versus the prior DC6-ceiling dual-card run:
+
+```text
+jobs record elapsed_delta qat_byte_delta fallback_delta
+4    128K   +4.3%         +35.3pp        -35.2pp
+4    256K   +10.0%        +21.1pp        -21.1pp
+4    1M     +8.1%         +28.3pp        -28.2pp
+8    128K   +3.2%         +14.9pp        -14.9pp
+8    256K   +5.0%         +13.9pp        -13.9pp
+8    1M     +1.0%         +24.9pp        -24.7pp
+```
+
+Interpretation:
+
+- Linear DC12 scaling did what it was supposed to do mechanically: QAT byte
+  share rose and software fallback fell.
+- The elapsed-time result got worse in every row compared with the conservative
+  dual-card policy window.
+- The balanced record-size policy should use active DC count, but cap at the
+  measured DC6 ceiling until a profile-specific sweep proves a higher cap is
+  useful for a concrete bias such as CPU offload or throughput.
+- Higher caps remain valid candidates for a future `throughput` or `offload`
+  profile. They should not be silently promoted to the default balanced policy.
 
 ## Async Coalescing Follow-Up
 

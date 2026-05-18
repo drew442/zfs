@@ -64,6 +64,14 @@ Benchmark interpretation note:
 - The host can run the ZFS QAT API service as six DC instances and zero crypto instances. In the larger-record Cap-96 repeat, this was near parity at four-job `128K`, slightly slower at `256K`, and faster at `1M`, but still mostly software fallback under the in-flight cap.
 - The DC6 small-record repeat did not produce a win: four-job `8K` was effectively parity, while `16K`, `32K`, and `64K` remained slower than software.
 - A DC6 cap sweep showed that higher caps are record-size sensitive rather than broadly better. Cap `192` helped repeated `256K`, cap `768` helped repeated `128K`, and uncapped mode reintroduced submit failures and was slower.
+- A second DH895XCC card reduced QAT service/wait cost per QAT-completed MiB by
+  roughly half and increased QAT byte share, but did not remove the small-record
+  latency problem.
+- A linear DC12 cap policy increased QAT byte share further, but elapsed time
+  regressed in every tested row versus the conservative dual-card policy. The
+  balanced policy now uses active DC instance count but caps at the measured DC6
+  ceiling; higher caps should be benchmarked as profile behavior, not default
+  behavior.
 
 ## Current Latency Diagnosis
 
@@ -128,6 +136,8 @@ service time.
 | Cap-96 small records | Benchmarked `8K`, `16K`, `32K`, and `64K` with the async cap. | Software won every four-job row and three of four single-job rows; the only win was a mixed `32K` row. |
 | Six DC instances | Reconfigured `[KERNEL_QAT]` to `NumberCyInstances=0` and `NumberDcInstances=6`, with ZFS QAT crypto/checksum disabled. | Driver accepted the split. More QAT requests completed, but the Cap-96 policy still used mostly software fallback. Only the four-job `1M` repeat clearly beat software; small records did not. |
 | DC6 cap sweep | Swept `zfs_qat_dc_async_max_inflight` over `96`, `192`, `384`, `768`, and uncapped. | Higher caps are not generally better. Cap choice is record-size dependent; uncapped mode is slower and causes submit failures. |
+| Dual-card scale | Tested two DH895XCC cards with 12 configured DC instances. | QAT byte share increased and service/wait cost per QAT-completed MiB fell by roughly half, but `128K` remained slower than software. |
+| Linear DC12 caps | Tested caps scaled directly from DC6 to DC12. | QAT byte share increased, but elapsed time regressed versus the conservative dual-card policy in every row. Keep DC6 ceilings for the balanced profile. |
 
 ## Current Fair Comparison
 

@@ -219,40 +219,34 @@ qat_dc_async_valid_cap_policy(const char *value)
 static boolean_t
 qat_dc_async_recordsize_cap(int src_len, int *cap)
 {
+	uint_t cap_instances;
+	int per_inst_cap;
+
 	if (src_len < 128 * 1024)
 		return (B_FALSE);
 
 	/*
-	 * The recordsize policy is intentionally limited to measured
-	 * QAT 1.x configurations. Unknown DC instance counts fall back to
-	 * the operator-provided fixed cap.
+	 * Base caps on active initialized DC instances, not card count. The
+	 * balanced policy is intentionally capped at the measured DC6 ceiling:
+	 * linear DC12 scaling increased QAT share but regressed latency in
+	 * follow-up testing. Higher caps belong in a future throughput/offload
+	 * profile, not the default record-size policy.
 	 */
-	if (num_inst >= 6) {
-		if (src_len == 128 * 1024) {
-			*cap = 768;
-			return (B_TRUE);
-		}
-		if (src_len == 256 * 1024) {
-			*cap = 192;
-			return (B_TRUE);
-		}
-		if (src_len >= 1024 * 1024) {
-			*cap = 96;
-			return (B_TRUE);
-		}
+	cap_instances = MIN(num_inst, 6);
+	if (cap_instances == 0)
+		return (B_FALSE);
+
+	if (src_len == 128 * 1024) {
+		per_inst_cap = 128;
+	} else if (src_len == 256 * 1024) {
+		per_inst_cap = 32;
+	} else if (src_len >= 512 * 1024) {
+		per_inst_cap = 16;
+	} else {
 		return (B_TRUE);
 	}
 
-	if (num_inst <= 2) {
-		if (src_len == 128 * 1024 ||
-		    src_len == 256 * 1024 ||
-		    src_len >= 1024 * 1024) {
-			*cap = 96;
-			return (B_TRUE);
-		}
-		return (B_TRUE);
-	}
-
+	*cap = per_inst_cap * (int)cap_instances;
 	return (B_TRUE);
 }
 
@@ -691,6 +685,7 @@ qat_dc_clean(void)
 	}
 
 	num_inst = 0;
+	qat_stats.dc_instances.value.ui64 = 0;
 	qat_dc_init_done = B_FALSE;
 }
 
@@ -825,6 +820,7 @@ qat_dc_init(void)
 	}
 
 	qat_dc_init_done = B_TRUE;
+	qat_stats.dc_instances.value.ui64 = num_inst;
 	return (0);
 fail:
 	qat_dc_clean();

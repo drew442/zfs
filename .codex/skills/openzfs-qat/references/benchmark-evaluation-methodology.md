@@ -114,6 +114,8 @@ Scale-test runs also append these hardware-state fields:
 - `qat_conf_file_count`: readable `/etc/dh895xcc_dev*.conf` file count.
 - `qat_kernel_cy_instances_total`: summed `[KERNEL_QAT]` crypto instances.
 - `qat_kernel_dc_instances_total`: summed `[KERNEL_QAT]` compression instances.
+- `zfs_qat_dc_instances`: active QAT DC instances initialized and usable by
+  ZFS, from `/proc/spl/kstat/zfs/qat`.
 
 Use byte share as the primary offload-share metric. Request-count share remains
 useful, but it can mislead when comparing different record sizes or mixed
@@ -127,6 +129,9 @@ workloads.
   metric, not a pure hardware-utilization metric.
 - Prefer `qat_byte_share_pct` over request share when deciding how much work QAT
   actually performed.
+- Prefer `zfs_qat_dc_instances` over card count when interpreting cap policy.
+  Card count is deployment context; active DC instances are what the ZFS QAT
+  path can actually submit to.
 - Require CPU and ratio evidence before enabling a policy that is not faster
   than software.
 - Preserve software fallback unless the benchmark intentionally measures a pure

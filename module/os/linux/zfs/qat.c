@@ -32,6 +32,7 @@ qat_stats_t qat_stats = {
 	{ "decomp_total_in_bytes",		KSTAT_DATA_UINT64 },
 	{ "decomp_total_out_bytes",		KSTAT_DATA_UINT64 },
 	{ "dc_fails",				KSTAT_DATA_UINT64 },
+	{ "dc_instances",			KSTAT_DATA_UINT64 },
 	{ "dc_buffer_reuse_hits",		KSTAT_DATA_UINT64 },
 	{ "dc_buffer_reuse_misses",		KSTAT_DATA_UINT64 },
 	{ "dc_compress_bound_requests",		KSTAT_DATA_UINT64 },

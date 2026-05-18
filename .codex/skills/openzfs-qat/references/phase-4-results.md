@@ -2346,3 +2346,78 @@ Result:
   lower CPU seconds per GiB than the single-card QAT row.
 - The dual-card rows are still hybrid-policy rows because fallback remains
   `32.8-55.3%`. They are scale wins, not pure-QAT wins.
+
+### DC Instance Cap-Scaling Test
+
+Run date: 2026-05-18.
+
+The previous dual-card run still used the conservative DC6 cap ceilings. A
+follow-up build changed the record-size policy to scale linearly by active ZFS
+DC instances:
+
+```text
+128K: 128 per DC instance
+256K: 32 per DC instance
+1M+: 16 per DC instance
+```
+
+On the two-card host this raised the effective caps from `768/192/96` to
+`1536/384/192` for `128K/256K/1M+`.
+
+Source CSVs:
+
+```text
+/root/zfs-qat-scale-dual-card-perinst-policy-jobs4-20260518.csv
+/root/zfs-qat-scale-dual-card-perinst-policy-jobs8-20260518.csv
+
+Repo copies:
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-scale-dual-card-perinst-policy-jobs4-20260518.csv
+.codex/skills/openzfs-qat/references/benchmarks/zfs-qat-scale-dual-card-perinst-policy-jobs8-20260518.csv
+```
+
+Scale state recorded in the CSV:
+
+```text
+qat_pci_dh895xcc_count=2
+qat_conf_file_count=2
+qat_kernel_cy_instances_total=0
+qat_kernel_dc_instances_total=12
+zfs_qat_dc_instances=12
+```
+
+Linear DC12 cap results:
+
+```text
+jobs record qat_ms   sw_ms    qat_vs_sw qat_cpu_s/GiB sw_cpu_s/GiB qat_byte fallback outcome
+4    128K   1160.590 1102.165 +5.3%     9.532         11.502       91.9%    8.1%     regression
+4    256K   1053.523 1038.453 +1.5%     9.128         11.216       65.8%    34.3%    regression
+4    1M     958.740  969.450  -1.1%     6.723         10.740       75.4%    24.9%    cpu-offload-win
+8    128K   1622.120 1522.491 +6.5%     9.484         13.208       82.1%    18.0%    regression
+8    256K   1452.347 1503.671 -3.4%     9.063         13.946       62.9%    37.1%    hybrid-policy-win
+8    1M     1360.608 1561.182 -12.8%    6.715         16.635       73.1%    27.5%    hybrid-policy-win
+```
+
+Linear DC12 cap change versus the previous dual-card QAT rows:
+
+```text
+jobs record elapsed_delta qat_byte_delta fallback_delta
+4    128K   +4.3%         +35.3pp        -35.2pp
+4    256K   +10.0%        +21.1pp        -21.1pp
+4    1M     +8.1%         +28.3pp        -28.2pp
+8    128K   +3.2%         +14.9pp        -14.9pp
+8    256K   +5.0%         +13.9pp        -13.9pp
+8    1M     +1.0%         +24.9pp        -24.7pp
+```
+
+Result:
+
+- Linear scaling increased QAT byte share in every tested row.
+- Linear scaling also made elapsed time worse in every row compared with the
+  prior dual-card run.
+- The default balanced policy should use active ZFS DC instance count for
+  generality, but it should cap at the measured DC6 ceiling until a profile
+  sweep proves higher caps are useful for a specific throughput or CPU-offload
+  bias.
+- The repo code was adjusted after this test to keep active-DC observability and
+  DC-count cap calculation while limiting the balanced record-size policy to the
+  DC6 measured ceiling.

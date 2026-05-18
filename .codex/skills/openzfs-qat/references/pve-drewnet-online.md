@@ -219,6 +219,11 @@ ZFS QAT DC initialization could see both cards. The active scale configuration
 is two DH895XCC devices with `12` total `[KERNEL_QAT]` DC instances and `0`
 total `[KERNEL_QAT]` crypto instances.
 
+The ZFS QAT kstat now includes `dc_instances`, which records the active DC
+instances initialized by ZFS after the lazy QAT DC init path runs. Immediately
+after boot this can remain `0` until QAT compression is first exercised; use it
+as ZFS-path observability, not as a replacement for `adf_ctl status`.
+
 Observation: `adf_ctl` and the kernel can report the device up while ZFS QAT kstats remain at zero. Do not infer from driver state alone that ZFS has processed QAT-accelerated I/O.
 
 Boot ordering caveat observed on 2026-05-13: systemd may delete the
@@ -492,6 +497,8 @@ Recent phase 4 policy benchmark artifacts:
 /root/zfs-qat-scale-single-card-jobs8-20260518.csv
 /root/zfs-qat-scale-dual-card-jobs4-20260518.csv
 /root/zfs-qat-scale-dual-card-jobs8-20260518.csv
+/root/zfs-qat-scale-dual-card-perinst-policy-jobs4-20260518.csv
+/root/zfs-qat-scale-dual-card-perinst-policy-jobs8-20260518.csv
 ```
 
 Current QAT async policy parameters after the 2026-05-18 methodology benchmark
@@ -506,10 +513,26 @@ zfs_qat_dc_coalesce_dst=0
 zfs_qat_decompress_disable=0
 ```
 
-The installed ZFS module includes `zfs_qat_dc_async_cap_policy` and reported
-`srcversion DE2F1DB9C0B6720727096E0` after the forced DKMS rebuild and
-initramfs update. The live host rejected invalid cap-policy values with
-`EINVAL` and accepted both `fixed` and `recordsize`.
+The installed ZFS module includes `zfs_qat_dc_async_cap_policy`,
+`dc_instances` kstat observability, and conservative active-DC cap calculation.
+It reported `srcversion 3113C7A062DD66A0FCD30A7` after the 2026-05-18
+forced DC-count policy DKMS rebuild, initramfs update, and reboot. The live host
+rejected invalid cap-policy values with `EINVAL` and accepted both `fixed` and
+`recordsize`.
+
+Recent DC-count policy build artifacts:
+
+```text
+/root/zfs-qat-dc-count-policy-dkms-build-20260518.log
+/root/zfs-qat-dc-count-policy-dkms-install-20260518.log
+/root/zfs-qat-dc-count-policy-initramfs-20260518.log
+/root/zfs-qat-dc-count-policy-dkms-build-20260518-r2.log
+/root/zfs-qat-dc-count-policy-dkms-install-20260518-r2.log
+/root/zfs-qat-dc-count-policy-initramfs-20260518-r2.log
+/root/zfs-qat-dc-count-policy-dkms-build-20260518-r3.log
+/root/zfs-qat-dc-count-policy-dkms-install-20260518-r3.log
+/root/zfs-qat-dc-count-policy-initramfs-20260518-r3.log
+```
 
 The async-compatible coalescing DKMS build reported
 `srcversion 18635F01D8EFD4EBD6C7675` after reboot. Build artifacts:
