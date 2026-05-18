@@ -313,15 +313,15 @@ profile whose representative record size is selected by the operator.
 Recommended initial profile model:
 
 ```text
-zfs_qat_dc_profile=manual|balanced|latency|throughput|offload
-zfs_qat_dc_profile_recordsize=0|131072|262144|524288|1048576
+zfs_qat_dc_profile=balanced|latency|throughput|offload
+zfs_qat_dc_profile_recordsize=131072|262144|524288|1048576
 zfs_qat_dc_ratio_profile=balanced|performance|ratio
 ```
 
 Initial behavior should be conservative:
 
-- `manual`: existing low-level module parameters remain authoritative.
-- `balanced`: current recordsize/DC-count admission and cap policy.
+- `balanced`: default profile. Preserve fallback, avoid measured regressions,
+  and use conservative recordsize/DC-count admission and cap policy.
 - `latency`: same as balanced, but avoid any record size that does not
   repeatedly beat software.
 - `throughput`: allow higher measured caps where repeated throughput wins exist,
@@ -337,8 +337,13 @@ Initial behavior should be conservative:
 `zfs_qat_dc_profile_recordsize` is required because one host can contain
 multiple pools or datasets with different record sizes. The kernel should not
 infer a global QAT session profile from whichever dataset happens to initialize
-QAT first. A value of `0` means no target was selected and profile behavior
-must stay balanced-safe.
+QAT first. The default should be `131072`, matching OpenZFS's default `128K`
+dataset recordsize.
+
+Tunables included in profiles should default to `profile`. A tunable set to
+`profile` receives the profile-computed value. A tunable set to a concrete value
+overrides that one setting while the rest of the profile remains active. Writing
+`profile` back to the tunable returns it to profile control.
 
 Detailed profile design is in `phase-4-profile-plan.md`.
 

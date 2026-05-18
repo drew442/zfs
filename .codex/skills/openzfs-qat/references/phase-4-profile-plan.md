@@ -37,14 +37,13 @@ cards because active DC instance count remains an input to the profile.
 Initial profile parameters:
 
 ```text
-zfs_qat_dc_profile=manual|balanced|latency|throughput|offload
-zfs_qat_dc_profile_recordsize=0|131072|262144|524288|1048576
+zfs_qat_dc_profile=balanced|latency|throughput|offload
+zfs_qat_dc_profile_recordsize=131072|262144|524288|1048576
 zfs_qat_dc_ratio_profile=balanced|performance|ratio
 ```
 
 Semantics:
 
-- `manual`: existing low-level parameters are authoritative.
 - `balanced`: safe default profile. Preserve software fallback, avoid measured
   regressions, and use conservative record-size caps.
 - `latency`: only offload record sizes that repeatedly beat same-window
@@ -57,45 +56,73 @@ Semantics:
   static Huffman only when the operator accepts ratio tradeoff.
 - `ratio`: ratio profile that prefers dynamic Huffman and higher compression
   effort, accepting latency only when explicitly selected.
-- `zfs_qat_dc_profile_recordsize=0` means no target has been selected. The
-  profile should behave as `balanced` and should not apply target-specific
-  session-global choices.
+- `zfs_qat_dc_profile_recordsize=131072` is the default because OpenZFS
+  defaults the dataset `recordsize` property to `128K`
+  (`SPA_OLD_MAXBLOCKSIZE`).
 
 The record-size parameter is deliberately explicit. It should not be inferred
 from whichever dataset happens to initialize QAT first.
+
+## Managed Tunables
+
+Tunables that are included in profiles should default to `profile`. Setting a
+managed tunable to `profile` means the active profile computes the effective
+value. Setting it to a concrete value makes that one tunable manual while the
+rest of the profile remains active.
+
+Example:
+
+```text
+zfs_qat_dc_profile=throughput
+zfs_qat_dc_profile_recordsize=1048576
+zfs_qat_dc_ratio_profile=balanced
+zfs_qat_dc_async=profile
+zfs_qat_dc_async_cap_policy=profile
+zfs_qat_decompress_disable=0
+```
+
+In that example the profile controls async enablement and cap policy, but the
+operator explicitly overrides decompression policy.
+
+If an operator wants to return an overridden tunable to profile control, they
+write `profile` back to that tunable.
 
 ## Precedence
 
 Use this order:
 
-1. `manual` profile: existing low-level module parameters are used exactly as
-   set.
-2. Non-manual profile with target record size: profile computes effective
-   values for profile-managed knobs.
-3. Non-manual profile without target record size: profile falls back to
-   balanced-safe behavior and records that no target was selected.
+1. For profile-managed tunables set to `profile`, compute the value from
+   `zfs_qat_dc_profile`, `zfs_qat_dc_profile_recordsize`, and
+   `zfs_qat_dc_ratio_profile`.
+2. For profile-managed tunables set to a concrete value, use the concrete
+   manual value for that tunable only.
+3. For deployment/manual tunables, always use the configured value.
 
-Low-level knobs should remain available for benchmarking and debugging. Once a
-non-manual profile owns a knob, documentation must say whether direct writes to
-that low-level knob override the profile, are rejected, or are ignored until the
-profile returns to `manual`. Prefer rejecting conflicting writes over silently
-ignoring them.
+Low-level knobs remain available for benchmarking and debugging. The important
+change is that manual override is per tunable, not an all-or-nothing global
+mode.
+
+Implementation note: existing integer module parameters cannot keep using the
+plain integer setter if they need to accept the string `profile`. Each managed
+numeric tunable needs a custom setter/getter that accepts either `profile` or a
+validated concrete value, stores whether the tunable is profile-managed, and
+reports `profile` when profile control is active.
 
 ## Knob Classification
 
 ```text
 knob                                  scope          profile handling
-zfs_qat_dc_async                     global         profile-managed
-zfs_qat_dc_async_cap_policy          per request    profile-managed
-zfs_qat_dc_async_max_inflight        global cap     manual/fixed fallback
-zfs_qat_dc_async_submit_retries      global         profile-managed later
-zfs_qat_dc_async_retry_us            global         profile-managed later
-zfs_qat_decompress_disable           global         profile-managed
-zfs_qat_dc_max_buf_size              global         profile-managed
-zfs_qat_dc_coalesce_src              global path    profile-managed after repeat evidence
-zfs_qat_dc_coalesce_dst              global path    profile-managed after repeat evidence
-zfs_qat_cpa_dc_level                 session-global profile-managed before DC init
-zfs_qat_cpa_dc_hufftype              session-global profile-managed before DC init
+zfs_qat_dc_async                     global         profile|0|1
+zfs_qat_dc_async_cap_policy          per request    profile|fixed|recordsize|throughput
+zfs_qat_dc_async_max_inflight        global cap     profile|integer
+zfs_qat_dc_async_submit_retries      global         profile|integer
+zfs_qat_dc_async_retry_us            global         profile|integer
+zfs_qat_decompress_disable           global         profile|0|1
+zfs_qat_dc_max_buf_size              global         profile|131072|262144|524288|1048576
+zfs_qat_dc_coalesce_src              global path    profile|0|1 after repeat evidence
+zfs_qat_dc_coalesce_dst              global path    profile|0|1 after repeat evidence
+zfs_qat_cpa_dc_level                 session-global profile|1|2|3|4 before DC init
+zfs_qat_cpa_dc_hufftype              session-global profile|dynamic|static before DC init
 zfs_qat_dc_max_instances             init-global    deployment/manual
 zfs_qat_cy_max_instances             init-global    deployment/manual
 zfs_qat_checksum_disable             global         deployment/manual
@@ -130,21 +157,24 @@ Notes:
 
 ## Implementation Order
 
-1. Add `zfs_qat_dc_profile_recordsize` with validation for `0`, `128K`, `256K`,
-   `512K`, and `1M`.
-2. Add `zfs_qat_dc_profile` and `zfs_qat_dc_ratio_profile` as validated string
-   parameters.
-3. Implement effective-profile helper functions instead of immediately mutating
-   the existing low-level tunables.
-4. Move the existing `recordsize` and `throughput` cap behavior behind the
-   profile helpers while preserving the existing low-level cap-policy parameter
-   for `manual`.
-5. Apply session-global compression level and Huffman selections at QAT DC init
-   only. Reject profile changes that would require changing active QAT DC
-   sessions after initialization.
-6. Add kstats or benchmark columns showing the selected profile, target record
-   size, effective cap policy, and effective global choices.
-7. Only then consider profile-managed coalescing or ratio/performance profiles.
+1. Add `zfs_qat_dc_profile_recordsize` with default `131072` and validation for
+   `128K`, `256K`, `512K`, and `1M`.
+2. Add `zfs_qat_dc_profile=balanced` and
+   `zfs_qat_dc_ratio_profile=balanced` as validated string parameters.
+3. Convert the first profile-owned tunables to accept `profile` plus concrete
+   manual values. Start with async enablement and async cap policy because those
+   have measured profile actions.
+4. Implement effective-profile helper functions. The raw module parameter value
+   describes operator intent; helper functions provide the effective runtime
+   value.
+5. Move the existing `recordsize` and `throughput` cap behavior behind the
+   profile helpers while preserving concrete low-level manual values.
+6. Apply session-global compression level and Huffman selections at QAT DC init
+   only. Reject concrete/profile changes that would require changing active QAT
+   DC sessions after initialization.
+7. Add kstats or benchmark columns showing selected profiles, target record
+   size, raw tunable state, and effective runtime choices.
+8. Only then consider profile-managed coalescing or ratio/performance profiles.
 
 ## Mixed Dataset Guidance
 
@@ -166,6 +196,8 @@ fallback rules. The target does not force every record size through QAT.
   dedicated benchmark exists.
 - Whether `offload` and `throughput` should diverge for `1M+` after more CPU
   and elapsed-time evidence.
+- Which concrete settings should be represented as strings versus numeric
+  values in `/sys/module/zfs/parameters/` after adding `profile` support.
 - Whether profile-managed compression level should default to level 1 for
   throughput/performance profiles or keep the current operator-selected level
   until a broader repeat confirms the ratio tradeoff.

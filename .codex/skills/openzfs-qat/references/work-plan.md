@@ -220,19 +220,21 @@ Workstream F: optimization bias controls:
 Status update: global tunables should participate in profiles rather than
 remaining manual forever. Because a host can contain multiple pools or datasets
 with different record sizes, the profile must use an operator-selected target
-record size instead of inferring one automatically. See
+record size instead of inferring one automatically. The default target should be
+`131072`, matching OpenZFS's default `128K` dataset recordsize. See
 `phase-4-profile-plan.md`.
 
 Next profile work:
 
-- Add a target record-size parameter such as `zfs_qat_dc_profile_recordsize`.
-- Add profile selectors such as `zfs_qat_dc_profile` and
-  `zfs_qat_dc_ratio_profile`.
-- Keep `manual` as the default so existing low-level parameters remain
-  authoritative.
-- In non-manual profiles, compute effective settings for async cap policy,
-  large-record eligibility, decompression policy, and eventually compression
-  level/Huffman type.
+- Add `zfs_qat_dc_profile=balanced` and
+  `zfs_qat_dc_ratio_profile=balanced`.
+- Add `zfs_qat_dc_profile_recordsize=131072`, accepting `128K`, `256K`, `512K`,
+  and `1M`.
+- Convert profile-owned tunables to default to `profile`, while still accepting
+  concrete manual values for per-tunable override.
+- Compute effective settings for async cap policy, large-record eligibility,
+  decompression policy, and eventually compression level/Huffman type from the
+  active profile when the relevant tunable is set to `profile`.
 - Apply session-global settings such as QAT compression level and Huffman type
   only before QAT DC initialization, and reject profile changes that would
   require changing active QAT DC sessions.
