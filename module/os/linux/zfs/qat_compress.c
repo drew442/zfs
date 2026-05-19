@@ -480,6 +480,38 @@ qat_dc_effective_poll_quota(void)
 }
 
 static boolean_t
+qat_dc_validate_poll_mode(void)
+{
+	boolean_t expected = qat_dc_effective_poll() ? B_TRUE : B_FALSE;
+
+	for (Cpa16U i = 0; i < num_inst; i++) {
+		CpaInstanceInfo2 instance_info = {0};
+		CpaStatus status;
+		boolean_t is_polled;
+
+		status = cpaDcInstanceGetInfo2(dc_inst_handles[i],
+		    &instance_info);
+		if (status != CPA_STATUS_SUCCESS) {
+			cmn_err(CE_WARN, "QAT DC instance %u poll mode query "
+			    "failed with status %d", i, status);
+			return (B_FALSE);
+		}
+
+		is_polled = (instance_info.isPolled == CPA_TRUE);
+		if (is_polled != expected) {
+			cmn_err(CE_WARN, "QAT DC instance %u poll mode mismatch: "
+			    "driver=%s zfs=%s. Set DcNIsPolled and "
+			    "zfs_qat_dc_poll to matching values before QAT DC "
+			    "init", i, is_polled ? "poll" : "interrupt",
+			    expected ? "poll" : "interrupt");
+			return (B_FALSE);
+		}
+	}
+
+	return (B_TRUE);
+}
+
+static boolean_t
 qat_dc_valid_profile_recordsize(int recordsize)
 {
 	switch (recordsize) {
@@ -1149,6 +1181,9 @@ qat_dc_init(void)
 
 	status = cpaDcGetInstances(num_inst, &dc_inst_handles[0]);
 	if (status != CPA_STATUS_SUCCESS)
+		return (-1);
+
+	if (!qat_dc_validate_poll_mode())
 		return (-1);
 
 	for (Cpa16U i = 0; i < num_inst; i++) {
@@ -2997,21 +3032,21 @@ MODULE_PARM_DESC(zfs_qat_dc_async_cap_policy,
 module_param_call(zfs_qat_dc_poll, param_set_qat_dc_poll,
     param_get_qat_dc_poll, &zfs_qat_dc_poll, 0644);
 MODULE_PARM_DESC(zfs_qat_dc_poll,
-    "Enable/Disable experimental synchronous QAT DC polling: profile, "
-    "0, or 1");
+    "Enable/Disable synchronous QAT DC polling: profile, 0, or 1. "
+    "Requires QAT DC instances configured with matching DcNIsPolled mode");
 
 module_param_call(zfs_qat_dc_poll_interval_us,
     param_set_qat_dc_poll_interval_us, param_get_qat_dc_poll_interval_us,
     &zfs_qat_dc_poll_interval_us, 0644);
 MODULE_PARM_DESC(zfs_qat_dc_poll_interval_us,
-    "Experimental synchronous QAT DC poll sleep interval in microseconds: "
+    "Synchronous QAT DC poll sleep interval in microseconds: "
     "profile or integer");
 
 module_param_call(zfs_qat_dc_poll_quota,
     param_set_qat_dc_poll_quota, param_get_qat_dc_poll_quota,
     &zfs_qat_dc_poll_quota, 0644);
 MODULE_PARM_DESC(zfs_qat_dc_poll_quota,
-    "Experimental synchronous QAT DC poll response quota: profile or integer");
+    "Synchronous QAT DC poll response quota: profile or integer");
 
 module_param_call(zfs_qat_dc_profile, param_set_qat_dc_profile,
     param_get_charp, &zfs_qat_dc_profile, 0644);

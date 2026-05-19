@@ -8,7 +8,7 @@ without stranding requests.
 
 ## Implementation
 
-Added experimental ZFS module parameters:
+Added ZFS module parameters:
 
 ```text
 zfs_qat_dc_poll=profile|0|1
@@ -28,6 +28,21 @@ When polling is enabled, ZFS starts one kernel poller thread named
 `zfs_qat_dc_poll`. The thread polls all initialized QAT DC instances while ZFS
 has QAT DC compression or decompression requests in flight. Synchronous callers
 sleep on their normal completion object; callbacks still complete the request.
+
+Polling is a permanent operator-visible option, but it is intentionally fail
+closed. During QAT DC init, ZFS queries every selected DC instance with
+`cpaDcInstanceGetInfo2()` and verifies the driver's `isPolled` state matches
+the effective `zfs_qat_dc_poll` value. A mismatch disables QAT DC init instead
+of allowing requests to be submitted into a delivery mode ZFS is not servicing.
+This protects both unsafe directions:
+
+- `DcNIsPolled = 1` with `zfs_qat_dc_poll=0|profile`
+- `DcNIsPolled = 0` with `zfs_qat_dc_poll=1`
+
+Because the QAT driver delivery mode comes from the device config and ZFS starts
+the poller only at QAT DC init, switch polling mode by changing both the QAT
+config and the ZFS module/boot parameter, then rebuilding initramfs and
+rebooting. Do not rely on changing `zfs_qat_dc_poll` live after QAT DC init.
 
 Polling forces the experimental async compression path off. The current async
 path depends on callback-driven `zio` resume and should not use QAT poll
@@ -129,13 +144,12 @@ Driver timing under polling:
 
 ## Next Target
 
-Run a polling interval sweep before drawing a final conclusion:
+The interval sweep was completed in
+`qat-dc-poll-interval-sweep-20260519.md`.
 
-```text
-zfs_qat_dc_poll_interval_us=0,1,5,10,25,50
-```
-
-Use `128K` first, then repeat only the best interval at `256K`, `512K`, and
-`1M` with `zfs_qat_dc_profile_recordsize=1048576`. Track elapsed time, active
-CPU, `dc_poll_calls_delta`, `dc_poll_retries_delta`, `dc_poll_ns_delta`,
-driver wait, and ZFS wait per MiB.
+Current result: polling is safe enough to keep as a permanent operator-visible
+option with the init-time mode validation. The best broad interval from the
+128K sweep was `10 us`, but polling is not a universal elapsed-time win. QAT
+still provides large active-CPU reductions and can handle `256K`, `512K`, and
+`1M` records when `zfs_qat_dc_profile_recordsize=1048576` makes the effective
+QAT max buffer large enough.

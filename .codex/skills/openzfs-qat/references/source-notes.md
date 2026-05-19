@@ -130,13 +130,15 @@ These notes capture stable, primary-source details useful when reviewing this fo
   interrupt behavior, and QAT service/ring configuration as the next likely
   optimization targets before returning to ZFS allocation tuning.
 - QAT 4.28 kernel DC poll delivery is not a safe config-only switch for ZFS:
-  `DcNIsPolled = 1` changes RX rings to poll delivery, and the OpenZFS tree does
-  not currently call `icp_sal_DcPollInstance()`.
+  `DcNIsPolled = 1` changes RX rings to poll delivery. The ZFS QAT code now
+  validates each selected DC instance with `cpaDcInstanceGetInfo2()` during QAT
+  DC init and fails closed when the driver's `isPolled` state does not match
+  the effective `zfs_qat_dc_poll` mode.
 - ZFS-side QAT DC polling must use one central poller thread. Per-request
   waiter polling stranded requests in testing, likely because many concurrent
   waiters polling the same traditional DC instances is not a safe reentrant
-  shape. The current experimental implementation starts `zfs_qat_dc_poll` only
-  when `zfs_qat_dc_poll` is enabled at QAT DC init time.
+  shape. The implementation starts `zfs_qat_dc_poll` only when
+  `zfs_qat_dc_poll` is enabled at QAT DC init time.
 - When `zfs_qat_dc_poll` is enabled, ZFS disables the experimental async
   compression path because async `zio` resume currently depends on callback
   delivery and has not been redesigned around polling.
@@ -149,6 +151,15 @@ These notes capture stable, primary-source details useful when reviewing this fo
   functionally. It beat software by 3.6% at `JOBS=1`, was slower by 2.0% at
   `JOBS=4`, and was effectively parity but slightly slower by 0.4% at `JOBS=8`.
   It still used substantially less active CPU than software.
+- The 2026-05-19 polling interval sweep made polling a safer permanent option
+  by validating QAT driver `isPolled` state against `zfs_qat_dc_poll` during QAT
+  DC init. A mismatch fails closed. In the 128 KiB sweep, `10 us` was the best
+  broad interval, but polling was still not a universal elapsed-time win.
+- Larger records can use QAT DC only when the effective QAT max buffer is large
+  enough. With `zfs_qat_dc_profile_recordsize=1048576`, polling mode handled
+  `256K`, `512K`, and `1M` records with nonzero QAT request counters. Without
+  that profile-recordsize change, those larger-record tests fell back to
+  software.
 - Intel documents 64-byte payload alignment as optimal, while unaligned payloads may still work with lower performance. Avoid treating alignment advice as a correctness requirement unless the specific API structure requires it.
 - Intel documents NUMA locality and memory-channel population as performance factors. Do not encode universal performance thresholds from a single machine or forum report.
 - Intel documents SVM for QAT 2.0 and DMA-able/pinned memory requirements when SVM is not enabled. SVM is out of scope for this QAT 1.x-focused project; review allocation/copy costs in the current physically contiguous allocation path before lowering offload thresholds.

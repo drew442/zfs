@@ -255,6 +255,18 @@ The working central-poller implementation was benchmarked, then the host was
 restored and rebooted. Active state is back to:
 `zfs_qat_dc_poll=profile`, no `zfs_qat_dc_poll` boot option, and
 `[KERNEL_QAT] Dc0IsPolled` through `Dc5IsPolled = 0` on both QAT cards.
+ZFS now validates the QAT driver's DC `isPolled` state during QAT DC init and
+refuses QAT DC startup if the driver config and `zfs_qat_dc_poll` effective mode
+do not match.
+
+Polling interval sweep note: on 2026-05-19 the host was again temporarily
+booted with matching QAT/ZFS polling mode to sweep
+`zfs_qat_dc_poll_interval_us=0,1,5,10,25,50`, then with
+`zfs_qat_dc_profile_recordsize=1048576` for larger-record polling tests. The
+host was restored and rebooted after testing. Active state is again
+`zfs_qat_dc_poll=profile`, `zfs_qat_dc_profile_recordsize=131072`, no poller
+thread, and `[KERNEL_QAT] Dc0IsPolled` through `Dc5IsPolled = 0` on both QAT
+cards.
 
 The ZFS QAT kstat now includes `dc_instances`, which records the active DC
 instances initialized by ZFS after the lazy QAT DC init path runs. Immediately
