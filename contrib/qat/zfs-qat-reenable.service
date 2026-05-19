@@ -1,0 +1,12 @@
+[Unit]
+Description=Re-enable OpenZFS QAT after QAT service startup
+After=qat.service
+Requires=qat.service
+ConditionPathExists=/sys/module/zfs/parameters/zfs_qat_compress_disable
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'printf 1 > /sys/module/zfs/parameters/zfs_qat_compress_disable; printf 0 > /sys/module/zfs/parameters/zfs_qat_compress_disable'
+
+[Install]
+WantedBy=multi-user.target

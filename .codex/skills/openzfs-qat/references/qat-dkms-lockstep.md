@@ -36,15 +36,120 @@ This means generated ZFS `dkms.conf` files use the QAT DKMS source path for `--w
 
 Install or rebuild QAT DKMS before rebuilding ZFS DKMS. The ZFS configure checks need the QAT headers, built objects under `${ICP_ROOT}/build`, and QAT `Module.symvers` files to come from the same QAT source tree and target kernel.
 
-## Host deployment order
+## End-to-end rebuild flow
 
-1. Build and install the QAT DKMS package from `contrib/qat/QAT.L.4.28.0-00004`.
-2. Confirm `/usr/src/qat-4.28.0-00004/build/qat_api.ko` exists for the target kernel build.
-3. Rebuild the ZFS DKMS package so `--with-qat=/usr/src/qat-4.28.0-00004` is used.
-4. Verify `modinfo zfs` shows the expected QAT dependency and `/proc/spl/kstat/zfs/qat` appears after module load.
-5. If ZFS loads before `qat.service`, re-enable QAT compression after
-   `qat.service` by toggling `zfs_qat_compress_disable` from `1` back to `0`.
-   On `pve.drewnet.online`, this is handled by
-   `/etc/systemd/system/zfs-qat-reenable.service`.
+These commands are the known-good host flow used on `pve.drewnet.online`.
+Run them from the OpenZFS repository checkout unless noted otherwise.
+
+1. Update the OpenZFS checkout and QAT submodule:
+
+```sh
+git fetch drew qat-usability-performance
+git checkout -B qat-usability-performance drew/qat-usability-performance
+git submodule update --init contrib/qat/QAT.L.4.28.0-00004
+```
+
+2. Validate QAT DKMS installer prerequisites:
+
+```sh
+cd contrib/qat/QAT.L.4.28.0-00004
+sudo QAT_DKMS_PREFLIGHT_ONLY=1 ./scripts/install-dkms.sh
+```
+
+3. Build and install the QAT DKMS package:
+
+```sh
+sudo QAT_DKMS_REPLACE=1 ./scripts/install-dkms.sh
+```
+
+4. Return to the OpenZFS checkout and generate the ZFS DKMS config:
+
+```sh
+cd /root/zfs
+./autogen.sh
+./scripts/dkms.mkconf -n zfs -v 2.4.99 -f dkms.conf
+```
+
+5. Refresh the ZFS DKMS source tree:
+
+```sh
+sudo rm -rf /usr/src/zfs-2.4.99.prev
+if [ -d /usr/src/zfs-2.4.99 ]; then
+    sudo mv /usr/src/zfs-2.4.99 /usr/src/zfs-2.4.99.prev
+fi
+sudo mkdir -p /usr/src/zfs-2.4.99
+sudo rsync -a --delete \
+    --exclude .git \
+    --exclude 'contrib/qat/QAT.L.4.28.0-00004/.git' \
+    ./ /usr/src/zfs-2.4.99/
+```
+
+6. Rebuild and reinstall ZFS DKMS against the QAT DKMS source path:
+
+```sh
+sudo dkms remove -m zfs -v 2.4.99 -k "$(uname -r)" || true
+sudo dkms add -m zfs -v 2.4.99
+sudo ICP_ROOT=/usr/src/qat-4.28.0-00004 dkms build --force -m zfs -v 2.4.99 -k "$(uname -r)"
+sudo dkms install --force -m zfs -v 2.4.99 -k "$(uname -r)"
+```
+
+7. Update initramfs, install the optional QAT re-enable service, and reboot:
+
+```sh
+sudo update-initramfs -u -k "$(uname -r)"
+sudo contrib/qat/install-zfs-qat-reenable.sh
+sudo reboot
+```
 
 Do not install dracut packages on `pve.drewnet.online`; this flow is compatible with the host's existing initramfs-based boot path.
+
+## Boot-order helper
+
+If ZFS loads before `qat.service`, QAT compression remains disabled until
+`zfs_qat_compress_disable` is toggled from `1` back to `0`. On
+`pve.drewnet.online`, this is handled by
+`/etc/systemd/system/zfs-qat-reenable.service`.
+
+Install the optional helper from the repository with:
+
+```sh
+sudo contrib/qat/install-zfs-qat-reenable.sh
+```
+
+The helper is intentionally separate from DKMS packaging because it is a host
+boot-order workaround, not a kernel module build requirement.
+
+## Runtime validation
+
+After reboot, verify QAT and ZFS both resolve to DKMS modules:
+
+```sh
+dkms status -m qat -v 4.28.0-00004
+dkms status -m zfs -v 2.4.99
+modinfo -n intel_qat
+modinfo -n qat_api
+modinfo -n usdm_drv
+modinfo -n zfs
+```
+
+Expected module paths should resolve under `/lib/modules/$(uname -r)/updates/dkms`.
+
+Verify QAT services and devices:
+
+```sh
+systemctl is-active qat.service
+systemctl is-enabled zfs-qat-reenable.service
+systemctl --no-pager --full status zfs-qat-reenable.service
+adf_ctl status
+```
+
+Verify OpenZFS QAT runtime counters:
+
+```sh
+cat /sys/module/zfs/parameters/zfs_qat_compress_disable
+awk '/dc_instances|dc_fails|comp_requests|comp_total_in_bytes|comp_total_out_bytes/ { print }' /proc/spl/kstat/zfs/qat
+```
+
+A short smoke test should create a temporary gzip dataset, write a file, read it
+back, compare the checksum, and confirm `comp_requests` increased with
+`dc_fails=0`.
