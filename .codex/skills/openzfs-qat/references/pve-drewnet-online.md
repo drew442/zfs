@@ -130,6 +130,19 @@ State observed: active (exited) when started successfully
 Enabled: yes
 ```
 
+ZFS QAT post-start helper:
+
+```text
+Unit: zfs-qat-reenable.service
+Loaded from: /etc/systemd/system/zfs-qat-reenable.service
+Enabled: yes
+Ordering: After=qat.service, Requires=qat.service
+Action: toggles zfs_qat_compress_disable from 1 back to 0
+Purpose: ZFS can load before qat.service has brought devices up; toggling the
+compression disable parameter after qat.service completes initializes the QAT
+DC path without reloading ZFS.
+```
+
 `/etc/default/qat` contains:
 
 ```text
@@ -142,6 +155,7 @@ Relevant commands:
 
 ```bash
 systemctl status qat.service --no-pager
+systemctl status zfs-qat-reenable.service --no-pager
 cat /etc/default/qat
 find /root/QAT/QAT.L.4.28.0-00004 -maxdepth 3 -type f \
   \( -name cpa.h -o -name Module.symvers -o -name '*.ko' \)
@@ -218,6 +232,11 @@ copying the DC-only `/etc/dh895xcc_dev0.conf`, then the host was rebooted so
 ZFS QAT DC initialization could see both cards. The active scale configuration
 is two DH895XCC devices with `12` total `[KERNEL_QAT]` DC instances and `0`
 total `[KERNEL_QAT]` crypto instances.
+
+DKMS lock-step deployment note: on 2026-05-19 QAT 4.28 was installed through
+DKMS as `qat/4.28.0-00004`, ZFS DKMS was rebuilt with
+`ICP_ROOT=/usr/src/qat-4.28.0-00004`, and `zfs-qat-reenable.service` was
+enabled so ZFS initializes QAT DC after `qat.service` at boot.
 
 The ZFS QAT kstat now includes `dc_instances`, which records the active DC
 instances initialized by ZFS after the lazy QAT DC init path runs. Immediately

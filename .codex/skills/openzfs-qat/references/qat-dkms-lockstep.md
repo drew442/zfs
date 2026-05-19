@@ -42,5 +42,9 @@ Install or rebuild QAT DKMS before rebuilding ZFS DKMS. The ZFS configure checks
 2. Confirm `/usr/src/qat-4.28.0-00004/build/qat_api.ko` exists for the target kernel build.
 3. Rebuild the ZFS DKMS package so `--with-qat=/usr/src/qat-4.28.0-00004` is used.
 4. Verify `modinfo zfs` shows the expected QAT dependency and `/proc/spl/kstat/zfs/qat` appears after module load.
+5. If ZFS loads before `qat.service`, re-enable QAT compression after
+   `qat.service` by toggling `zfs_qat_compress_disable` from `1` back to `0`.
+   On `pve.drewnet.online`, this is handled by
+   `/etc/systemd/system/zfs-qat-reenable.service`.
 
 Do not install dracut packages on `pve.drewnet.online`; this flow is compatible with the host's existing initramfs-based boot path.
