@@ -132,11 +132,23 @@ These notes capture stable, primary-source details useful when reviewing this fo
 - QAT 4.28 kernel DC poll delivery is not a safe config-only switch for ZFS:
   `DcNIsPolled = 1` changes RX rings to poll delivery, and the OpenZFS tree does
   not currently call `icp_sal_DcPollInstance()`.
+- ZFS-side QAT DC polling must use one central poller thread. Per-request
+  waiter polling stranded requests in testing, likely because many concurrent
+  waiters polling the same traditional DC instances is not a safe reentrant
+  shape. The current experimental implementation starts `zfs_qat_dc_poll` only
+  when `zfs_qat_dc_poll` is enabled at QAT DC init time.
+- When `zfs_qat_dc_poll` is enabled, ZFS disables the experimental async
+  compression path because async `zio` resume currently depends on callback
+  delivery and has not been redesigned around polling.
 - A 2026-05-19 minimum-timer interrupt coalescing test on two dh895xcc cards did
   not produce a material end-to-end QAT win at 128 KiB. It improved driver wait
   at `JOBS=4`, but elapsed time did not improve and `JOBS=8` active CPU rose.
   Keep the default coalescing config unless a later poller or per-instance
   distribution experiment changes the evidence.
+- The 2026-05-19 central-poller 128K matrix showed polling working
+  functionally. It beat software by 3.6% at `JOBS=1`, was slower by 2.0% at
+  `JOBS=4`, and was effectively parity but slightly slower by 0.4% at `JOBS=8`.
+  It still used substantially less active CPU than software.
 - Intel documents 64-byte payload alignment as optimal, while unaligned payloads may still work with lower performance. Avoid treating alignment advice as a correctness requirement unless the specific API structure requires it.
 - Intel documents NUMA locality and memory-channel population as performance factors. Do not encode universal performance thresholds from a single machine or forum report.
 - Intel documents SVM for QAT 2.0 and DMA-able/pinned memory requirements when SVM is not enabled. SVM is out of scope for this QAT 1.x-focused project; review allocation/copy costs in the current physically contiguous allocation path before lowering offload thresholds.

@@ -246,6 +246,16 @@ rebooted again. Active DC banks are back to the default generated config:
 `BankNInterruptCoalescingTimerNs = 10000`, and
 `BankNInterruptCoalescingNumResponses = 0`.
 
+QAT DC polling experiment note: on 2026-05-19 both device configs were
+temporarily changed so `[KERNEL_QAT]` `Dc0IsPolled` through `Dc5IsPolled` were
+`1`, and ZFS was booted with `zfs_qat_dc_poll=1`. Two unsafe implementation
+shapes stranded requests and required forced reboots during development:
+config-only polling without ZFS polling, and concurrent per-waiter polling.
+The working central-poller implementation was benchmarked, then the host was
+restored and rebooted. Active state is back to:
+`zfs_qat_dc_poll=profile`, no `zfs_qat_dc_poll` boot option, and
+`[KERNEL_QAT] Dc0IsPolled` through `Dc5IsPolled = 0` on both QAT cards.
+
 The ZFS QAT kstat now includes `dc_instances`, which records the active DC
 instances initialized by ZFS after the lazy QAT DC init path runs. Immediately
 after boot this can remain `0` until QAT compression is first exercised; use it

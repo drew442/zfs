@@ -27,10 +27,14 @@
 #include <linux/pagemap.h>
 #include <linux/completion.h>
 #include <linux/delay.h>
+#include <linux/err.h>
+#include <linux/kthread.h>
+#include <linux/wait.h>
 #include <sys/zfs_context.h>
 #include <sys/byteorder.h>
 #include <sys/zio.h>
 #include <sys/qat.h>
+#include "icp/icp_sal_poll.h"
 
 /*
  * Max instances in a QAT device, each instance is a channel to submit
@@ -131,6 +135,8 @@ static qat_dc_buffer_pool_t buffer_pools[QAT_DC_MAX_INSTANCES];
 static Cpa16U num_inst = 0;
 static Cpa32U inst_num = 0;
 static boolean_t qat_dc_init_done = B_FALSE;
+static struct task_struct *qat_dc_poll_task;
+static DECLARE_WAIT_QUEUE_HEAD(qat_dc_poll_wq);
 static int qat_dc_effective_decompress_disable(void);
 static int qat_dc_effective_level(void);
 static const char *qat_dc_effective_hufftype(void);
@@ -141,6 +147,9 @@ static int qat_dc_effective_async(void);
 static int qat_dc_effective_async_submit_retries(void);
 static int qat_dc_effective_async_retry_us(void);
 static int qat_dc_effective_async_max_inflight(void);
+static int qat_dc_effective_poll(void);
+static int qat_dc_effective_poll_interval_us(void);
+static int qat_dc_effective_poll_quota(void);
 int zfs_qat_compress_disable = 0;
 char *zfs_qat_decompress_disable = "profile";
 static int zfs_qat_decompress_disable_value = 0;
@@ -164,6 +173,12 @@ static int zfs_qat_dc_async_retry_us_value = 100;
 char *zfs_qat_dc_async_max_inflight = "profile";
 static int zfs_qat_dc_async_max_inflight_value = 96;
 char *zfs_qat_dc_async_cap_policy = "profile";
+char *zfs_qat_dc_poll = "profile";
+static int zfs_qat_dc_poll_value = 0;
+char *zfs_qat_dc_poll_interval_us = "profile";
+static int zfs_qat_dc_poll_interval_us_value = 0;
+char *zfs_qat_dc_poll_quota = "profile";
+static int zfs_qat_dc_poll_quota_value = 0;
 char *zfs_qat_dc_profile = "balanced";
 int zfs_qat_dc_profile_recordsize = 128 * 1024;
 char *zfs_qat_dc_ratio_profile = "balanced";
@@ -365,6 +380,9 @@ qat_dc_profile_async(const char *dc_profile)
 static int
 qat_dc_effective_async(void)
 {
+	if (qat_dc_effective_poll())
+		return (0);
+
 	if (strcmp(zfs_qat_dc_async, "profile") == 0)
 		return (qat_dc_profile_async(zfs_qat_dc_profile));
 
@@ -414,6 +432,51 @@ qat_dc_effective_async_max_inflight(void)
 		return (qat_dc_profile_async_max_inflight());
 
 	return (zfs_qat_dc_async_max_inflight_value);
+}
+
+static int
+qat_dc_profile_poll(void)
+{
+	return (0);
+}
+
+static int
+qat_dc_effective_poll(void)
+{
+	if (strcmp(zfs_qat_dc_poll, "profile") == 0)
+		return (qat_dc_profile_poll());
+
+	return (zfs_qat_dc_poll_value);
+}
+
+static int
+qat_dc_profile_poll_interval_us(void)
+{
+	return (0);
+}
+
+static int
+qat_dc_effective_poll_interval_us(void)
+{
+	if (strcmp(zfs_qat_dc_poll_interval_us, "profile") == 0)
+		return (qat_dc_profile_poll_interval_us());
+
+	return (zfs_qat_dc_poll_interval_us_value);
+}
+
+static int
+qat_dc_profile_poll_quota(void)
+{
+	return (0);
+}
+
+static int
+qat_dc_effective_poll_quota(void)
+{
+	if (strcmp(zfs_qat_dc_poll_quota, "profile") == 0)
+		return (qat_dc_profile_poll_quota());
+
+	return (zfs_qat_dc_poll_quota_value);
 }
 
 static boolean_t
@@ -608,6 +671,108 @@ qat_dc_callback(void *p_callback, CpaStatus status)
 }
 
 static void
+qat_dc_poll_instances(Cpa32U quota)
+{
+	CpaStatus poll_status;
+	hrtime_t start;
+	hrtime_t end;
+
+	for (Cpa16U i = 0; i < num_inst; i++) {
+		start = gethrtime();
+		poll_status = icp_sal_DcPollInstance(dc_inst_handles[i], quota);
+		end = gethrtime();
+		QAT_STAT_BUMP(dc_poll_calls);
+		QAT_STAT_ADD_TIME(dc_poll_ns, start, end);
+
+		switch (poll_status) {
+		case CPA_STATUS_SUCCESS:
+			QAT_STAT_BUMP(dc_poll_success);
+			break;
+		case CPA_STATUS_RETRY:
+			QAT_STAT_BUMP(dc_poll_retries);
+			break;
+		default:
+			QAT_STAT_BUMP(dc_poll_fails);
+			break;
+		}
+	}
+}
+
+static void
+qat_dc_wait_completion(struct completion *complete)
+{
+	if (!qat_dc_effective_poll()) {
+		wait_for_completion(complete);
+		return;
+	}
+
+	wake_up(&qat_dc_poll_wq);
+	wait_for_completion(complete);
+}
+
+static uint64_t
+qat_dc_inflight_total(void)
+{
+	return (qat_stats.dc_compress_inflight.value.ui64 +
+	    qat_stats.dc_decompress_inflight.value.ui64);
+}
+
+static int
+qat_dc_poll_thread(void *arg)
+{
+	(void) arg;
+
+	while (!kthread_should_stop()) {
+		Cpa32U quota = (Cpa32U)qat_dc_effective_poll_quota();
+		int interval_us = qat_dc_effective_poll_interval_us();
+
+		if (!qat_dc_effective_poll() || qat_dc_inflight_total() == 0) {
+			wait_event_interruptible(qat_dc_poll_wq,
+			    kthread_should_stop() ||
+			    (qat_dc_effective_poll() &&
+			    qat_dc_inflight_total() > 0));
+			continue;
+		}
+
+		qat_dc_poll_instances(quota);
+
+		if (interval_us > 0) {
+			usleep_range(interval_us, interval_us + 10);
+		} else {
+			cpu_relax();
+			cond_resched();
+		}
+	}
+
+	return (0);
+}
+
+static int
+qat_dc_poll_start(void)
+{
+	if (!qat_dc_effective_poll())
+		return (0);
+
+	qat_dc_poll_task = kthread_run(qat_dc_poll_thread, NULL,
+	    "zfs_qat_dc_poll");
+	if (IS_ERR(qat_dc_poll_task)) {
+		qat_dc_poll_task = NULL;
+		return (-1);
+	}
+
+	return (0);
+}
+
+static void
+qat_dc_poll_stop(void)
+{
+	if (qat_dc_poll_task != NULL) {
+		kthread_stop(qat_dc_poll_task);
+		qat_dc_poll_task = NULL;
+	}
+}
+
+static void
 qat_dc_update_stat_max(kstat_named_t *max_stat, uint64_t value)
 {
 	uint64_t max;
@@ -637,6 +802,9 @@ qat_dc_inflight_enter(qat_compress_dir_t dir)
 		qat_dc_update_stat_max(
 		    &qat_stats.dc_decompress_inflight_max, inflight);
 	}
+
+	if (qat_dc_effective_poll())
+		wake_up(&qat_dc_poll_wq);
 }
 
 static void
@@ -905,6 +1073,8 @@ qat_dc_clean(void)
 	Cpa16U buff_num = 0;
 	Cpa16U num_inter_buff_lists = 0;
 
+	qat_dc_poll_stop();
+
 	for (Cpa16U i = 0; i < num_inst; i++) {
 		cpaDcStopInstance(dc_inst_handles[i]);
 		QAT_PHYS_CONTIG_FREE(session_handles[i]);
@@ -1069,6 +1239,8 @@ qat_dc_init(void)
 
 	qat_dc_init_done = B_TRUE;
 	qat_stats.dc_instances.value.ui64 = num_inst;
+	if (qat_dc_poll_start() != 0)
+		goto fail;
 	return (0);
 fail:
 	qat_dc_clean();
@@ -1390,7 +1562,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 
 		/* we now wait until the completion of the operation. */
 		phase_start = gethrtime();
-		wait_for_completion(&complete);
+		qat_dc_wait_completion(&complete);
 		phase_end = gethrtime();
 		qat_dc_inflight_exit(dir);
 		QAT_STAT_ADD_TIME(dc_compress_wait_ns, phase_start, phase_end);
@@ -1449,7 +1621,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 
 		/* we now wait until the completion of the operation. */
 		phase_start = gethrtime();
-		wait_for_completion(&complete);
+		qat_dc_wait_completion(&complete);
 		phase_end = gethrtime();
 		qat_dc_inflight_exit(dir);
 		QAT_STAT_ADD_TIME(dc_decompress_wait_ns, phase_start, phase_end);
@@ -2448,6 +2620,110 @@ param_get_qat_dc_async(char *buffer, zfs_kernel_param_t *kp)
 }
 
 static int
+param_set_qat_dc_poll(const char *val, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+	int new_value;
+	int ret;
+
+	if (qat_dc_param_profile(val)) {
+		if (qat_dc_init_done && qat_dc_effective_poll() !=
+		    qat_dc_profile_poll()) {
+			return (-EBUSY);
+		}
+
+		*pvalue = "profile";
+		return (0);
+	}
+
+	ret = qat_dc_parse_int_range(val, 0, 1, &new_value);
+	if (ret != 0)
+		return (ret);
+
+	if (qat_dc_init_done && new_value != qat_dc_effective_poll())
+		return (-EBUSY);
+
+	zfs_qat_dc_poll_value = new_value;
+	*pvalue = "manual";
+	return (0);
+}
+
+static int
+param_get_qat_dc_poll(char *buffer, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+
+	if (strcmp(*pvalue, "profile") == 0)
+		return (sprintf(buffer, "profile\n"));
+
+	return (sprintf(buffer, "%d\n", zfs_qat_dc_poll_value));
+}
+
+static int
+param_set_qat_dc_poll_interval_us(const char *val, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+	int new_value;
+	int ret;
+
+	if (qat_dc_param_profile(val)) {
+		*pvalue = "profile";
+		return (0);
+	}
+
+	ret = qat_dc_parse_int_range(val, 0, INT_MAX, &new_value);
+	if (ret != 0)
+		return (ret);
+
+	zfs_qat_dc_poll_interval_us_value = new_value;
+	*pvalue = "manual";
+	return (0);
+}
+
+static int
+param_get_qat_dc_poll_interval_us(char *buffer, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+
+	if (strcmp(*pvalue, "profile") == 0)
+		return (sprintf(buffer, "profile\n"));
+
+	return (sprintf(buffer, "%d\n", zfs_qat_dc_poll_interval_us_value));
+}
+
+static int
+param_set_qat_dc_poll_quota(const char *val, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+	int new_value;
+	int ret;
+
+	if (qat_dc_param_profile(val)) {
+		*pvalue = "profile";
+		return (0);
+	}
+
+	ret = qat_dc_parse_int_range(val, 0, INT_MAX, &new_value);
+	if (ret != 0)
+		return (ret);
+
+	zfs_qat_dc_poll_quota_value = new_value;
+	*pvalue = "manual";
+	return (0);
+}
+
+static int
+param_get_qat_dc_poll_quota(char *buffer, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+
+	if (strcmp(*pvalue, "profile") == 0)
+		return (sprintf(buffer, "profile\n"));
+
+	return (sprintf(buffer, "%d\n", zfs_qat_dc_poll_quota_value));
+}
+
+static int
 param_set_qat_dc_async_submit_retries(const char *val, zfs_kernel_param_t *kp)
 {
 	char **pvalue = kp->arg;
@@ -2717,6 +2993,25 @@ module_param_call(zfs_qat_dc_async_cap_policy,
     &zfs_qat_dc_async_cap_policy, 0644);
 MODULE_PARM_DESC(zfs_qat_dc_async_cap_policy,
     "QAT async cap policy: profile, fixed, recordsize, or throughput");
+
+module_param_call(zfs_qat_dc_poll, param_set_qat_dc_poll,
+    param_get_qat_dc_poll, &zfs_qat_dc_poll, 0644);
+MODULE_PARM_DESC(zfs_qat_dc_poll,
+    "Enable/Disable experimental synchronous QAT DC polling: profile, "
+    "0, or 1");
+
+module_param_call(zfs_qat_dc_poll_interval_us,
+    param_set_qat_dc_poll_interval_us, param_get_qat_dc_poll_interval_us,
+    &zfs_qat_dc_poll_interval_us, 0644);
+MODULE_PARM_DESC(zfs_qat_dc_poll_interval_us,
+    "Experimental synchronous QAT DC poll sleep interval in microseconds: "
+    "profile or integer");
+
+module_param_call(zfs_qat_dc_poll_quota,
+    param_set_qat_dc_poll_quota, param_get_qat_dc_poll_quota,
+    &zfs_qat_dc_poll_quota, 0644);
+MODULE_PARM_DESC(zfs_qat_dc_poll_quota,
+    "Experimental synchronous QAT DC poll response quota: profile or integer");
 
 module_param_call(zfs_qat_dc_profile, param_set_qat_dc_profile,
     param_get_charp, &zfs_qat_dc_profile, 0644);

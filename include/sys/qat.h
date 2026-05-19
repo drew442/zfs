@@ -185,6 +185,14 @@ typedef struct qat_stats {
 	kstat_named_t dc_decompress_inflight;
 	kstat_named_t dc_decompress_inflight_max;
 	/*
+	 * Experimental synchronous QAT DC polling counters.
+	 */
+	kstat_named_t dc_poll_calls;
+	kstat_named_t dc_poll_success;
+	kstat_named_t dc_poll_retries;
+	kstat_named_t dc_poll_fails;
+	kstat_named_t dc_poll_ns;
+	/*
 	 * Experimental async QAT compression counters.
 	 */
 	kstat_named_t dc_compress_async_submits;
@@ -279,6 +287,9 @@ extern char *zfs_qat_dc_async_submit_retries;
 extern char *zfs_qat_dc_async_retry_us;
 extern char *zfs_qat_dc_async_max_inflight;
 extern char *zfs_qat_dc_async_cap_policy;
+extern char *zfs_qat_dc_poll;
+extern char *zfs_qat_dc_poll_interval_us;
+extern char *zfs_qat_dc_poll_quota;
 extern char *zfs_qat_dc_profile;
 extern int zfs_qat_dc_profile_recordsize;
 extern char *zfs_qat_dc_ratio_profile;
