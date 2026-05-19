@@ -714,6 +714,23 @@ recorded 1,460 driver submits and callbacks, zero driver TX retries/errors,
 1,131,001,561 ns of driver response-wait time, 1,141,750,165 ns total driver
 time, and `sha_ok=yes`.
 
+A corrected large-record driver timing matrix was run on 2026-05-19 after
+temporarily booting with `zfs_qat_dc_profile_recordsize=1048576` so that
+`zfs_qat_dc_max_buf_size=profile` would offload 256K, 512K, and 1M records.
+The host was restored to `zfs_qat_dc_profile_recordsize=131072` afterward.
+
+Corrected matrix artifacts:
+
+```text
+/root/zfs-qat-driver-timing-matrix-1mprofile-jobs1-20260519-r2.csv
+/root/zfs-qat-driver-timing-matrix-1mprofile-jobs4-20260519-r2.csv
+/root/zfs-qat-driver-timing-matrix-1mprofile-jobs8-20260519-r2.csv
+```
+
+An earlier interrupted matrix without the 1M profile boot setting should not be
+used for large-record QAT conclusions because rows above 128K fell back to
+software (`comp_requests_delta=0`).
+
 The async-compatible coalescing DKMS build reported
 `srcversion 18635F01D8EFD4EBD6C7675` after reboot. Build artifacts:
 

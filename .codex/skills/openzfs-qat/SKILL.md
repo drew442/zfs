@@ -24,13 +24,14 @@ Use this skill for QAT-specific work in this fork. It is meant for design review
 7. For human-review phase 4 performance charts and summary tables, use `references/phase-4-performance-review.md`.
 8. For benchmark interpretation, use `references/benchmark-evaluation-methodology.md` so hybrid fallback wins are not confused with QAT engine improvements.
 9. For phase 4 benchmark runs, prefer `scripts/qat-phase4-benchmark.sh` so throughput, latency summaries, CPU cost, QAT kstats, module settings, derived offload-share metrics, and correctness checks are captured consistently.
-10. Confirm which layer the task touches before editing:
+10. For QAT driver-side timing results, use `references/qat-driver-timing-matrix-20260519.md`.
+11. Confirm which layer the task touches before editing:
    - Build integration and static configuration
    - Runtime tunables and initialization
    - Compression, checksum, or encryption call sites
    - Documentation or validation workflow
-11. Preserve software fallback behavior unless the task explicitly changes policy. Current QAT paths generally attempt acceleration first and then fall back to software on failure.
-12. Treat usability and performance separately:
+12. Preserve software fallback behavior unless the task explicitly changes policy. Current QAT paths generally attempt acceleration first and then fall back to software on failure.
+13. Treat usability and performance separately:
    - Usability work usually means clearer build flags, safer defaults, less surprising runtime behavior, or better observability.
    - Performance work usually means thresholding, allocation strategy, instance selection, avoiding unnecessary copies, or reducing failed offload attempts.
 

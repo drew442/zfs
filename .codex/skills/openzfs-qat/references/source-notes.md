@@ -125,6 +125,10 @@ These notes capture stable, primary-source details useful when reviewing this fo
   `/sys/kernel/debug/qat_api/dc_timing`. The counters are global to
   `qat_api.ko` and should be interpreted as before/after deltas for a benchmark
   run, not as per-pool or per-dataset state.
+- The 2026-05-19 driver timing matrix showed ZFS wait-per-MiB closely tracking
+  QAT driver response-wait-per-MiB. Treat QAT response delivery, polling versus
+  interrupt behavior, and QAT service/ring configuration as the next likely
+  optimization targets before returning to ZFS allocation tuning.
 - Intel documents 64-byte payload alignment as optimal, while unaligned payloads may still work with lower performance. Avoid treating alignment advice as a correctness requirement unless the specific API structure requires it.
 - Intel documents NUMA locality and memory-channel population as performance factors. Do not encode universal performance thresholds from a single machine or forum report.
 - Intel documents SVM for QAT 2.0 and DMA-able/pinned memory requirements when SVM is not enabled. SVM is out of scope for this QAT 1.x-focused project; review allocation/copy costs in the current physically contiguous allocation path before lowering offload thresholds.
