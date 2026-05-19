@@ -129,6 +129,14 @@ These notes capture stable, primary-source details useful when reviewing this fo
   QAT driver response-wait-per-MiB. Treat QAT response delivery, polling versus
   interrupt behavior, and QAT service/ring configuration as the next likely
   optimization targets before returning to ZFS allocation tuning.
+- QAT 4.28 kernel DC poll delivery is not a safe config-only switch for ZFS:
+  `DcNIsPolled = 1` changes RX rings to poll delivery, and the OpenZFS tree does
+  not currently call `icp_sal_DcPollInstance()`.
+- A 2026-05-19 minimum-timer interrupt coalescing test on two dh895xcc cards did
+  not produce a material end-to-end QAT win at 128 KiB. It improved driver wait
+  at `JOBS=4`, but elapsed time did not improve and `JOBS=8` active CPU rose.
+  Keep the default coalescing config unless a later poller or per-instance
+  distribution experiment changes the evidence.
 - Intel documents 64-byte payload alignment as optimal, while unaligned payloads may still work with lower performance. Avoid treating alignment advice as a correctness requirement unless the specific API structure requires it.
 - Intel documents NUMA locality and memory-channel population as performance factors. Do not encode universal performance thresholds from a single machine or forum report.
 - Intel documents SVM for QAT 2.0 and DMA-able/pinned memory requirements when SVM is not enabled. SVM is out of scope for this QAT 1.x-focused project; review allocation/copy costs in the current physically contiguous allocation path before lowering offload thresholds.

@@ -238,6 +238,14 @@ DKMS as `qat/4.28.0-00004`, ZFS DKMS was rebuilt with
 `ICP_ROOT=/usr/src/qat-4.28.0-00004`, and `zfs-qat-reenable.service` was
 enabled so ZFS initializes QAT DC after `qat.service` at boot.
 
+Interrupt coalescing experiment note: on 2026-05-19 both device configs were
+temporarily changed to `InterruptCoalescingEnabled = 0` for a QAT/ZFS latency
+test. The host was rebooted, benchmarked, restored to the original configs, and
+rebooted again. Active DC banks are back to the default generated config:
+`BankNInterruptCoalescingEnabled = 1`,
+`BankNInterruptCoalescingTimerNs = 10000`, and
+`BankNInterruptCoalescingNumResponses = 0`.
+
 The ZFS QAT kstat now includes `dc_instances`, which records the active DC
 instances initialized by ZFS after the lazy QAT DC init path runs. Immediately
 after boot this can remain `0` until QAT compression is first exercised; use it
