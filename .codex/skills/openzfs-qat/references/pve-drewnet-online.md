@@ -693,6 +693,27 @@ Recent DC-count policy build artifacts:
 /root/zfs-qat-profile-remaining-initramfs-20260518.log
 ```
 
+QAT driver timing instrumentation was installed and validated on 2026-05-19.
+The loaded and disk `qat_api.ko` source versions matched after refreshing
+initramfs, and the timing read surfaces were present:
+
+```text
+/proc/qat_dc_timing
+/sys/kernel/debug/qat_api/dc_timing
+```
+
+Smoke benchmark artifact:
+
+```text
+/root/zfs-qat-driver-timing-smoke-final-r2-20260519.csv
+```
+
+The smoke run used `ITERS=1 RECORDS=128K MODES=qat JOBS=1 VERIFY_MODE=sw`.
+The CSV header, raw row, and summary row all had 153 columns. The raw row
+recorded 1,460 driver submits and callbacks, zero driver TX retries/errors,
+1,131,001,561 ns of driver response-wait time, 1,141,750,165 ns total driver
+time, and `sha_ok=yes`.
+
 The async-compatible coalescing DKMS build reported
 `srcversion 18635F01D8EFD4EBD6C7675` after reboot. Build artifacts:
 

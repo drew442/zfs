@@ -150,6 +150,20 @@ cat /sys/module/zfs/parameters/zfs_qat_compress_disable
 awk '/dc_instances|dc_fails|comp_requests|comp_total_in_bytes|comp_total_out_bytes/ { print }' /proc/spl/kstat/zfs/qat
 ```
 
+Verify QAT driver-side DC timing counters when the instrumented QAT DKMS build
+is installed:
+
+```sh
+cat /proc/qat_dc_timing
+cat /sys/kernel/debug/qat_api/dc_timing
+```
+
+Both files expose the same cumulative `name value` table from `qat_api.ko`.
+Use before/after deltas around benchmark runs. If the disk module has been
+replaced but the loaded `qat_api.ko` does not expose these files, compare
+`cat /sys/module/qat_api/srcversion` with `modinfo -F srcversion qat_api`; an
+initramfs refresh may be required.
+
 A short smoke test should create a temporary gzip dataset, write a file, read it
 back, compare the checksum, and confirm `comp_requests` increased with
 `dc_fails=0`.

@@ -122,7 +122,8 @@ service time.
 | Benchmark harness | Added repeatable CSV harness with latency summaries and QAT counters. | Current comparisons include latency, throughput, CPU, ratio, offload counters, and correctness. |
 | Reuse pool | Added lock-free per-instance buffer metadata reuse with fallback allocation. | Reuse is active, but fallback allocations still happen under concurrent work. |
 | Concurrent harness | Added `JOBS` support to run multiple copy/verify streams per iteration. | 4-job tests showed software gzip still faster, despite QAT using much less system CPU. |
-| Timing kstats | Added per-phase QAT DC nanosecond counters to identify latency sources. | Compression wait time dominates; scratch allocation is not the primary bottleneck. |
+| ZFS timing kstats | Added per-phase ZFS QAT DC nanosecond counters to identify wrapper latency sources. | Compression wait time dominates; scratch allocation is not the primary bottleneck. |
+| QAT driver timing | Added `qat_api.ko` traditional DC timing counters exposed through `/proc/qat_dc_timing` and `/sys/kernel/debug/qat_api/dc_timing`, then added CSV capture to the phase-4 harness. | 128K smoke showed driver response-wait time dominates driver total time, with 1,460 submits/callbacks and zero TX retries/errors. |
 | Level comparison | Compared QAT level 1 and level 4 with the timing counters. | Level 1 helps larger records but lowers ratio and does not resolve the latency gap. |
 | DC instance split | Tested a DC-biased QAT driver split: 2 crypto / 4 compression instead of 4 crypto / 2 compression. | Mixed result; 256K improved modestly, 128K regressed, 1M was effectively flat. Host was restored to 4 crypto / 2 compression. |
 | Decompression policy | Added `zfs_qat_decompress_disable` and benchmarked QAT writes with software readback. | Improved 128K/256K latency, but QAT remained slower than full software and 1M did not benefit consistently. |

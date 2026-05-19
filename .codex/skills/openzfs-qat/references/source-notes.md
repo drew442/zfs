@@ -120,6 +120,11 @@ These notes capture stable, primary-source details useful when reviewing this fo
 - Phase 4 destination coalescing reuse reduced allocation cost after warmup, but still did not produce a clear elapsed-time win. This weakens the case for more buffer-list shaping work until QAT wait/service time is addressed.
 - Phase 4 compression-level testing on dh895xcc/QAT 4.28 showed levels 1 through 4 all worked with zero DC failures for 128 KiB, 256 KiB, and 1 MiB records. Level 4 gave the best ratio, but not the best elapsed time; level 1 was generally strongest under four concurrent jobs, while level 3 was strongest for single-job 128K and 1M in that run.
 - Phase 4 best-case level 1 testing on dh895xcc/QAT 4.28 showed QAT reached parity only at single-job 128 KiB. Software gzip remained faster for larger records and under four jobs, while QAT used substantially less system CPU.
+- QAT driver-side timing instrumentation in this project exposes cumulative
+  traditional DC API counters through `/proc/qat_dc_timing` and
+  `/sys/kernel/debug/qat_api/dc_timing`. The counters are global to
+  `qat_api.ko` and should be interpreted as before/after deltas for a benchmark
+  run, not as per-pool or per-dataset state.
 - Intel documents 64-byte payload alignment as optimal, while unaligned payloads may still work with lower performance. Avoid treating alignment advice as a correctness requirement unless the specific API structure requires it.
 - Intel documents NUMA locality and memory-channel population as performance factors. Do not encode universal performance thresholds from a single machine or forum report.
 - Intel documents SVM for QAT 2.0 and DMA-able/pinned memory requirements when SVM is not enabled. SVM is out of scope for this QAT 1.x-focused project; review allocation/copy costs in the current physically contiguous allocation path before lowering offload thresholds.
