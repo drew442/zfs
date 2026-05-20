@@ -76,6 +76,25 @@ dc_watchdog_health
 marked it failed. `dc_watchdog_health=0` means the watchdog has failed QAT DC
 closed for new submissions.
 
+## Benchmark Columns
+
+The benchmark harness records the watchdog module parameters and kstats:
+
+```text
+zfs_qat_dc_watchdog
+zfs_qat_dc_effective_watchdog
+zfs_qat_dc_watchdog_timeout_ms
+zfs_qat_dc_effective_watchdog_timeout_ms
+zfs_qat_dc_watchdog_interval_ms
+zfs_qat_dc_effective_watchdog_interval_ms
+dc_watchdog_checks_delta
+dc_watchdog_stalls_delta
+dc_watchdog_runtime_disables_delta
+dc_watchdog_last_progress_ns
+dc_watchdog_last_stall_ns
+dc_watchdog_health
+```
+
 ## Limits
 
 - Detects global no-progress only. If one request is stranded while other QAT
@@ -106,6 +125,7 @@ Smoke benchmark:
 ```text
 Artifact:
 .codex/skills/openzfs-qat/artifacts/zfs-qat-watchdog-irq-smoke-128k-jobs1-20260520.csv
+.codex/skills/openzfs-qat/artifacts/zfs-qat-watchdog-columns-smoke-128k-jobs1-20260520.csv
 
 Command shape:
 ITERS=1 RECORDS="128K" MODES="qat sw" JOBS=1 VERIFY_MODE=sw
@@ -117,6 +137,7 @@ dc_watchdog_stalls=0
 dc_watchdog_runtime_disables=0
 dc_watchdog_health=1
 dc_poll_calls=0
+CSV field count=176 for header and all data rows in the columns smoke
 ```
 
 Live parameter setter smoke passed for:

@@ -614,6 +614,9 @@ run_one() {
 	poll_retries_before="$(statv dc_poll_retries)"
 	poll_fails_before="$(statv dc_poll_fails)"
 	poll_ns_before="$(statv dc_poll_ns)"
+	watchdog_checks_before="$(statv dc_watchdog_checks)"
+	watchdog_stalls_before="$(statv dc_watchdog_stalls)"
+	watchdog_runtime_disables_before="$(statv dc_watchdog_runtime_disables)"
 	driver_submits_before="$(driver_timingv submits)"
 	driver_comp_submits_before="$(driver_timingv comp_submits)"
 	driver_decomp_submits_before="$(driver_timingv decomp_submits)"
@@ -747,6 +750,12 @@ run_one() {
 	poll_retries_after="$(statv dc_poll_retries)"
 	poll_fails_after="$(statv dc_poll_fails)"
 	poll_ns_after="$(statv dc_poll_ns)"
+	watchdog_checks_after="$(statv dc_watchdog_checks)"
+	watchdog_stalls_after="$(statv dc_watchdog_stalls)"
+	watchdog_runtime_disables_after="$(statv dc_watchdog_runtime_disables)"
+	watchdog_last_progress_after="$(statv dc_watchdog_last_progress_ns)"
+	watchdog_last_stall_after="$(statv dc_watchdog_last_stall_ns)"
+	watchdog_health_after="$(statv dc_watchdog_health)"
 	driver_submits_after="$(driver_timingv submits)"
 	driver_comp_submits_after="$(driver_timingv comp_submits)"
 	driver_decomp_submits_after="$(driver_timingv decomp_submits)"
@@ -904,7 +913,17 @@ run_one() {
 	    "$((poll_success_after - poll_success_before))"
 	    "$((poll_retries_after - poll_retries_before))"
 	    "$((poll_fails_after - poll_fails_before))"
-	    "$((poll_ns_after - poll_ns_before))")
+	    "$((poll_ns_after - poll_ns_before))"
+	    "$QAT_DC_WATCHDOG" "$QAT_DC_EFFECTIVE_WATCHDOG"
+	    "$QAT_DC_WATCHDOG_TIMEOUT_MS"
+	    "$QAT_DC_EFFECTIVE_WATCHDOG_TIMEOUT_MS"
+	    "$QAT_DC_WATCHDOG_INTERVAL_MS"
+	    "$QAT_DC_EFFECTIVE_WATCHDOG_INTERVAL_MS"
+	    "$((watchdog_checks_after - watchdog_checks_before))"
+	    "$((watchdog_stalls_after - watchdog_stalls_before))"
+	    "$((watchdog_runtime_disables_after - watchdog_runtime_disables_before))"
+	    "$watchdog_last_progress_after" "$watchdog_last_stall_after"
+	    "$watchdog_health_after")
 	(IFS=,; printf "%s\n" "${raw_row[*]}") | tee -a "$OUT"
 
 	printf "%s\n" "$elapsed_ms" >> "$LATENCY_FILE"
@@ -935,6 +954,9 @@ QAT_DC_ASYNC_CAP_POLICY="$(read_param zfs_qat_dc_async_cap_policy)"
 QAT_DC_POLL="$(read_param zfs_qat_dc_poll)"
 QAT_DC_POLL_INTERVAL_US="$(read_param zfs_qat_dc_poll_interval_us)"
 QAT_DC_POLL_QUOTA="$(read_param zfs_qat_dc_poll_quota)"
+QAT_DC_WATCHDOG="$(read_param zfs_qat_dc_watchdog)"
+QAT_DC_WATCHDOG_TIMEOUT_MS="$(read_param zfs_qat_dc_watchdog_timeout_ms)"
+QAT_DC_WATCHDOG_INTERVAL_MS="$(read_param zfs_qat_dc_watchdog_interval_ms)"
 QAT_DC_PROFILE="$(read_param zfs_qat_dc_profile)"
 QAT_DC_PROFILE_RECORDSIZE="$(read_param zfs_qat_dc_profile_recordsize)"
 QAT_DC_RATIO_PROFILE="$(read_param zfs_qat_dc_ratio_profile)"
@@ -1014,6 +1036,21 @@ if [[ "$QAT_DC_POLL_QUOTA" == "profile" ]]; then
 else
 	QAT_DC_EFFECTIVE_POLL_QUOTA="$QAT_DC_POLL_QUOTA"
 fi
+if [[ "$QAT_DC_WATCHDOG" == "profile" ]]; then
+	QAT_DC_EFFECTIVE_WATCHDOG="1"
+else
+	QAT_DC_EFFECTIVE_WATCHDOG="$QAT_DC_WATCHDOG"
+fi
+if [[ "$QAT_DC_WATCHDOG_TIMEOUT_MS" == "profile" ]]; then
+	QAT_DC_EFFECTIVE_WATCHDOG_TIMEOUT_MS="5000"
+else
+	QAT_DC_EFFECTIVE_WATCHDOG_TIMEOUT_MS="$QAT_DC_WATCHDOG_TIMEOUT_MS"
+fi
+if [[ "$QAT_DC_WATCHDOG_INTERVAL_MS" == "profile" ]]; then
+	QAT_DC_EFFECTIVE_WATCHDOG_INTERVAL_MS="250"
+else
+	QAT_DC_EFFECTIVE_WATCHDOG_INTERVAL_MS="$QAT_DC_WATCHDOG_INTERVAL_MS"
+fi
 QAT_KERNEL_CY_INSTANCES="$(qat_conf_value NumberCyInstances)"
 QAT_KERNEL_DC_INSTANCES="$(qat_conf_value NumberDcInstances)"
 QAT_PCI_DH895XCC_COUNT="$(qat_dh895xcc_pci_count)"
@@ -1024,7 +1061,7 @@ ZFS_SRCVERSION="$(modinfo zfs | awk '$1 == "srcversion:" { print $2 }')"
 CPU_COUNT="$(online_cpu_count)"
 
 mkdir -p "$(dirname "$OUT")"
-printf "row_type,mode,verify_mode,recordsize,iter,jobs,source_label,source_bytes,elapsed_ms,latency_avg_ms,latency_p50_ms,latency_p95_ms,latency_p99_ms,latency_max_ms,write_bw_mib_s,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct,compressratio,used,logicalused,comp_requests_delta,comp_in_delta,comp_out_delta,decomp_requests_delta,decomp_in_delta,decomp_out_delta,dc_fails_delta,dc_buffer_reuse_hits_delta,dc_buffer_reuse_misses_delta,dc_compress_bound_requests_delta,dc_compress_bound_fails_delta,dc_compress_bound_ns_delta,dc_compress_bound_total_bytes_delta,dc_compress_dst_total_bytes_delta,dc_compress_scratch_bytes_delta,dc_compress_scratch_saved_bytes_delta,dc_compress_overflows_delta,dc_compress_incompressible_delta,dc_compress_src_buffers_delta,dc_compress_dst_buffers_delta,dc_compress_add_buffers_delta,dc_compress_dst_total_buffers_delta,dc_compress_src_buffers_max,dc_compress_dst_buffers_max,dc_compress_add_buffers_max,dc_compress_dst_total_buffers_max,dc_compress_coalesce_requests_delta,dc_compress_coalesce_success_delta,dc_compress_coalesce_fails_delta,dc_compress_coalesce_bytes_delta,dc_compress_coalesce_alloc_ns_delta,dc_compress_coalesce_copy_ns_delta,dc_compress_coalesce_free_ns_delta,dc_compress_dst_coalesce_requests_delta,dc_compress_dst_coalesce_success_delta,dc_compress_dst_coalesce_fails_delta,dc_compress_dst_coalesce_reuse_hits_delta,dc_compress_dst_coalesce_reuse_misses_delta,dc_compress_dst_coalesce_alloc_bytes_delta,dc_compress_dst_coalesce_copy_bytes_delta,dc_compress_dst_coalesce_alloc_ns_delta,dc_compress_dst_coalesce_copy_ns_delta,dc_compress_dst_coalesce_free_ns_delta,dc_compress_scratch_alloc_ns_delta,dc_compress_scratch_free_ns_delta,dc_compress_setup_ns_delta,dc_compress_submit_ns_delta,dc_compress_wait_ns_delta,dc_compress_cleanup_ns_delta,dc_decompress_setup_ns_delta,dc_decompress_submit_ns_delta,dc_decompress_wait_ns_delta,dc_decompress_cleanup_ns_delta,dc_compress_inflight,dc_compress_inflight_max,dc_decompress_inflight,dc_decompress_inflight_max,dc_compress_async_submits_delta,dc_compress_async_submit_fails_delta,dc_compress_async_completions_delta,dc_compress_async_resumes_delta,dc_compress_async_fallbacks_delta,dc_compress_async_cancels_delta,dc_compress_async_submit_retries_delta,dc_compress_async_retry_success_delta,dc_compress_async_fail_retry_delta,dc_compress_async_fail_resource_delta,dc_compress_async_fail_other_delta,dc_compress_async_inflight,dc_compress_async_inflight_max,dc_compress_async_cap_skips_delta,qat_driver_submits_delta,qat_driver_comp_submits_delta,qat_driver_decomp_submits_delta,qat_driver_tx_retries_delta,qat_driver_tx_errors_delta,qat_driver_callbacks_delta,qat_driver_comp_callbacks_delta,qat_driver_decomp_callbacks_delta,qat_driver_create_ns_delta,qat_driver_trans_put_ns_delta,qat_driver_response_wait_ns_delta,qat_driver_callback_process_ns_delta,qat_driver_user_callback_ns_delta,qat_driver_total_ns_delta,qat_driver_avg_response_wait_ns,qat_driver_avg_total_ns,sha_ok,zfs_qat_cpa_dc_level,zfs_qat_effective_cpa_dc_level,zfs_qat_cpa_dc_hufftype,zfs_qat_effective_cpa_dc_hufftype,zfs_qat_dc_max_buf_size,zfs_qat_dc_effective_max_buf_size,zfs_qat_dc_max_instances,zfs_qat_dc_coalesce_src,zfs_qat_dc_effective_coalesce_src,zfs_qat_dc_coalesce_dst,zfs_qat_dc_effective_coalesce_dst,zfs_qat_dc_async,zfs_qat_dc_effective_async,zfs_qat_dc_async_submit_retries,zfs_qat_dc_effective_async_submit_retries,zfs_qat_dc_async_retry_us,zfs_qat_dc_effective_async_retry_us,zfs_qat_dc_async_max_inflight,zfs_qat_dc_effective_async_max_inflight,zfs_qat_dc_async_cap_policy,zfs_qat_dc_profile,zfs_qat_dc_profile_recordsize,zfs_qat_dc_ratio_profile,zfs_qat_decompress_disable,zfs_qat_effective_decompress_disable,qat_kernel_cy_instances,qat_kernel_dc_instances,zfs_srcversion,qat_pci_dh895xcc_count,qat_conf_file_count,qat_kernel_cy_instances_total,qat_kernel_dc_instances_total,zfs_qat_dc_instances,cpu_count,cpu_active_pct,cpu_active_s_per_gib,cpu_system_s_per_gib,qat_byte_share_pct,qat_completion_share_pct,qat_fallback_share_pct,qat_cap_skip_share_pct,qat_service_ns_per_mib,qat_wait_ns_per_mib,zfs_qat_dc_poll,zfs_qat_dc_effective_poll,zfs_qat_dc_poll_interval_us,zfs_qat_dc_effective_poll_interval_us,zfs_qat_dc_poll_quota,zfs_qat_dc_effective_poll_quota,dc_poll_calls_delta,dc_poll_success_delta,dc_poll_retries_delta,dc_poll_fails_delta,dc_poll_ns_delta\n" > "$OUT"
+printf "row_type,mode,verify_mode,recordsize,iter,jobs,source_label,source_bytes,elapsed_ms,latency_avg_ms,latency_p50_ms,latency_p95_ms,latency_p99_ms,latency_max_ms,write_bw_mib_s,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct,compressratio,used,logicalused,comp_requests_delta,comp_in_delta,comp_out_delta,decomp_requests_delta,decomp_in_delta,decomp_out_delta,dc_fails_delta,dc_buffer_reuse_hits_delta,dc_buffer_reuse_misses_delta,dc_compress_bound_requests_delta,dc_compress_bound_fails_delta,dc_compress_bound_ns_delta,dc_compress_bound_total_bytes_delta,dc_compress_dst_total_bytes_delta,dc_compress_scratch_bytes_delta,dc_compress_scratch_saved_bytes_delta,dc_compress_overflows_delta,dc_compress_incompressible_delta,dc_compress_src_buffers_delta,dc_compress_dst_buffers_delta,dc_compress_add_buffers_delta,dc_compress_dst_total_buffers_delta,dc_compress_src_buffers_max,dc_compress_dst_buffers_max,dc_compress_add_buffers_max,dc_compress_dst_total_buffers_max,dc_compress_coalesce_requests_delta,dc_compress_coalesce_success_delta,dc_compress_coalesce_fails_delta,dc_compress_coalesce_bytes_delta,dc_compress_coalesce_alloc_ns_delta,dc_compress_coalesce_copy_ns_delta,dc_compress_coalesce_free_ns_delta,dc_compress_dst_coalesce_requests_delta,dc_compress_dst_coalesce_success_delta,dc_compress_dst_coalesce_fails_delta,dc_compress_dst_coalesce_reuse_hits_delta,dc_compress_dst_coalesce_reuse_misses_delta,dc_compress_dst_coalesce_alloc_bytes_delta,dc_compress_dst_coalesce_copy_bytes_delta,dc_compress_dst_coalesce_alloc_ns_delta,dc_compress_dst_coalesce_copy_ns_delta,dc_compress_dst_coalesce_free_ns_delta,dc_compress_scratch_alloc_ns_delta,dc_compress_scratch_free_ns_delta,dc_compress_setup_ns_delta,dc_compress_submit_ns_delta,dc_compress_wait_ns_delta,dc_compress_cleanup_ns_delta,dc_decompress_setup_ns_delta,dc_decompress_submit_ns_delta,dc_decompress_wait_ns_delta,dc_decompress_cleanup_ns_delta,dc_compress_inflight,dc_compress_inflight_max,dc_decompress_inflight,dc_decompress_inflight_max,dc_compress_async_submits_delta,dc_compress_async_submit_fails_delta,dc_compress_async_completions_delta,dc_compress_async_resumes_delta,dc_compress_async_fallbacks_delta,dc_compress_async_cancels_delta,dc_compress_async_submit_retries_delta,dc_compress_async_retry_success_delta,dc_compress_async_fail_retry_delta,dc_compress_async_fail_resource_delta,dc_compress_async_fail_other_delta,dc_compress_async_inflight,dc_compress_async_inflight_max,dc_compress_async_cap_skips_delta,qat_driver_submits_delta,qat_driver_comp_submits_delta,qat_driver_decomp_submits_delta,qat_driver_tx_retries_delta,qat_driver_tx_errors_delta,qat_driver_callbacks_delta,qat_driver_comp_callbacks_delta,qat_driver_decomp_callbacks_delta,qat_driver_create_ns_delta,qat_driver_trans_put_ns_delta,qat_driver_response_wait_ns_delta,qat_driver_callback_process_ns_delta,qat_driver_user_callback_ns_delta,qat_driver_total_ns_delta,qat_driver_avg_response_wait_ns,qat_driver_avg_total_ns,sha_ok,zfs_qat_cpa_dc_level,zfs_qat_effective_cpa_dc_level,zfs_qat_cpa_dc_hufftype,zfs_qat_effective_cpa_dc_hufftype,zfs_qat_dc_max_buf_size,zfs_qat_dc_effective_max_buf_size,zfs_qat_dc_max_instances,zfs_qat_dc_coalesce_src,zfs_qat_dc_effective_coalesce_src,zfs_qat_dc_coalesce_dst,zfs_qat_dc_effective_coalesce_dst,zfs_qat_dc_async,zfs_qat_dc_effective_async,zfs_qat_dc_async_submit_retries,zfs_qat_dc_effective_async_submit_retries,zfs_qat_dc_async_retry_us,zfs_qat_dc_effective_async_retry_us,zfs_qat_dc_async_max_inflight,zfs_qat_dc_effective_async_max_inflight,zfs_qat_dc_async_cap_policy,zfs_qat_dc_profile,zfs_qat_dc_profile_recordsize,zfs_qat_dc_ratio_profile,zfs_qat_decompress_disable,zfs_qat_effective_decompress_disable,qat_kernel_cy_instances,qat_kernel_dc_instances,zfs_srcversion,qat_pci_dh895xcc_count,qat_conf_file_count,qat_kernel_cy_instances_total,qat_kernel_dc_instances_total,zfs_qat_dc_instances,cpu_count,cpu_active_pct,cpu_active_s_per_gib,cpu_system_s_per_gib,qat_byte_share_pct,qat_completion_share_pct,qat_fallback_share_pct,qat_cap_skip_share_pct,qat_service_ns_per_mib,qat_wait_ns_per_mib,zfs_qat_dc_poll,zfs_qat_dc_effective_poll,zfs_qat_dc_poll_interval_us,zfs_qat_dc_effective_poll_interval_us,zfs_qat_dc_poll_quota,zfs_qat_dc_effective_poll_quota,dc_poll_calls_delta,dc_poll_success_delta,dc_poll_retries_delta,dc_poll_fails_delta,dc_poll_ns_delta,zfs_qat_dc_watchdog,zfs_qat_dc_effective_watchdog,zfs_qat_dc_watchdog_timeout_ms,zfs_qat_dc_effective_watchdog_timeout_ms,zfs_qat_dc_watchdog_interval_ms,zfs_qat_dc_effective_watchdog_interval_ms,dc_watchdog_checks_delta,dc_watchdog_stalls_delta,dc_watchdog_runtime_disables_delta,dc_watchdog_last_progress_ns,dc_watchdog_last_stall_ns,dc_watchdog_health\n" > "$OUT"
 
 echo "Results: $OUT" >&2
 echo "Source: $SOURCE ($SOURCE_BYTES bytes)" >&2
@@ -1081,7 +1118,13 @@ for mode in $MODES; do
 		    "$QAT_DC_POLL" "$QAT_DC_EFFECTIVE_POLL"
 		    "$QAT_DC_POLL_INTERVAL_US" "$QAT_DC_EFFECTIVE_POLL_INTERVAL_US"
 		    "$QAT_DC_POLL_QUOTA" "$QAT_DC_EFFECTIVE_POLL_QUOTA"
-		    "" "" "" "" "")
+		    "" "" "" "" ""
+		    "$QAT_DC_WATCHDOG" "$QAT_DC_EFFECTIVE_WATCHDOG"
+		    "$QAT_DC_WATCHDOG_TIMEOUT_MS"
+		    "$QAT_DC_EFFECTIVE_WATCHDOG_TIMEOUT_MS"
+		    "$QAT_DC_WATCHDOG_INTERVAL_MS"
+		    "$QAT_DC_EFFECTIVE_WATCHDOG_INTERVAL_MS"
+		    "" "" "" "" "" "")
 		(IFS=,; printf "%s\n" "${summary_row[*]}") | tee -a "$OUT"
 	done
 done
