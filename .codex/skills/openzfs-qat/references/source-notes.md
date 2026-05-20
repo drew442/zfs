@@ -163,6 +163,14 @@ These notes capture stable, primary-source details useful when reviewing this fo
   intentionally does not attempt software fallback for requests already
   accepted by QAT because late QAT DMA could still write to the same destination
   buffer.
+- The 2026-05-20 failure availability/recovery note documents that a completion
+  blackhole has the same ZFS-level consequence in interrupt and polling modes
+  after QAT accepts a request: affected I/O can remain outstanding indefinitely.
+  Interrupt versus polling changes how completions are delivered and what can
+  fail, not the need for completion to unblock synchronous waiters or async
+  `zio` resume. The expected consequence of a pure no-completion failure is
+  availability loss/reboot, while successful-but-wrong QAT output is the more
+  serious integrity class.
 - The 2026-05-20 quarantined-destination design is the first plausible route to
   fallback after an accepted QAT compression request: QAT would write to a
   private output buffer, then ZFS would copy successful output into the final
