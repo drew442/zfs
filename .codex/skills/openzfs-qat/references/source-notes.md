@@ -155,6 +155,14 @@ These notes capture stable, primary-source details useful when reviewing this fo
   by validating QAT driver `isPolled` state against `zfs_qat_dc_poll` during QAT
   DC init. A mismatch fails closed. In the 128 KiB sweep, `10 us` was the best
   broad interval, but polling was still not a universal elapsed-time win.
+- The 2026-05-20 QAT DC watchdog is a low-overhead aggregate no-progress
+  detector. It starts one sleeping `zfs_qat_dc_watchdog` kernel thread and uses
+  atomic in-flight/progress accounting on QAT DC submit and completion. If the
+  aggregate QAT DC path makes no completion progress beyond the configured
+  timeout, it disables new QAT DC submissions and exposes watchdog kstats. It
+  intentionally does not attempt software fallback for requests already
+  accepted by QAT because late QAT DMA could still write to the same destination
+  buffer.
 - Larger records can use QAT DC only when the effective QAT max buffer is large
   enough. With `zfs_qat_dc_profile_recordsize=1048576`, polling mode handled
   `256K`, `512K`, and `1M` records with nonzero QAT request counters. Without

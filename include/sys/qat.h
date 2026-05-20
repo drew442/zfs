@@ -193,6 +193,18 @@ typedef struct qat_stats {
 	kstat_named_t dc_poll_fails;
 	kstat_named_t dc_poll_ns;
 	/*
+	 * QAT DC runtime watchdog counters. The watchdog is intentionally a
+	 * fail-closed detector: it disables new QAT DC submissions after a
+	 * no-progress stall, but does not attempt unsafe fallback for requests
+	 * already accepted by QAT.
+	 */
+	kstat_named_t dc_watchdog_checks;
+	kstat_named_t dc_watchdog_stalls;
+	kstat_named_t dc_watchdog_runtime_disables;
+	kstat_named_t dc_watchdog_last_progress_ns;
+	kstat_named_t dc_watchdog_last_stall_ns;
+	kstat_named_t dc_watchdog_health;
+	/*
 	 * Experimental async QAT compression counters.
 	 */
 	kstat_named_t dc_compress_async_submits;
@@ -290,6 +302,9 @@ extern char *zfs_qat_dc_async_cap_policy;
 extern char *zfs_qat_dc_poll;
 extern char *zfs_qat_dc_poll_interval_us;
 extern char *zfs_qat_dc_poll_quota;
+extern char *zfs_qat_dc_watchdog;
+extern char *zfs_qat_dc_watchdog_timeout_ms;
+extern char *zfs_qat_dc_watchdog_interval_ms;
 extern char *zfs_qat_dc_profile;
 extern int zfs_qat_dc_profile_recordsize;
 extern char *zfs_qat_dc_ratio_profile;

@@ -136,7 +136,9 @@ static Cpa16U num_inst = 0;
 static Cpa32U inst_num = 0;
 static boolean_t qat_dc_init_done = B_FALSE;
 static struct task_struct *qat_dc_poll_task;
+static struct task_struct *qat_dc_watchdog_task;
 static DECLARE_WAIT_QUEUE_HEAD(qat_dc_poll_wq);
+static DECLARE_WAIT_QUEUE_HEAD(qat_dc_watchdog_wq);
 static int qat_dc_effective_decompress_disable(void);
 static int qat_dc_effective_level(void);
 static const char *qat_dc_effective_hufftype(void);
@@ -150,6 +152,9 @@ static int qat_dc_effective_async_max_inflight(void);
 static int qat_dc_effective_poll(void);
 static int qat_dc_effective_poll_interval_us(void);
 static int qat_dc_effective_poll_quota(void);
+static int qat_dc_effective_watchdog(void);
+static int qat_dc_effective_watchdog_timeout_ms(void);
+static int qat_dc_effective_watchdog_interval_ms(void);
 int zfs_qat_compress_disable = 0;
 char *zfs_qat_decompress_disable = "profile";
 static int zfs_qat_decompress_disable_value = 0;
@@ -179,9 +184,19 @@ char *zfs_qat_dc_poll_interval_us = "profile";
 static int zfs_qat_dc_poll_interval_us_value = 0;
 char *zfs_qat_dc_poll_quota = "profile";
 static int zfs_qat_dc_poll_quota_value = 0;
+char *zfs_qat_dc_watchdog = "profile";
+static int zfs_qat_dc_watchdog_value = 1;
+char *zfs_qat_dc_watchdog_timeout_ms = "profile";
+static int zfs_qat_dc_watchdog_timeout_ms_value = 5000;
+char *zfs_qat_dc_watchdog_interval_ms = "profile";
+static int zfs_qat_dc_watchdog_interval_ms_value = 250;
 char *zfs_qat_dc_profile = "balanced";
 int zfs_qat_dc_profile_recordsize = 128 * 1024;
 char *zfs_qat_dc_ratio_profile = "balanced";
+static uint32_t qat_dc_runtime_failed;
+static uint64_t qat_dc_total_inflight;
+static uint64_t qat_dc_inflight_start_ns;
+static uint64_t qat_dc_last_progress_ns;
 
 boolean_t
 qat_dc_compress_use_accel(size_t s_len)
@@ -189,6 +204,7 @@ qat_dc_compress_use_accel(size_t s_len)
 	int max_buf_size = qat_dc_effective_max_buf_size();
 
 	return (!zfs_qat_compress_disable &&
+	    qat_dc_runtime_failed == 0 &&
 	    qat_dc_init_done &&
 	    s_len >= QAT_DC_MIN_BUF_SIZE &&
 	    s_len <= max_buf_size);
@@ -200,6 +216,7 @@ qat_dc_decompress_use_accel(size_t s_len)
 	int max_buf_size = qat_dc_effective_max_buf_size();
 
 	return (!zfs_qat_compress_disable &&
+	    qat_dc_runtime_failed == 0 &&
 	    !qat_dc_effective_decompress_disable() &&
 	    qat_dc_init_done &&
 	    s_len >= QAT_DC_MIN_BUF_SIZE &&
@@ -479,6 +496,51 @@ qat_dc_effective_poll_quota(void)
 	return (zfs_qat_dc_poll_quota_value);
 }
 
+static int
+qat_dc_profile_watchdog(void)
+{
+	return (1);
+}
+
+static int
+qat_dc_effective_watchdog(void)
+{
+	if (strcmp(zfs_qat_dc_watchdog, "profile") == 0)
+		return (qat_dc_profile_watchdog());
+
+	return (zfs_qat_dc_watchdog_value);
+}
+
+static int
+qat_dc_profile_watchdog_timeout_ms(void)
+{
+	return (5000);
+}
+
+static int
+qat_dc_effective_watchdog_timeout_ms(void)
+{
+	if (strcmp(zfs_qat_dc_watchdog_timeout_ms, "profile") == 0)
+		return (qat_dc_profile_watchdog_timeout_ms());
+
+	return (zfs_qat_dc_watchdog_timeout_ms_value);
+}
+
+static int
+qat_dc_profile_watchdog_interval_ms(void)
+{
+	return (250);
+}
+
+static int
+qat_dc_effective_watchdog_interval_ms(void)
+{
+	if (strcmp(zfs_qat_dc_watchdog_interval_ms, "profile") == 0)
+		return (qat_dc_profile_watchdog_interval_ms());
+
+	return (zfs_qat_dc_watchdog_interval_ms_value);
+}
+
 static boolean_t
 qat_dc_validate_poll_mode(void)
 {
@@ -669,7 +731,7 @@ out:
 	return (add_len);
 }
 
-static void qat_dc_inflight_exit(qat_compress_dir_t dir);
+static void qat_dc_inflight_exit(qat_compress_dir_t dir, hrtime_t now);
 static void qat_dc_async_inflight_exit(void);
 
 static void
@@ -690,7 +752,7 @@ qat_dc_callback(void *p_callback, CpaStatus status)
 	req = ctx->u.async;
 	req->callback_status = status;
 	end = gethrtime();
-	qat_dc_inflight_exit(QAT_COMPRESS);
+	qat_dc_inflight_exit(QAT_COMPRESS, end);
 	qat_dc_async_inflight_exit();
 	QAT_STAT_ADD_TIME(dc_compress_wait_ns, req->submit_end, end);
 	QAT_STAT_BUMP(dc_compress_async_completions);
@@ -745,8 +807,113 @@ qat_dc_wait_completion(struct completion *complete)
 static uint64_t
 qat_dc_inflight_total(void)
 {
-	return (qat_stats.dc_compress_inflight.value.ui64 +
-	    qat_stats.dc_decompress_inflight.value.ui64);
+	return (qat_dc_total_inflight);
+}
+
+static void
+qat_dc_runtime_progress(hrtime_t now)
+{
+	atomic_swap_64(&qat_dc_last_progress_ns, (uint64_t)now);
+	qat_stats.dc_watchdog_last_progress_ns.value.ui64 = (uint64_t)now;
+}
+
+static void
+qat_dc_runtime_disable(const char *reason, uint64_t inflight,
+    uint64_t stall_ms)
+{
+	hrtime_t now = gethrtime();
+
+	if (atomic_cas_32(&qat_dc_runtime_failed, 0, 1) != 0)
+		return;
+
+	zfs_qat_compress_disable = 1;
+	qat_stats.dc_watchdog_health.value.ui64 = 0;
+	qat_stats.dc_watchdog_last_stall_ns.value.ui64 = (uint64_t)now;
+	QAT_STAT_BUMP(dc_watchdog_runtime_disables);
+	cmn_err(CE_WARN, "QAT DC watchdog disabled new QAT DC submissions: "
+	    "%s, inflight=%llu, stalled_ms=%llu. Existing requests are left "
+	    "to complete because timed-out QAT DMA cannot safely fall back "
+	    "into the same output buffer", reason,
+	    (u_longlong_t)inflight, (u_longlong_t)stall_ms);
+}
+
+static void
+qat_dc_watchdog_check(void)
+{
+	uint64_t inflight;
+	uint64_t start;
+	uint64_t last;
+	uint64_t timeout_ns;
+	hrtime_t now;
+
+	if (!qat_dc_effective_watchdog() || qat_dc_runtime_failed != 0)
+		return;
+
+	QAT_STAT_BUMP(dc_watchdog_checks);
+	inflight = qat_dc_inflight_total();
+	if (inflight == 0)
+		return;
+
+	start = qat_dc_inflight_start_ns;
+	last = qat_dc_last_progress_ns;
+	if (start == 0 || last == 0)
+		return;
+
+	now = gethrtime();
+	timeout_ns = MSEC2NSEC(qat_dc_effective_watchdog_timeout_ms());
+	if ((uint64_t)now - start <= timeout_ns ||
+	    (uint64_t)now - last <= timeout_ns) {
+		return;
+	}
+
+	QAT_STAT_BUMP(dc_watchdog_stalls);
+	qat_dc_runtime_disable("no QAT DC completion progress",
+	    inflight, ((uint64_t)now - last) / (NANOSEC / MILLISEC));
+}
+
+static int
+qat_dc_watchdog_thread(void *arg)
+{
+	(void) arg;
+
+	while (!kthread_should_stop()) {
+		int interval_ms = qat_dc_effective_watchdog_interval_ms();
+
+		if (!qat_dc_effective_watchdog())
+			interval_ms = 1000;
+		if (interval_ms < 1)
+			interval_ms = 1;
+
+		(void) wait_event_interruptible_timeout(qat_dc_watchdog_wq,
+		    kthread_should_stop(), MSEC_TO_TICK(interval_ms));
+
+		if (!kthread_should_stop())
+			qat_dc_watchdog_check();
+	}
+
+	return (0);
+}
+
+static int
+qat_dc_watchdog_start(void)
+{
+	qat_dc_watchdog_task = kthread_run(qat_dc_watchdog_thread, NULL,
+	    "zfs_qat_dc_watchdog");
+	if (IS_ERR(qat_dc_watchdog_task)) {
+		qat_dc_watchdog_task = NULL;
+		return (-1);
+	}
+
+	return (0);
+}
+
+static void
+qat_dc_watchdog_stop(void)
+{
+	if (qat_dc_watchdog_task != NULL) {
+		kthread_stop(qat_dc_watchdog_task);
+		qat_dc_watchdog_task = NULL;
+	}
 }
 
 static int
@@ -819,9 +986,10 @@ qat_dc_update_stat_max(kstat_named_t *max_stat, uint64_t value)
 }
 
 static void
-qat_dc_inflight_enter(qat_compress_dir_t dir)
+qat_dc_inflight_enter(qat_compress_dir_t dir, hrtime_t now)
 {
 	uint64_t inflight;
+	uint64_t total_inflight;
 
 	if (dir == QAT_COMPRESS) {
 		inflight = atomic_inc_64_nv(
@@ -835,13 +1003,21 @@ qat_dc_inflight_enter(qat_compress_dir_t dir)
 		    &qat_stats.dc_decompress_inflight_max, inflight);
 	}
 
+	total_inflight = atomic_inc_64_nv(&qat_dc_total_inflight);
+	if (total_inflight == 1) {
+		atomic_swap_64(&qat_dc_inflight_start_ns, (uint64_t)now);
+		qat_dc_runtime_progress(now);
+	}
+
 	if (qat_dc_effective_poll())
 		wake_up(&qat_dc_poll_wq);
 }
 
 static void
-qat_dc_inflight_exit(qat_compress_dir_t dir)
+qat_dc_inflight_exit(qat_compress_dir_t dir, hrtime_t now)
 {
+	uint64_t total_inflight;
+
 	if (dir == QAT_COMPRESS) {
 		(void) atomic_dec_64_nv(
 		    &qat_stats.dc_compress_inflight.value.ui64);
@@ -849,6 +1025,11 @@ qat_dc_inflight_exit(qat_compress_dir_t dir)
 		(void) atomic_dec_64_nv(
 		    &qat_stats.dc_decompress_inflight.value.ui64);
 	}
+
+	qat_dc_runtime_progress(now);
+	total_inflight = atomic_dec_64_nv(&qat_dc_total_inflight);
+	if (total_inflight == 0)
+		atomic_swap_64(&qat_dc_inflight_start_ns, 0);
 }
 
 static void
@@ -1105,6 +1286,7 @@ qat_dc_clean(void)
 	Cpa16U buff_num = 0;
 	Cpa16U num_inter_buff_lists = 0;
 
+	qat_dc_watchdog_stop();
 	qat_dc_poll_stop();
 
 	for (Cpa16U i = 0; i < num_inst; i++) {
@@ -1274,6 +1456,13 @@ qat_dc_init(void)
 
 	qat_dc_init_done = B_TRUE;
 	qat_stats.dc_instances.value.ui64 = num_inst;
+	atomic_swap_32(&qat_dc_runtime_failed, 0);
+	atomic_swap_64(&qat_dc_total_inflight, 0);
+	atomic_swap_64(&qat_dc_inflight_start_ns, 0);
+	qat_dc_runtime_progress(gethrtime());
+	qat_stats.dc_watchdog_health.value.ui64 = 1;
+	if (qat_dc_watchdog_start() != 0)
+		goto fail;
 	if (qat_dc_poll_start() != 0)
 		goto fail;
 	return (0);
@@ -1582,7 +1771,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		phase_end = gethrtime();
 		QAT_STAT_ADD_TIME(dc_compress_setup_ns, op_start, phase_end);
 		phase_start = gethrtime();
-		qat_dc_inflight_enter(dir);
+		qat_dc_inflight_enter(dir, phase_start);
 		status = cpaDcCompressData(
 		    dc_inst_handle, session_handle,
 		    buf_list_src, buf_list_dst,
@@ -1591,7 +1780,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		phase_end = gethrtime();
 		QAT_STAT_ADD_TIME(dc_compress_submit_ns, phase_start, phase_end);
 		if (status != CPA_STATUS_SUCCESS) {
-			qat_dc_inflight_exit(dir);
+			qat_dc_inflight_exit(dir, phase_end);
 			goto fail;
 		}
 
@@ -1599,7 +1788,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		phase_start = gethrtime();
 		qat_dc_wait_completion(&complete);
 		phase_end = gethrtime();
-		qat_dc_inflight_exit(dir);
+		qat_dc_inflight_exit(dir, phase_end);
 		QAT_STAT_ADD_TIME(dc_compress_wait_ns, phase_start, phase_end);
 
 		if (dc_results.status != CPA_STATUS_SUCCESS) {
@@ -1641,7 +1830,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		phase_end = gethrtime();
 		QAT_STAT_ADD_TIME(dc_decompress_setup_ns, op_start, phase_end);
 		phase_start = gethrtime();
-		qat_dc_inflight_enter(dir);
+		qat_dc_inflight_enter(dir, phase_start);
 		status = cpaDcDecompressData(dc_inst_handle, session_handle,
 		    buf_list_src, buf_list_dst, &dc_results, CPA_DC_FLUSH_FINAL,
 		    &callback_ctx);
@@ -1649,7 +1838,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		QAT_STAT_ADD_TIME(dc_decompress_submit_ns, phase_start, phase_end);
 
 		if (CPA_STATUS_SUCCESS != status) {
-			qat_dc_inflight_exit(dir);
+			qat_dc_inflight_exit(dir, phase_end);
 			status = CPA_STATUS_FAIL;
 			goto fail;
 		}
@@ -1658,7 +1847,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		phase_start = gethrtime();
 		qat_dc_wait_completion(&complete);
 		phase_end = gethrtime();
-		qat_dc_inflight_exit(dir);
+		qat_dc_inflight_exit(dir, phase_end);
 		QAT_STAT_ADD_TIME(dc_decompress_wait_ns, phase_start, phase_end);
 
 		if (dc_results.status != CPA_STATUS_SUCCESS) {
@@ -2173,7 +2362,7 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	for (;;) {
 		phase_start = gethrtime();
 		req->submit_end = phase_start;
-		qat_dc_inflight_enter(QAT_COMPRESS);
+		qat_dc_inflight_enter(QAT_COMPRESS, phase_start);
 		status = cpaDcCompressData(dc_inst_handle, session_handle,
 		    req->buf_list_src, req->buf_list_dst, &req->dc_results,
 		    CPA_DC_FLUSH_FINAL, &req->callback_ctx);
@@ -2183,7 +2372,7 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 		if (status == CPA_STATUS_SUCCESS)
 			break;
 
-		qat_dc_inflight_exit(QAT_COMPRESS);
+		qat_dc_inflight_exit(QAT_COMPRESS, phase_end);
 		if (status != CPA_STATUS_RETRY || attempt >= retry_limit)
 			break;
 
@@ -2324,6 +2513,18 @@ param_set_qat_compress(const char *val, zfs_kernel_param_t *kp)
 			zfs_qat_compress_disable = 1;
 			return (ret);
 		}
+	}
+
+	if (*pvalue == 0 && qat_dc_runtime_failed != 0) {
+		if (qat_dc_inflight_total() != 0) {
+			zfs_qat_compress_disable = 1;
+			return (-EBUSY);
+		}
+
+		atomic_swap_32(&qat_dc_runtime_failed, 0);
+		atomic_swap_64(&qat_dc_inflight_start_ns, 0);
+		qat_dc_runtime_progress(gethrtime());
+		qat_stats.dc_watchdog_health.value.ui64 = 1;
 	}
 	return (ret);
 }
@@ -2759,6 +2960,110 @@ param_get_qat_dc_poll_quota(char *buffer, zfs_kernel_param_t *kp)
 }
 
 static int
+param_set_qat_dc_watchdog(const char *val, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+	int new_value;
+	int ret;
+
+	if (qat_dc_param_profile(val)) {
+		*pvalue = "profile";
+		wake_up(&qat_dc_watchdog_wq);
+		return (0);
+	}
+
+	ret = qat_dc_parse_int_range(val, 0, 1, &new_value);
+	if (ret != 0)
+		return (ret);
+
+	zfs_qat_dc_watchdog_value = new_value;
+	*pvalue = "manual";
+	wake_up(&qat_dc_watchdog_wq);
+	return (0);
+}
+
+static int
+param_get_qat_dc_watchdog(char *buffer, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+
+	if (strcmp(*pvalue, "profile") == 0)
+		return (sprintf(buffer, "profile\n"));
+
+	return (sprintf(buffer, "%d\n", zfs_qat_dc_watchdog_value));
+}
+
+static int
+param_set_qat_dc_watchdog_timeout_ms(const char *val,
+    zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+	int new_value;
+	int ret;
+
+	if (qat_dc_param_profile(val)) {
+		*pvalue = "profile";
+		return (0);
+	}
+
+	ret = qat_dc_parse_int_range(val, 100, 3600000, &new_value);
+	if (ret != 0)
+		return (ret);
+
+	zfs_qat_dc_watchdog_timeout_ms_value = new_value;
+	*pvalue = "manual";
+	return (0);
+}
+
+static int
+param_get_qat_dc_watchdog_timeout_ms(char *buffer, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+
+	if (strcmp(*pvalue, "profile") == 0)
+		return (sprintf(buffer, "profile\n"));
+
+	return (sprintf(buffer, "%d\n",
+	    zfs_qat_dc_watchdog_timeout_ms_value));
+}
+
+static int
+param_set_qat_dc_watchdog_interval_ms(const char *val,
+    zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+	int new_value;
+	int ret;
+
+	if (qat_dc_param_profile(val)) {
+		*pvalue = "profile";
+		wake_up(&qat_dc_watchdog_wq);
+		return (0);
+	}
+
+	ret = qat_dc_parse_int_range(val, 10, 60000, &new_value);
+	if (ret != 0)
+		return (ret);
+
+	zfs_qat_dc_watchdog_interval_ms_value = new_value;
+	*pvalue = "manual";
+	wake_up(&qat_dc_watchdog_wq);
+	return (0);
+}
+
+static int
+param_get_qat_dc_watchdog_interval_ms(char *buffer, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+
+	if (strcmp(*pvalue, "profile") == 0)
+		return (sprintf(buffer, "profile\n"));
+
+	return (sprintf(buffer, "%d\n",
+	    zfs_qat_dc_watchdog_interval_ms_value));
+}
+
+static int
 param_set_qat_dc_async_submit_retries(const char *val, zfs_kernel_param_t *kp)
 {
 	char **pvalue = kp->arg;
@@ -3047,6 +3352,27 @@ module_param_call(zfs_qat_dc_poll_quota,
     &zfs_qat_dc_poll_quota, 0644);
 MODULE_PARM_DESC(zfs_qat_dc_poll_quota,
     "Synchronous QAT DC poll response quota: profile or integer");
+
+module_param_call(zfs_qat_dc_watchdog,
+    param_set_qat_dc_watchdog, param_get_qat_dc_watchdog,
+    &zfs_qat_dc_watchdog, 0644);
+MODULE_PARM_DESC(zfs_qat_dc_watchdog,
+    "Enable/Disable QAT DC no-progress runtime watchdog: profile, 0, or 1");
+
+module_param_call(zfs_qat_dc_watchdog_timeout_ms,
+    param_set_qat_dc_watchdog_timeout_ms,
+    param_get_qat_dc_watchdog_timeout_ms,
+    &zfs_qat_dc_watchdog_timeout_ms, 0644);
+MODULE_PARM_DESC(zfs_qat_dc_watchdog_timeout_ms,
+    "QAT DC watchdog no-progress timeout in milliseconds: profile or "
+    "integer");
+
+module_param_call(zfs_qat_dc_watchdog_interval_ms,
+    param_set_qat_dc_watchdog_interval_ms,
+    param_get_qat_dc_watchdog_interval_ms,
+    &zfs_qat_dc_watchdog_interval_ms, 0644);
+MODULE_PARM_DESC(zfs_qat_dc_watchdog_interval_ms,
+    "QAT DC watchdog check interval in milliseconds: profile or integer");
 
 module_param_call(zfs_qat_dc_profile, param_set_qat_dc_profile,
     param_get_charp, &zfs_qat_dc_profile, 0644);
