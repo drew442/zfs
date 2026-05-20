@@ -168,7 +168,13 @@ These notes capture stable, primary-source details useful when reviewing this fo
   private output buffer, then ZFS would copy successful output into the final
   destination. Treat it as a safety experiment, not a performance optimization,
   because it adds allocation/copy overhead and requires conservative handling of
-  any timed-out private buffers that QAT could still DMA into.
+  any timed-out private buffers that QAT could still DMA into. The first
+  implementation exposes `zfs_qat_dc_quarantine_dst=profile|0|1`, defaults
+  profile to effective `0`, applies only to synchronous QAT compression, and
+  disables experimental async compression while effective. Initial 128 KiB
+  validation on dh895xcc/QAT 4.28 showed all QAT requests using the quarantine
+  path with zero quarantine failures and zero watchdog stalls; keep it
+  manual-only until broader overhead testing is complete.
 - Larger records can use QAT DC only when the effective QAT max buffer is large
   enough. With `zfs_qat_dc_profile_recordsize=1048576`, polling mode handled
   `256K`, `512K`, and `1M` records with nonzero QAT request counters. Without

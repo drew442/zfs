@@ -1,4 +1,4 @@
-# QAT DC Quarantined Destination Design - 2026-05-20
+# QAT DC Quarantined Destination - 2026-05-20
 
 ## Problem
 
@@ -77,6 +77,43 @@ offload: 0
 Do not enable by profile until measured. A future `safety` profile could make
 this mode default if recovery behavior becomes more important than throughput.
 
+## Implemented First Version
+
+The first implementation adds manual/profile control for synchronous QAT
+compression:
+
+```text
+zfs_qat_dc_quarantine_dst=profile|0|1
+```
+
+Current profile default is effective `0`.
+
+When effective `1`:
+
+- Synchronous QAT compression must obtain a private destination buffer.
+- QAT output is copied into the final ZFS destination only after successful QAT
+  completion and size validation.
+- If private destination setup fails before QAT submit, the QAT path returns
+  failure and ZFS can use existing software fallback.
+- Experimental async compression is disabled while quarantine mode is effective
+  because async resume semantics have not been redesigned around quarantine
+  ownership.
+- Existing destination-coalescing allocation/copy timing counters are reused,
+  and quarantine-specific counters identify quarantine activity.
+
+Added kstats:
+
+```text
+dc_compress_quarantine_dst_requests
+dc_compress_quarantine_dst_success
+dc_compress_quarantine_dst_fails
+dc_compress_quarantine_dst_copy_bytes
+```
+
+This first version does not implement a per-request timeout, QAT cancel, or
+retained timed-out-buffer list. It is the safe destination-ownership primitive
+needed before any later accepted-request fallback work.
+
 ## Expected Costs
 
 - Extra destination allocation or private buffer reuse requirement.
@@ -108,9 +145,53 @@ Success criteria:
 - Performance cost is explicit enough to decide whether this should remain
   manual-only.
 
+## Initial Validation
+
+Host validation on `pve.drewnet.online`:
+
+```text
+Kernel: 7.0.0-3-pve
+ZFS srcversion: 440AC0FA85D59E11EEBC115
+QAT DC instances: 12
+Default zfs_qat_dc_quarantine_dst: profile, effective 0
+Test zfs_qat_dc_quarantine_dst: 1
+```
+
+Artifacts:
+
+```text
+.codex/skills/openzfs-qat/artifacts/zfs-qat-watchdog-baseline-records-jobs1-4-8-20260520.csv
+.codex/skills/openzfs-qat/artifacts/zfs-qat-quarantine-default-smoke-128k-jobs1-20260520.csv
+.codex/skills/openzfs-qat/artifacts/zfs-qat-quarantine-enabled-smoke-128k-jobs1-20260520.csv
+.codex/skills/openzfs-qat/artifacts/zfs-qat-quarantine-enabled-128k-jobs1-4-8-20260520.csv
+```
+
+The full normal-operation baseline used the previous 176-column harness format.
+The quarantine implementation adds six benchmark columns, so quarantine
+validation artifacts use 182 columns. Field-count validation passed for header
+and all data rows in the new artifacts.
+
+Quarantine 128 KiB results:
+
+| Jobs | QAT avg ms | SW avg ms | QAT vs SW | Quarantine requests | Quarantine fails | Watchdog stalls |
+|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 730.749 | 758.544 | -3.66% | 1,460 per iter | 0 | 0 |
+| 4 | 1092.922 | 1095.480 | -0.23% | 5,840 per iter | 0 | 0 |
+| 8 | 1544.149 | 1423.978 | +8.44% | 11,684-11,688 per iter | 0 | 0 |
+
+Interpretation:
+
+- Functional smoke passed for QAT and software verification paths.
+- Every QAT compression request in quarantine mode used the private destination
+  path and had matching quarantine success counters.
+- No quarantine allocation/setup failures were observed.
+- No watchdog stalls or runtime disables were observed.
+- The first timing data does not show a clear penalty at `JOBS=1/4`, but
+  `JOBS=8` regressed versus software. Treat timing as preliminary because this
+  was a narrow 128 KiB validation run, not a full profile sweep.
+
 ## Recommendation
 
-Do not implement this before one more benchmark pass with watchdog columns in
-place. The added harness data will confirm whether the watchdog remains
-invisible during normal runs and will give a cleaner baseline for evaluating the
-quarantine mode's allocation/copy overhead.
+Keep quarantine mode manual-only until more data exists. Initial smoke testing
+shows the mode works functionally at 128 KiB, but it adds copy/allocation cost
+and should not become a profile default without a larger overhead review.

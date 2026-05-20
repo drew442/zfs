@@ -145,6 +145,8 @@ static const char *qat_dc_effective_hufftype(void);
 static int qat_dc_effective_max_buf_size(void);
 static int qat_dc_effective_coalesce_src(void);
 static int qat_dc_effective_coalesce_dst(void);
+static int qat_dc_effective_quarantine_dst(void);
+static int qat_dc_effective_private_dst(void);
 static int qat_dc_effective_async(void);
 static int qat_dc_effective_async_submit_retries(void);
 static int qat_dc_effective_async_retry_us(void);
@@ -169,6 +171,8 @@ char *zfs_qat_dc_coalesce_src = "profile";
 static int zfs_qat_dc_coalesce_src_value = 0;
 char *zfs_qat_dc_coalesce_dst = "profile";
 static int zfs_qat_dc_coalesce_dst_value = 0;
+char *zfs_qat_dc_quarantine_dst = "profile";
+static int zfs_qat_dc_quarantine_dst_value = 0;
 char *zfs_qat_dc_async = "profile";
 static int zfs_qat_dc_async_value = 0;
 char *zfs_qat_dc_async_submit_retries = "profile";
@@ -385,6 +389,28 @@ qat_dc_effective_coalesce_dst(void)
 }
 
 static int
+qat_dc_profile_quarantine_dst(void)
+{
+	return (0);
+}
+
+static int
+qat_dc_effective_quarantine_dst(void)
+{
+	if (strcmp(zfs_qat_dc_quarantine_dst, "profile") == 0)
+		return (qat_dc_profile_quarantine_dst());
+
+	return (zfs_qat_dc_quarantine_dst_value);
+}
+
+static int
+qat_dc_effective_private_dst(void)
+{
+	return (qat_dc_effective_coalesce_dst() ||
+	    qat_dc_effective_quarantine_dst());
+}
+
+static int
 qat_dc_profile_async(const char *dc_profile)
 {
 	if (strcmp(dc_profile, "throughput") == 0 ||
@@ -397,7 +423,7 @@ qat_dc_profile_async(const char *dc_profile)
 static int
 qat_dc_effective_async(void)
 {
-	if (qat_dc_effective_poll())
+	if (qat_dc_effective_poll() || qat_dc_effective_quarantine_dst())
 		return (0);
 
 	if (strcmp(zfs_qat_dc_async, "profile") == 0)
@@ -1117,7 +1143,7 @@ qat_dc_try_coalesce_dst(char **dst, int dst_len, int add_len,
 	hrtime_t start;
 	hrtime_t end;
 
-	if (!qat_dc_effective_coalesce_dst())
+	if (!qat_dc_effective_private_dst())
 		return (B_FALSE);
 
 	QAT_STAT_BUMP(dc_compress_dst_coalesce_requests);
@@ -1544,6 +1570,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	boolean_t src_coalesced;
 	boolean_t dst_coalesced;
 	boolean_t dst_coalesce_requested;
+	boolean_t dst_quarantine_requested;
 	boolean_t local_add_alloc = B_FALSE;
 
 	/*
@@ -1553,9 +1580,13 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	 */
 	src_coalesced = (dir == QAT_COMPRESS &&
 	    qat_dc_try_coalesce_src(&src, src_len, &coalesced_src));
+	dst_quarantine_requested = (dir == QAT_COMPRESS &&
+	    qat_dc_effective_quarantine_dst());
 	dst_coalesce_requested = (dir == QAT_COMPRESS &&
-	    qat_dc_effective_coalesce_dst());
+	    qat_dc_effective_private_dst());
 	dst_coalesced = B_FALSE;
+	if (dst_quarantine_requested)
+		QAT_STAT_BUMP(dc_compress_quarantine_dst_requests);
 
 	num_src_buf = src_coalesced ? 1 : ((src_len >> PAGE_SHIFT) + 2);
 	num_dst_buf = dst_coalesce_requested ? 1 :
@@ -1585,7 +1616,16 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		    add_len, buffer_slot, &coalesced_dst);
 		if (dst_coalesced) {
 			coalesced_dst_len = (Cpa32U)(dst_len + add_len);
+			if (dst_quarantine_requested)
+				QAT_STAT_BUMP(
+				    dc_compress_quarantine_dst_success);
 		} else {
+			if (dst_quarantine_requested) {
+				QAT_STAT_BUMP(
+				    dc_compress_quarantine_dst_fails);
+				goto fail;
+			}
+
 			if (buffer_slot != NULL) {
 				qat_dc_buffer_pool_release(i, buffer_slot);
 				buffer_slot = NULL;
@@ -1818,6 +1858,11 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 			    free_start, free_end);
 			QAT_STAT_INCR(dc_compress_dst_coalesce_copy_bytes,
 			    *c_len);
+			if (dst_quarantine_requested) {
+				QAT_STAT_INCR(
+				    dc_compress_quarantine_dst_copy_bytes,
+				    *c_len);
+			}
 		}
 		QAT_STAT_INCR(comp_total_out_bytes, *c_len);
 	} else {
@@ -1950,7 +1995,7 @@ qat_compress(qat_compress_dir_t dir, char *src, int src_len,
 	if (dir == QAT_COMPRESS) {
 		add_len = qat_dc_compress_scratch_len(src_len, dst_len);
 		scratch_start = gethrtime();
-		if (add_len > 0 && !qat_dc_effective_coalesce_dst())
+		if (add_len > 0 && !qat_dc_effective_private_dst())
 			add = zio_data_buf_alloc(add_len);
 		scratch_end = gethrtime();
 		QAT_STAT_ADD_TIME(dc_compress_scratch_alloc_ns, scratch_start,
@@ -2824,6 +2869,38 @@ param_get_qat_dc_coalesce_dst(char *buffer, zfs_kernel_param_t *kp)
 }
 
 static int
+param_set_qat_dc_quarantine_dst(const char *val, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+	int new_value;
+	int ret;
+
+	if (qat_dc_param_profile(val)) {
+		*pvalue = "profile";
+		return (0);
+	}
+
+	ret = qat_dc_parse_int_range(val, 0, 1, &new_value);
+	if (ret != 0)
+		return (ret);
+
+	zfs_qat_dc_quarantine_dst_value = new_value;
+	*pvalue = "manual";
+	return (0);
+}
+
+static int
+param_get_qat_dc_quarantine_dst(char *buffer, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+
+	if (strcmp(*pvalue, "profile") == 0)
+		return (sprintf(buffer, "profile\n"));
+
+	return (sprintf(buffer, "%d\n", zfs_qat_dc_quarantine_dst_value));
+}
+
+static int
 param_set_qat_dc_async(const char *val, zfs_kernel_param_t *kp)
 {
 	char **pvalue = kp->arg;
@@ -3298,6 +3375,13 @@ module_param_call(zfs_qat_dc_coalesce_dst, param_set_qat_dc_coalesce_dst,
     param_get_qat_dc_coalesce_dst, &zfs_qat_dc_coalesce_dst, 0644);
 MODULE_PARM_DESC(zfs_qat_dc_coalesce_dst,
     "Enable/Disable experimental QAT compression destination coalescing: "
+    "profile, 0, or 1");
+
+module_param_call(zfs_qat_dc_quarantine_dst,
+    param_set_qat_dc_quarantine_dst, param_get_qat_dc_quarantine_dst,
+    &zfs_qat_dc_quarantine_dst, 0644);
+MODULE_PARM_DESC(zfs_qat_dc_quarantine_dst,
+    "Enable/Disable experimental QAT compression destination quarantine: "
     "profile, 0, or 1");
 
 module_param_call(zfs_qat_dc_async, param_set_qat_dc_async,
