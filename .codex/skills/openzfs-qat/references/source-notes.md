@@ -171,6 +171,11 @@ These notes capture stable, primary-source details useful when reviewing this fo
   `zio` resume. The expected consequence of a pure no-completion failure is
   availability loss/reboot, while successful-but-wrong QAT output is the more
   serious integrity class.
+- The 2026-05-21 watchdog/quarantine completion plan defines the practical
+  target end state: request-local timeout for synchronous QAT DC operations,
+  runtime fail-closed behavior for new QAT submissions, and software fallback
+  only when quarantined compression kept QAT DMA away from the final ZFS
+  destination.
 - The 2026-05-20 quarantined-destination design is the first plausible route to
   fallback after an accepted QAT compression request: QAT would write to a
   private output buffer, then ZFS would copy successful output into the final
