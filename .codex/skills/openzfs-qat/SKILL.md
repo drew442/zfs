@@ -27,7 +27,8 @@ Use this skill for QAT-specific work in this fork. It is meant for design review
 10. For QAT driver-side timing results, use `references/qat-driver-timing-matrix-20260519.md`.
 11. For the interrupt coalescing minimum-timer experiment, use `references/qat-coalescing-min-timer-20260519.md`.
 12. For the QAT DC polling implementation and results, use `references/qat-dc-polling-20260519.md`.
-13. Confirm which layer the task touches before editing:
+13. For the completed async/profile matrix and request-overhead step 5 plan, use `references/async-profile-matrix-20260521.md`.
+14. Confirm which layer the task touches before editing:
    - Build integration and static configuration
    - Runtime tunables and initialization
    - Compression, checksum, or encryption call sites
