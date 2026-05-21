@@ -185,6 +185,12 @@ These notes capture stable, primary-source details useful when reviewing this fo
   tests with zero recovery counters, plus an induced 1 ms quarantine timeout
   with successful software fallback, late completion, retained-buffer release,
   and final retained count/bytes returning to zero.
+- The 2026-05-21 async polling plan treats async polling as a correctness
+  enablement step, not as timeout recovery. Async requests already use heap
+  request state and the central poller can drive their callbacks because async
+  submit/complete update the aggregate QAT DC in-flight counters. Quarantine
+  must continue to disable async until async ownership and timeout recovery are
+  redesigned.
 - The 2026-05-20 quarantined-destination design is the first plausible route to
   fallback after an accepted QAT compression request: QAT would write to a
   private output buffer, then ZFS would copy successful output into the final
