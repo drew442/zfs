@@ -50,7 +50,7 @@ zfs_qat_dc_watchdog_interval_ms=profile # effective 250
 Manual ranges:
 
 ```text
-zfs_qat_dc_watchdog_timeout_ms: 100..3600000
+zfs_qat_dc_watchdog_timeout_ms: 1..3600000
 zfs_qat_dc_watchdog_interval_ms: 10..60000
 ```
 

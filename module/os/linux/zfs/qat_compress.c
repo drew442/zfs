@@ -3313,7 +3313,7 @@ param_set_qat_dc_watchdog_timeout_ms(const char *val,
 		return (0);
 	}
 
-	ret = qat_dc_parse_int_range(val, 100, 3600000, &new_value);
+	ret = qat_dc_parse_int_range(val, 1, 3600000, &new_value);
 	if (ret != 0)
 		return (ret);
 

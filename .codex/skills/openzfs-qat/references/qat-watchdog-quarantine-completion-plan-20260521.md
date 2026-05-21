@@ -111,3 +111,9 @@ caller may remain blocked until reboot/module/device reset
 ## Status
 
 - 2026-05-21: Plan created. Implementation not yet started.
+- 2026-05-21: Initial implementation added heap-owned synchronous request
+  callback/result state, request-local timed waits, quarantine-only recovery,
+  retained private source/destination ownership, late-completion cleanup,
+  re-enable blocking while retained buffers exist, and benchmark counters.
+  Manual watchdog timeout minimum was lowered to `1 ms` for controlled
+  recovery-path validation; profile default remains `5000 ms`.
