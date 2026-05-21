@@ -794,6 +794,7 @@ out:
 static void qat_dc_inflight_exit(qat_compress_dir_t dir, hrtime_t now);
 static void qat_dc_async_inflight_exit(void);
 static void qat_dc_buffer_pool_release(Cpa16U inst, qat_dc_buffer_slot_t *slot);
+static uint64_t qat_dc_inflight_total(void);
 static void qat_dc_runtime_disable(const char *reason, uint64_t inflight,
     uint64_t stall_ms);
 
