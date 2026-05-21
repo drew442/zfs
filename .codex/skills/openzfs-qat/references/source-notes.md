@@ -193,6 +193,11 @@ These notes capture stable, primary-source details useful when reviewing this fo
   submit/complete update the aggregate QAT DC in-flight counters. Quarantine
   must continue to disable async until async ownership and timeout recovery are
   redesigned.
+- The 2026-05-21 async polling smoke on two DH895XCC cards completed with
+  `sha_ok=yes`, `zfs_qat_dc_poll=1`, `zfs_qat_dc_async=1`, 1,460 async
+  submits/completions/resumes, zero async fallbacks, zero poll failures, zero
+  watchdog request timeouts, and watchdog health `1`. The host was restored to
+  interrupt/profile mode after validation.
 - The 2026-05-20 quarantined-destination design is the first plausible route to
   fallback after an accepted QAT compression request: QAT would write to a
   private output buffer, then ZFS would copy successful output into the final

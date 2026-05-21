@@ -89,5 +89,23 @@ continue to disable async.
 
 ## Status
 
-- 2026-05-21: Plan created. Implementation not yet started.
-
+- 2026-05-21: Implemented and smoke-tested on `pve.drewnet.online` with two
+  DH895XCC cards, QAT DC kernel instances in poll mode, `zfs_qat_dc_poll=1`,
+  `zfs_qat_dc_poll_interval_us=10`, `zfs_qat_dc_async=1`, and
+  `zfs_qat_dc_quarantine_dst=0`.
+- Validation artifact:
+  `.codex/skills/openzfs-qat/artifacts/zfs-qat-async-poll-smoke-128k-jobs1-20260521.csv`.
+  The corrected smoke row had `sha_ok=yes`, 1,460 async submits, 1,460 async
+  completions, 1,460 async resumes, zero async fallbacks, 15,888 poll calls,
+  zero poll failures, zero watchdog request timeouts, and watchdog health `1`.
+- Comparison artifacts:
+  `.codex/skills/openzfs-qat/artifacts/zfs-qat-async-poll-on-64k128k-jobs1-20260521.csv`
+  and
+  `.codex/skills/openzfs-qat/artifacts/zfs-qat-async-poll-off-64k128k-jobs1-20260521.csv`.
+  With async enabled, 128K averaged 749.078 ms versus 764.994 ms with async
+  disabled. At 64K, the current balanced async cap policy skipped async QAT and
+  fell back to software for the async path, so 64K async-enabled rows are not a
+  hardware-async performance result.
+- Host restore completed after validation: QAT kernel DC instance polling reset
+  to `0`, ZFS QAT parameters reset to `profile` defaults, watchdog health `1`,
+  retained quarantine count/bytes `0`, and post-reboot poll/async counters `0`.
