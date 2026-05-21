@@ -176,6 +176,15 @@ These notes capture stable, primary-source details useful when reviewing this fo
   runtime fail-closed behavior for new QAT submissions, and software fallback
   only when quarantined compression kept QAT DMA away from the final ZFS
   destination.
+- The 2026-05-21 implementation reached that practical end state for
+  synchronous compression: recoverable request-local timeout is limited to
+  quarantined compression, which now keeps private source and destination
+  memory plus callback/result/control state valid after timeout. Direct
+  destination and decompression timeouts remain fail-closed and unrecovered.
+  Validation on `pve.drewnet.online` showed normal default and quarantine smoke
+  tests with zero recovery counters, plus an induced 1 ms quarantine timeout
+  with successful software fallback, late completion, retained-buffer release,
+  and final retained count/bytes returning to zero.
 - The 2026-05-20 quarantined-destination design is the first plausible route to
   fallback after an accepted QAT compression request: QAT would write to a
   private output buffer, then ZFS would copy successful output into the final

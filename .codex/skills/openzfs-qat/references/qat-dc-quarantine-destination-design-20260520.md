@@ -115,6 +115,9 @@ dc_compress_quarantine_dst_requests
 dc_compress_quarantine_dst_success
 dc_compress_quarantine_dst_fails
 dc_compress_quarantine_dst_copy_bytes
+dc_compress_quarantine_dst_retained
+dc_compress_quarantine_dst_retained_bytes
+dc_compress_quarantine_dst_retained_released
 ```
 
 This first version does not implement a per-request timeout, QAT cancel,
@@ -203,3 +206,17 @@ Interpretation:
 Keep quarantine mode manual-only until more data exists. Initial smoke testing
 shows the mode works functionally at 128 KiB, but it adds copy/allocation cost
 and should not become a profile default without a larger overhead review.
+
+## Recovery Extension
+
+The 2026-05-21 recovery extension makes quarantine mode the only synchronous
+compression path eligible for accepted-request software fallback after a local
+timeout. When quarantine is effective, the implementation now forces a private
+source copy as well as a private destination buffer. On timeout, QAT-owned
+source, destination, result, metadata, buffer-list, and callback memory are
+retained until late QAT completion or module/device teardown. The final ZFS
+destination remains untouched and the caller can fall back to software gzip.
+
+Direct-destination compression and decompression still fail closed without
+local fallback after timeout. Experimental async compression remains disabled
+while quarantine is effective.

@@ -147,3 +147,32 @@ zfs_qat_dc_watchdog: profile -> 0 -> profile
 zfs_qat_dc_watchdog_timeout_ms: profile -> 1000 -> profile
 zfs_qat_dc_watchdog_interval_ms: profile -> 100 -> profile
 ```
+
+## Request-Local Timeout Recovery
+
+The 2026-05-21 implementation extends the aggregate watchdog with
+request-local timed waits for synchronous QAT DC requests. The timeout uses
+`zfs_qat_dc_watchdog_timeout_ms`; the profile default remains `5000 ms`, while
+manual values allow `1..3600000 ms` so recovery can be validated without
+breaking the QAT driver.
+
+On request-local timeout:
+
+- New QAT DC submissions are failed closed through the existing runtime-failed
+  state.
+- Direct-destination compression and decompression remain unrecoverable and
+  continue waiting for completion, because QAT may still own caller memory.
+- Quarantined synchronous compression can return failure to the existing ZFS
+  software fallback path because QAT owns only retained private source,
+  destination, result, metadata, and callback memory.
+- Late QAT completion releases retained quarantine memory and records a late
+  completion counter.
+
+Additional counters:
+
+```text
+dc_watchdog_request_timeouts
+dc_watchdog_request_recoveries
+dc_watchdog_request_unrecoverable
+dc_watchdog_late_completions
+```

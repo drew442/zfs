@@ -117,3 +117,38 @@ caller may remain blocked until reboot/module/device reset
   re-enable blocking while retained buffers exist, and benchmark counters.
   Manual watchdog timeout minimum was lowered to `1 ms` for controlled
   recovery-path validation; profile default remains `5000 ms`.
+- 2026-05-21: DKMS build/install/reboot validation passed on
+  `pve.drewnet.online`, kernel `7.0.0-3-pve`, ZFS srcversion
+  `8D00C38405EDF2E56E635E4`.
+- 2026-05-21: Normal 128 KiB smoke with default profile completed with
+  `sha_ok=yes`, watchdog health `1`, zero request timeouts, zero recoveries,
+  zero unrecoverable requests, zero late completions, and zero retained
+  quarantine buffers.
+- 2026-05-21: Normal 128 KiB smoke with `zfs_qat_dc_quarantine_dst=1`
+  completed with `sha_ok=yes`, zero request timeouts, zero recoveries, zero
+  retained buffers, and all 1,460 QAT compression requests using the quarantine
+  path.
+- 2026-05-21: Induced recovery test with
+  `zfs_qat_dc_quarantine_dst=1` and
+  `zfs_qat_dc_watchdog_timeout_ms=1` completed with `sha_ok=yes`. The run
+  recorded one recoverable timeout, one late completion, one retained-buffer
+  release, zero unrecoverable requests, and retained count/bytes returned to
+  zero after completion. QAT DC was restored to
+  `zfs_qat_dc_watchdog_timeout_ms=profile`,
+  `zfs_qat_dc_quarantine_dst=profile`, and
+  `zfs_qat_compress_disable=0`.
+- 2026-05-21: Post-recovery restored-default QAT smoke completed with
+  `sha_ok=yes`, watchdog health `1`, no retained quarantine buffers, and
+  profile/default parameters still restored.
+
+## Validation Artifacts
+
+```text
+.codex/skills/openzfs-qat/artifacts/zfs-qat-timeout-default-smoke-128k-jobs1-20260521.csv
+.codex/skills/openzfs-qat/artifacts/zfs-qat-timeout-quarantine-smoke-128k-jobs1-20260521.csv
+.codex/skills/openzfs-qat/artifacts/zfs-qat-timeout-induced-quarantine-128k-jobs1-20260521.csv
+.codex/skills/openzfs-qat/artifacts/zfs-qat-timeout-restored-default-smoke-128k-jobs1-20260521.csv
+```
+
+All four artifacts use the 189-column benchmark format and passed field-count
+validation.
