@@ -143,11 +143,10 @@ These notes capture stable, primary-source details useful when reviewing this fo
   waiters polling the same traditional DC instances is not a safe reentrant
   shape. The implementation starts `zfs_qat_dc_poll` only when
   `zfs_qat_dc_poll` is enabled at QAT DC init time.
-- As of the 2026-05-21 async-polling change, `zfs_qat_dc_poll` no longer
-  disables experimental async compression. The central poller can drive async
-  callbacks because async requests enter/exit the aggregate QAT DC in-flight
-  accounting. Quarantine still disables async until async timeout ownership and
-  fallback are redesigned.
+- As of the 2026-05-21 async-completion work, QAT DC async compression is a
+  completed opt-in feature for the current QAT 1.x scope. The central poller
+  can drive async callbacks because async requests enter/exit the aggregate QAT
+  DC in-flight accounting.
 - A 2026-05-19 minimum-timer interrupt coalescing test on two dh895xcc cards did
   not produce a material end-to-end QAT win at 128 KiB. It improved driver wait
   at `JOBS=4`, but elapsed time did not improve and `JOBS=8` active CPU rose.
@@ -191,17 +190,16 @@ These notes capture stable, primary-source details useful when reviewing this fo
   tests with zero recovery counters, plus an induced 1 ms quarantine timeout
   with successful software fallback, late completion, retained-buffer release,
   and final retained count/bytes returning to zero.
-- The 2026-05-21 async polling plan treats async polling as a correctness
-  enablement step, not as timeout recovery. Async requests already use heap
-  request state and the central poller can drive their callbacks because async
-  submit/complete update the aggregate QAT DC in-flight counters. Quarantine
-  must continue to disable async until async ownership and timeout recovery are
-  redesigned.
-- The 2026-05-21 async polling smoke on two DH895XCC cards completed with
-  `sha_ok=yes`, `zfs_qat_dc_poll=1`, `zfs_qat_dc_async=1`, 1,460 async
-  submits/completions/resumes, zero async fallbacks, zero poll failures, zero
-  watchdog request timeouts, and watchdog health `1`. The host was restored to
-  interrupt/profile mode after validation.
+- The 2026-05-21 async completion work tracks active async requests, lets the
+  watchdog resume timed-out async `zio`s, abandons timed-out QAT requests
+  without freeing possible late-DMA buffers, and falls back to software gzip
+  using a separate ABD destination. Late QAT callbacks release retained async
+  state without resuming the fallback `zio` again.
+- The 2026-05-21 async validation on two DH895XCC cards covered interrupt mode
+  and polling mode at `128K` and `1M`, plus induced `1M` timeout fallback.
+  All validation rows had `sha_ok=yes`; the induced-timeout run recorded 91
+  async request timeouts, 73 recoveries, 73 late completions, and async
+  in-flight returning to zero after completion/reset.
 - The 2026-05-20 quarantined-destination design is the first plausible route to
   fallback after an accepted QAT compression request: QAT would write to a
   private output buffer, then ZFS would copy successful output into the final
@@ -210,7 +208,8 @@ These notes capture stable, primary-source details useful when reviewing this fo
   any timed-out private buffers that QAT could still DMA into. The first
   implementation exposes `zfs_qat_dc_quarantine_dst=profile|0|1`, defaults
   profile to effective `0`, applies only to synchronous QAT compression, and
-  disables experimental async compression while effective. Initial 128 KiB
+  disables async compression while effective as a conservative policy choice.
+  Initial 128 KiB
   validation on dh895xcc/QAT 4.28 showed all QAT requests using the quarantine
   path with zero quarantine failures and zero watchdog stalls; keep it
   manual-only until broader overhead testing is complete.

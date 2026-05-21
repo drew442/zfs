@@ -6,10 +6,12 @@ Yes. The availability summary applies to both interrupt and polling delivery
 once QAT has accepted a DC request.
 
 Interrupt versus polling changes how completions are delivered. It does not
-change the ZFS-level dependency that an accepted QAT request must eventually
-complete before a synchronous waiter can return or an asynchronous `zio` can
-resume. If completion delivery stops after acceptance, affected ZFS I/O can
-remain outstanding indefinitely in either mode.
+change the ZFS-level dependency that an accepted QAT request must either
+complete or be recovered before the ZFS I/O can finish. Synchronous direct
+destination requests can still remain outstanding indefinitely after an
+accepted-request blackhole. Quarantined synchronous compression and async
+compression now have retained-buffer timeout fallback paths for recoverable
+compression requests.
 
 The expected consequence of a pure no-completion failure is availability loss,
 not pool-wide corruption. The more serious corruption class is successful but
@@ -46,11 +48,11 @@ effective `zfs_qat_dc_poll` setting. This protects both unsafe mismatches:
 | Mode | Current behavior if an accepted request never completes |
 |---|---|
 | Interrupt + synchronous compression | Waiting thread remains blocked. Enough stranded requests can make the affected dataset or pool write path appear wedged. |
-| Interrupt + experimental async compression | Callback/resume never happens, so the `zio` remains outstanding and can block pipeline progress. |
+| Interrupt + async compression | Watchdog timeout resumes the `zio`, abandons the QAT request with retained source/destination buffers, and falls back to software gzip. If QAT later completes, the late callback releases retained async state without a second resume. |
 | Polling + synchronous compression | Waiting thread remains blocked if the central poller cannot obtain completion progress. Config mismatches now fail closed during QAT DC init. |
-| Polling + experimental async compression | Disabled by design. The async path has not been redesigned around poll-driven completion and `zio` resume. |
-| Quarantined destination + synchronous compression | Final ZFS destination remains isolated until QAT success, but this first version still has no per-request timeout, cancel, or accepted-request fallback. |
-| Quarantined destination + experimental async compression | Disabled by design while quarantine mode is effective. |
+| Polling + async compression | Same async timeout/fallback behavior as interrupt mode when the watchdog detects no progress. Polling only changes callback delivery. |
+| Quarantined destination + synchronous compression | Final ZFS destination remains isolated until QAT success. On request timeout, retained private source/destination/request state allows software fallback and late-completion cleanup. |
+| Quarantined destination + async compression | Disabled by policy while quarantine mode is effective; async has its own retained-buffer timeout fallback and does not use synchronous quarantine ownership. |
 
 ## Watchdog And Quarantine Impact
 
@@ -59,23 +61,21 @@ The QAT DC watchdog is an aggregate no-progress detector. It starts one sleeping
 tracked in-flight requests make no completion progress for longer than the
 configured timeout.
 
-The watchdog does not rescue requests already accepted by QAT. That limitation
-is intentional. In the direct-destination path, QAT may still perform late DMA
-into the output buffer after ZFS has timed out locally. Software fallback into
-that same buffer would be unsafe.
+The watchdog now rescues accepted compression requests only when ownership is
+safe: synchronous quarantined compression and async compression. In the
+direct-destination synchronous path, QAT may still perform late DMA into the
+output buffer after ZFS has timed out locally. Software fallback into that same
+buffer would be unsafe.
 
 Quarantined destination mode moves QAT compression output into a private buffer
 and copies successful output into the final ZFS destination only after QAT
-completion and size validation. This is the first required primitive for a
-future accepted-request timeout/fallback design. It does not yet implement:
+completion and size validation. It now implements request-local timeout,
+retained timed-out-buffer ownership, software fallback after QAT has accepted a
+recoverable compression request, and late-completion cleanup.
 
-- A per-request timeout.
-- A QAT cancel or drain operation.
-- A retained timed-out-buffer quarantine list.
-- Software fallback after QAT has accepted a request.
-
-Without a future accepted-request recovery path, a true completion blackhole can
-still require module reset or reboot to restore availability.
+Direct-destination synchronous compression, decompression, and any QAT request
+that never produces a late completion can still require module reset or reboot
+to restore availability or reclaim retained private memory.
 
 ## Data Loss And Corruption Expectations
 

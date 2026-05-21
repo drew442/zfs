@@ -27,18 +27,22 @@ caller may remain blocked until reboot/module/device reset
 
 ## Current State
 
-- The watchdog is aggregate-only. It detects global no-progress and disables
-  new QAT DC submissions.
-- The watchdog does not recover accepted requests.
+- The watchdog keeps the aggregate no-progress detector. It detects global
+  no-progress and disables new QAT DC submissions.
+- The watchdog also supports request-local timeout recovery for ownership-safe
+  compression requests.
 - Quarantine mode isolates synchronous compression output into a private
   destination buffer and copies successful output to the final destination.
-- Quarantine mode does not yet implement timeout, fallback, late completion
-  handling, or retained timed-out-buffer ownership.
+- Quarantine mode implements timeout, software fallback, late-completion
+  handling, and retained timed-out-buffer ownership for synchronous
+  compression.
 - Destination quarantine alone is not sufficient for safe timeout fallback. The
   accepted request's source buffer, result storage, buffer lists, metadata, and
   callback context must also remain valid until QAT completes or device/module
   teardown makes late access impossible.
-- Quarantine and polling disable experimental async compression.
+- Quarantine disables async compression as a conservative policy choice.
+  Polling no longer disables async compression; async has separate
+  retained-buffer timeout fallback.
 
 ## Feature Complete Watchdog Requirements
 
@@ -80,8 +84,8 @@ caller may remain blocked until reboot/module/device reset
 - Software-fallback only the quarantined synchronous compression case.
 - Do not attempt same-buffer fallback for direct-destination compression.
 - Do not attempt accepted-request fallback for decompression.
-- Keep experimental async disabled while quarantine is effective until async
-  ownership and `zio` resume semantics are redesigned.
+- Keep async disabled while quarantine is effective because async ownership and
+  timeout fallback are implemented separately from synchronous quarantine.
 - Bound retained-memory growth enough to prevent a repeated QAT failure from
   consuming unbounded memory.
 - Expose retained-buffer count and retained-byte counters.
