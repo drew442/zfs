@@ -13,7 +13,7 @@ means the common recoverable case is handled safely:
 QAT accepts compressed write -> completion does not arrive by timeout
 watchdog marks QAT DC failed -> final ZFS destination remains untouched
 software gzip fallback writes final destination -> ZFS I/O can complete
-late QAT DMA, if any, can only target retained private quarantine memory
+late QAT DMA/read, if any, can only touch retained private QAT memory
 ```
 
 The unrecoverable case remains explicit:
@@ -34,6 +34,10 @@ caller may remain blocked until reboot/module/device reset
   destination buffer and copies successful output to the final destination.
 - Quarantine mode does not yet implement timeout, fallback, late completion
   handling, or retained timed-out-buffer ownership.
+- Destination quarantine alone is not sufficient for safe timeout fallback. The
+  accepted request's source buffer, result storage, buffer lists, metadata, and
+  callback context must also remain valid until QAT completes or device/module
+  teardown makes late access impossible.
 - Quarantine and polling disable experimental async compression.
 
 ## Feature Complete Watchdog Requirements
@@ -61,6 +65,11 @@ caller may remain blocked until reboot/module/device reset
 
 - Keep QAT compression output in private memory until QAT completion and result
   validation succeed.
+- Use private source memory for any request that can be locally timed out and
+  recovered. Late QAT DMA reads must not target ZFS-owned source pages after
+  the caller has returned.
+- Keep result storage, buffer lists, metadata, callback context, source memory,
+  and destination memory valid after timeout until late completion or teardown.
 - On successful QAT completion, copy validated compressed output to the final
   ZFS destination and release the private buffer normally.
 - On timeout before completion, leave the final ZFS destination untouched.
@@ -87,8 +96,9 @@ caller may remain blocked until reboot/module/device reset
 4. Convert synchronous waits to timed waits controlled by
    `zfs_qat_dc_watchdog_timeout_ms`.
 5. On timeout, mark QAT DC runtime failed and complete the local wait path.
-6. For quarantined compression timeout, retain QAT-owned private destination
-   memory and return a failure that permits the existing software fallback path.
+6. For quarantined compression timeout, retain QAT-owned private source,
+   destination, result, metadata, and callback memory, then return a failure
+   that permits the existing software fallback path.
 7. For direct-destination compression and decompression timeout, fail closed and
    keep current unrecoverable semantics.
 8. Add late-completion handling that records late completion and releases
@@ -101,4 +111,3 @@ caller may remain blocked until reboot/module/device reset
 ## Status
 
 - 2026-05-21: Plan created. Implementation not yet started.
-

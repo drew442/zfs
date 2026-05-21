@@ -49,6 +49,13 @@ to DMA into it. That requires one of:
 
 The third option is conservative but simplest.
 
+The same ownership rule applies to the accepted request's source memory and
+control structures. A fallback-capable timeout path must keep QAT-readable
+source memory, result storage, buffer lists, metadata, and callback context
+valid after the ZFS caller returns. Destination quarantine alone protects the
+final output buffer, but it does not make source pages or stack-allocated result
+state safe for late QAT access.
+
 ## Scope
 
 Compression is the useful first target. Decompression is less attractive because
@@ -110,9 +117,10 @@ dc_compress_quarantine_dst_fails
 dc_compress_quarantine_dst_copy_bytes
 ```
 
-This first version does not implement a per-request timeout, QAT cancel, or
-retained timed-out-buffer list. It is the safe destination-ownership primitive
-needed before any later accepted-request fallback work.
+This first version does not implement a per-request timeout, QAT cancel,
+private retained source memory, or retained timed-out-buffer list. It is the
+safe destination-ownership primitive needed before any later accepted-request
+fallback work.
 
 ## Expected Costs
 
