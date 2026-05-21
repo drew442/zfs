@@ -2,13 +2,55 @@
 
 ## Goal
 
-Enable experimental async QAT DC compression while QAT DC instances use poll
+Enable the current async QAT DC compression path while QAT DC instances use poll
 completion delivery. The target is correctness first: async requests must
 complete, resume the suspended `zio`, and fall back to software on normal QAT
 compression failures without stranding writes.
 
 This phase does not make async compression timeout-recoverable. The completed
 watchdog/quarantine recovery path is synchronous-only.
+
+## Why It Is Still Experimental
+
+The module parameter still describes async compression as experimental because
+the normal completion path works, but the feature does not yet have the same
+safety, policy, and validation coverage expected for a completed operator-facing
+feature.
+
+Current gaps:
+
+- Async accepted-request timeout handling is not recoverable.
+- Quarantined destination fallback is synchronous-only, so async remains
+  disabled when `zfs_qat_dc_quarantine_dst` is effective.
+- Async cancellation/error ownership needs a dedicated review for cases where a
+  `zio` is cancelled while a QAT request may still complete later.
+- The async cap policy can still silently favor software fallback at smaller
+  record sizes; that is acceptable behavior, but it must be explicit in profile
+  documentation and benchmark interpretation.
+- Validation currently covers normal async completion under interrupt and poll
+  delivery, not induced QAT failure, cancellation, pool export/import, module
+  unload, or broad record-size/concurrency matrices.
+
+## Completion Criteria
+
+Treat async compression as feature-complete when all of the following are true:
+
+- Normal async compression validates under interrupt and poll delivery across
+  the standard benchmark record-size set, including `1M`.
+- Async timeout behavior is explicit and safe: either async remains fail-closed
+  with documented availability-only consequences, or async uses a quarantined
+  destination design that can safely fall back after accepted-request timeout.
+- Any late QAT completion after timeout or cancellation cannot write into freed
+  or reused ZFS-owned memory.
+- Async cancellation, failure, module unload, and pool export/import paths are
+  reviewed and tested enough to show request state is not leaked or freed early.
+- Profile-driven defaults document when async is expected to offload QAT and
+  when it may intentionally fall back to software because of cap/backpressure.
+- Benchmark artifacts show `sha_ok=yes`, no watchdog request timeouts in normal
+  runs, no poll failures in polling runs, clean async submit/completion/resume
+  accounting, and no retained quarantine buffers after tests.
+- The user-facing module parameter descriptions and docs no longer need the
+  `experimental` qualifier.
 
 ## Existing Async Shape
 

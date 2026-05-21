@@ -12,6 +12,20 @@ JOBS="${JOBS:-1}"
 VERIFY_MODE="${VERIFY_MODE:-same}"
 OUT="${OUT:-/root/zfs-qat-phase4-$(date +%Y%m%d-%H%M%S).csv}"
 
+ensure_record_1m() {
+	local record
+
+	for record in $RECORDS; do
+		if [[ "$record" == "1M" ]]; then
+			return
+		fi
+	done
+
+	RECORDS="$RECORDS 1M"
+}
+
+ensure_record_1m
+
 require_cmd() {
 	command -v "$1" >/dev/null 2>&1 || {
 		echo "Missing required command: $1" >&2

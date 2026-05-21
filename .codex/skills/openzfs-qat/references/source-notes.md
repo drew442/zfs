@@ -72,6 +72,10 @@ These notes capture stable, primary-source details useful when reviewing this fo
 
 ## Performance And Memory Guidance
 
+- Benchmark rule: include `1M` record size in QAT performance benchmarks even
+  when the immediate tuning target is a smaller record size. The benchmark
+  harness now appends `1M` automatically when `RECORDS` is overridden without
+  it.
 - Intel's performance guide frames QAT tuning around throughput, latency, and offload cost. Keep this distinction when changing thresholds or queueing behavior.
 - Intel's performance optimization guide describes QAT integration choices as
   application-dependent and explicitly separates software design choices from
