@@ -29,6 +29,8 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/kthread.h>
+#include <linux/list.h>
+#include <linux/spinlock.h>
 #include <linux/wait.h>
 #include <sys/zfs_context.h>
 #include <sys/byteorder.h>
@@ -81,14 +83,44 @@ typedef enum qat_dc_callback_type {
 	QAT_DC_CALLBACK_ASYNC = 2,
 } qat_dc_callback_type_t;
 
+typedef struct qat_dc_sync_req qat_dc_sync_req_t;
+
 typedef struct qat_dc_callback_ctx {
 	uint32_t magic;
 	qat_dc_callback_type_t type;
 	union {
-		struct completion *sync;
+		qat_dc_sync_req_t *sync;
 		qat_dc_async_t *async;
 	} u;
 } qat_dc_callback_ctx_t;
+
+typedef enum qat_dc_sync_state {
+	QAT_DC_SYNC_ACTIVE = 0,
+	QAT_DC_SYNC_TIMED_OUT = 1,
+	QAT_DC_SYNC_COMPLETED = 2,
+} qat_dc_sync_state_t;
+
+struct qat_dc_sync_req {
+	struct completion complete;
+	qat_dc_callback_ctx_t callback_ctx;
+	qat_compress_dir_t dir;
+	volatile uint32_t state;
+	boolean_t recoverable_timeout;
+	boolean_t retained;
+	CpaStatus callback_status;
+	CpaDcRqResults dc_results;
+	hrtime_t wait_start;
+	Cpa16U inst;
+	qat_dc_buffer_slot_t *buffer_slot;
+	Cpa8U *buffer_meta_src;
+	Cpa8U *buffer_meta_dst;
+	CpaBufferList *buf_list_src;
+	CpaBufferList *buf_list_dst;
+	void *coalesced_src;
+	void *coalesced_dst;
+	uint64_t retained_bytes;
+	struct list_head retained_node;
+};
 
 struct qat_dc_async {
 	char *src;
@@ -201,6 +233,8 @@ static uint32_t qat_dc_runtime_failed;
 static uint64_t qat_dc_total_inflight;
 static uint64_t qat_dc_inflight_start_ns;
 static uint64_t qat_dc_last_progress_ns;
+static LIST_HEAD(qat_dc_retained_sync_reqs);
+static DEFINE_SPINLOCK(qat_dc_retained_lock);
 
 boolean_t
 qat_dc_compress_use_accel(size_t s_len)
@@ -759,11 +793,103 @@ out:
 
 static void qat_dc_inflight_exit(qat_compress_dir_t dir, hrtime_t now);
 static void qat_dc_async_inflight_exit(void);
+static void qat_dc_buffer_pool_release(Cpa16U inst, qat_dc_buffer_slot_t *slot);
+static void qat_dc_runtime_disable(const char *reason, uint64_t inflight,
+    uint64_t stall_ms);
+
+static void
+qat_dc_sync_req_unretain(qat_dc_sync_req_t *req, boolean_t bump_release)
+{
+	unsigned long flags;
+
+	if (req == NULL)
+		return;
+
+	if (!req->retained)
+		return;
+
+	spin_lock_irqsave(&qat_dc_retained_lock, flags);
+	if (!list_empty(&req->retained_node))
+		list_del_init(&req->retained_node);
+	if (qat_stats.dc_compress_quarantine_dst_retained.value.ui64 > 0) {
+		(void) atomic_dec_64_nv(
+		    &qat_stats.dc_compress_quarantine_dst_retained.value.ui64);
+	}
+	if (qat_stats.dc_compress_quarantine_dst_retained_bytes.value.ui64 >=
+	    req->retained_bytes) {
+		qat_stats.dc_compress_quarantine_dst_retained_bytes.value.ui64 -=
+		    req->retained_bytes;
+	} else {
+		qat_stats.dc_compress_quarantine_dst_retained_bytes.value.ui64 = 0;
+	}
+	spin_unlock_irqrestore(&qat_dc_retained_lock, flags);
+
+	req->retained = B_FALSE;
+	if (bump_release)
+		QAT_STAT_BUMP(dc_compress_quarantine_dst_retained_released);
+}
+
+static void
+qat_dc_sync_req_free_retained(qat_dc_sync_req_t *req)
+{
+	if (req == NULL)
+		return;
+
+	qat_dc_sync_req_unretain(req, B_TRUE);
+
+	if (req->buffer_slot != NULL) {
+		qat_dc_buffer_pool_release(req->inst, req->buffer_slot);
+	} else {
+		QAT_PHYS_CONTIG_FREE(req->buffer_meta_src);
+		QAT_PHYS_CONTIG_FREE(req->buffer_meta_dst);
+		QAT_PHYS_CONTIG_FREE(req->buf_list_src);
+		QAT_PHYS_CONTIG_FREE(req->buf_list_dst);
+		QAT_PHYS_CONTIG_FREE(req->coalesced_dst);
+	}
+
+	QAT_PHYS_CONTIG_FREE(req->coalesced_src);
+	kmem_free(req, sizeof (*req));
+}
+
+static void
+qat_dc_sync_req_retain(qat_dc_sync_req_t *req, uint64_t retained_bytes)
+{
+	unsigned long flags;
+
+	ASSERT(!req->retained);
+	req->retained = B_TRUE;
+	req->retained_bytes = retained_bytes;
+	spin_lock_irqsave(&qat_dc_retained_lock, flags);
+	list_add_tail(&req->retained_node, &qat_dc_retained_sync_reqs);
+	QAT_STAT_BUMP(dc_compress_quarantine_dst_retained);
+	QAT_STAT_INCR(dc_compress_quarantine_dst_retained_bytes,
+	    retained_bytes);
+	spin_unlock_irqrestore(&qat_dc_retained_lock, flags);
+}
+
+static void
+qat_dc_sync_req_drain_retained(void)
+{
+	LIST_HEAD(to_free);
+	qat_dc_sync_req_t *req;
+	qat_dc_sync_req_t *tmp;
+	unsigned long flags;
+
+	spin_lock_irqsave(&qat_dc_retained_lock, flags);
+	list_splice_init(&qat_dc_retained_sync_reqs, &to_free);
+	spin_unlock_irqrestore(&qat_dc_retained_lock, flags);
+
+	list_for_each_entry_safe(req, tmp, &to_free, retained_node) {
+		list_del_init(&req->retained_node);
+		qat_dc_sync_req_free_retained(req);
+	}
+}
 
 static void
 qat_dc_callback(void *p_callback, CpaStatus status)
 {
 	qat_dc_callback_ctx_t *ctx = p_callback;
+	qat_dc_sync_req_t *sync_req;
 	qat_dc_async_t *req;
 	hrtime_t end;
 
@@ -771,7 +897,27 @@ qat_dc_callback(void *p_callback, CpaStatus status)
 		return;
 
 	if (ctx->type == QAT_DC_CALLBACK_SYNC) {
-		complete(ctx->u.sync);
+		sync_req = ctx->u.sync;
+		sync_req->callback_status = status;
+		end = gethrtime();
+		qat_dc_inflight_exit(sync_req->dir, end);
+		if (sync_req->dir == QAT_COMPRESS) {
+			QAT_STAT_ADD_TIME(dc_compress_wait_ns,
+			    sync_req->wait_start, end);
+		} else {
+			QAT_STAT_ADD_TIME(dc_decompress_wait_ns,
+			    sync_req->wait_start, end);
+		}
+		if (atomic_cas_32((uint32_t *)&sync_req->state,
+		    QAT_DC_SYNC_ACTIVE, QAT_DC_SYNC_COMPLETED) ==
+		    QAT_DC_SYNC_ACTIVE) {
+			complete(&sync_req->complete);
+		} else if (atomic_cas_32((uint32_t *)&sync_req->state,
+		    QAT_DC_SYNC_TIMED_OUT, QAT_DC_SYNC_COMPLETED) ==
+		    QAT_DC_SYNC_TIMED_OUT) {
+			QAT_STAT_BUMP(dc_watchdog_late_completions);
+			qat_dc_sync_req_free_retained(sync_req);
+		}
 		return;
 	}
 
@@ -818,16 +964,51 @@ qat_dc_poll_instances(Cpa32U quota)
 	}
 }
 
-static void
-qat_dc_wait_completion(struct completion *complete)
+static boolean_t
+qat_dc_wait_request(qat_dc_sync_req_t *req, uint64_t retained_bytes)
 {
-	if (!qat_dc_effective_poll()) {
-		wait_for_completion(complete);
-		return;
+	unsigned long remaining;
+	unsigned long timeout;
+	hrtime_t now;
+
+	if (qat_dc_effective_poll())
+		wake_up(&qat_dc_poll_wq);
+
+	if (!qat_dc_effective_watchdog()) {
+		wait_for_completion(&req->complete);
+		return (B_FALSE);
 	}
 
-	wake_up(&qat_dc_poll_wq);
-	wait_for_completion(complete);
+	timeout = MSEC_TO_TICK(qat_dc_effective_watchdog_timeout_ms());
+	if (timeout < 1)
+		timeout = 1;
+
+	remaining = wait_for_completion_timeout(&req->complete, timeout);
+	if (remaining != 0)
+		return (B_FALSE);
+
+	QAT_STAT_BUMP(dc_watchdog_request_timeouts);
+	now = gethrtime();
+	qat_dc_runtime_disable("QAT DC request timeout",
+	    qat_dc_inflight_total(),
+	    ((uint64_t)now - (uint64_t)req->wait_start) /
+	    (NANOSEC / MILLISEC));
+
+	if (!req->recoverable_timeout) {
+		QAT_STAT_BUMP(dc_watchdog_request_unrecoverable);
+		wait_for_completion(&req->complete);
+		return (B_FALSE);
+	}
+
+	qat_dc_sync_req_retain(req, retained_bytes);
+	if (atomic_cas_32((uint32_t *)&req->state, QAT_DC_SYNC_ACTIVE,
+	    QAT_DC_SYNC_TIMED_OUT) != QAT_DC_SYNC_ACTIVE) {
+		qat_dc_sync_req_unretain(req, B_FALSE);
+		return (B_FALSE);
+	}
+
+	QAT_STAT_BUMP(dc_watchdog_request_recoveries);
+	return (B_TRUE);
 }
 
 static uint64_t
@@ -1080,13 +1261,14 @@ qat_dc_record_compress_shape(Cpa32U src_buffers, Cpa32U dst_buffers,
 }
 
 static boolean_t
-qat_dc_try_coalesce_src(char **src, int src_len, void **coalesced_src)
+qat_dc_try_coalesce_src(char **src, int src_len, void **coalesced_src,
+    boolean_t force)
 {
 	CpaStatus status;
 	hrtime_t start;
 	hrtime_t end;
 
-	if (!qat_dc_effective_coalesce_src())
+	if (!force && !qat_dc_effective_coalesce_src())
 		return (B_FALSE);
 
 	QAT_STAT_BUMP(dc_compress_coalesce_requests);
@@ -1315,8 +1497,12 @@ qat_dc_clean(void)
 	qat_dc_watchdog_stop();
 	qat_dc_poll_stop();
 
-	for (Cpa16U i = 0; i < num_inst; i++) {
+	for (Cpa16U i = 0; i < num_inst; i++)
 		cpaDcStopInstance(dc_inst_handles[i]);
+
+	qat_dc_sync_req_drain_retained();
+
+	for (Cpa16U i = 0; i < num_inst; i++) {
 		QAT_PHYS_CONTIG_FREE(session_handles[i]);
 		qat_dc_buffer_pool_clean(i);
 		/* free intermediate buffers  */
@@ -1527,7 +1713,6 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	Cpa8U *buffer_meta_src = NULL;
 	Cpa8U *buffer_meta_dst = NULL;
 	Cpa32U buffer_meta_size = 0;
-	CpaDcRqResults dc_results = {.checksum = 1};
 	CpaStatus status = CPA_STATUS_FAIL;
 	Cpa32U hdr_sz = 0;
 	Cpa32U compressed_sz;
@@ -1556,8 +1741,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	size_t out_pages_size = 0;
 	size_t scratch_pages_size = 0;
 	Cpa32U page_off = 0;
-	struct completion complete;
-	qat_dc_callback_ctx_t callback_ctx;
+	qat_dc_sync_req_t *sync_req = NULL;
 	Cpa32U page_num = 0;
 	Cpa16U i;
 	hrtime_t op_start = gethrtime();
@@ -1572,21 +1756,29 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	boolean_t dst_coalesce_requested;
 	boolean_t dst_quarantine_requested;
 	boolean_t local_add_alloc = B_FALSE;
+	boolean_t request_timed_out = B_FALSE;
+	boolean_t retain_qat_resources = B_FALSE;
+	uint64_t retained_bytes = 0;
 
 	/*
 	 * We increment num_src_buf and num_dst_buf by 2 to allow
 	 * us to handle non page-aligned buffer addresses and buffers
 	 * whose sizes are not divisible by PAGE_SIZE.
 	 */
-	src_coalesced = (dir == QAT_COMPRESS &&
-	    qat_dc_try_coalesce_src(&src, src_len, &coalesced_src));
 	dst_quarantine_requested = (dir == QAT_COMPRESS &&
 	    qat_dc_effective_quarantine_dst());
+	src_coalesced = (dir == QAT_COMPRESS &&
+	    qat_dc_try_coalesce_src(&src, src_len, &coalesced_src,
+	    dst_quarantine_requested));
 	dst_coalesce_requested = (dir == QAT_COMPRESS &&
 	    qat_dc_effective_private_dst());
 	dst_coalesced = B_FALSE;
 	if (dst_quarantine_requested)
 		QAT_STAT_BUMP(dc_compress_quarantine_dst_requests);
+	if (dst_quarantine_requested && !src_coalesced) {
+		QAT_STAT_BUMP(dc_compress_quarantine_dst_fails);
+		goto fail;
+	}
 
 	num_src_buf = src_coalesced ? 1 : ((src_len >> PAGE_SHIFT) + 2);
 	num_dst_buf = dst_coalesce_requested ? 1 :
@@ -1792,10 +1984,30 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		add_pages = page_num;
 	}
 
-	init_completion(&complete);
-	callback_ctx.magic = QAT_DC_CALLBACK_MAGIC;
-	callback_ctx.type = QAT_DC_CALLBACK_SYNC;
-	callback_ctx.u.sync = &complete;
+	sync_req = kmem_zalloc(sizeof (*sync_req), KM_SLEEP);
+	if (sync_req == NULL)
+		goto fail;
+	init_completion(&sync_req->complete);
+	INIT_LIST_HEAD(&sync_req->retained_node);
+	sync_req->callback_ctx.magic = QAT_DC_CALLBACK_MAGIC;
+	sync_req->callback_ctx.type = QAT_DC_CALLBACK_SYNC;
+	sync_req->callback_ctx.u.sync = sync_req;
+	sync_req->dir = dir;
+	sync_req->state = QAT_DC_SYNC_ACTIVE;
+	sync_req->callback_status = CPA_STATUS_FAIL;
+	sync_req->dc_results.checksum = 1;
+	sync_req->recoverable_timeout = (dir == QAT_COMPRESS &&
+	    dst_quarantine_requested && src_coalesced && dst_coalesced);
+	sync_req->inst = i;
+	sync_req->buffer_slot = buffer_slot;
+	sync_req->buffer_meta_src = buffer_meta_src;
+	sync_req->buffer_meta_dst = buffer_meta_dst;
+	sync_req->buf_list_src = buf_list_src;
+	sync_req->buf_list_dst = buf_list_dst;
+	sync_req->coalesced_src = coalesced_src;
+	sync_req->coalesced_dst = coalesced_dst;
+	if (sync_req->recoverable_timeout)
+		retained_bytes = (uint64_t)src_len + coalesced_dst_len;
 
 	if (dir == QAT_COMPRESS) {
 		QAT_STAT_BUMP(comp_requests);
@@ -1811,12 +2023,13 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		phase_end = gethrtime();
 		QAT_STAT_ADD_TIME(dc_compress_setup_ns, op_start, phase_end);
 		phase_start = gethrtime();
+		sync_req->wait_start = phase_start;
 		qat_dc_inflight_enter(dir, phase_start);
 		status = cpaDcCompressData(
 		    dc_inst_handle, session_handle,
 		    buf_list_src, buf_list_dst,
-		    &dc_results, CPA_DC_FLUSH_FINAL,
-		    &callback_ctx);
+		    &sync_req->dc_results, CPA_DC_FLUSH_FINAL,
+		    &sync_req->callback_ctx);
 		phase_end = gethrtime();
 		QAT_STAT_ADD_TIME(dc_compress_submit_ns, phase_start, phase_end);
 		if (status != CPA_STATUS_SUCCESS) {
@@ -1826,19 +2039,23 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 
 		/* we now wait until the completion of the operation. */
 		phase_start = gethrtime();
-		qat_dc_wait_completion(&complete);
+		request_timed_out = qat_dc_wait_request(sync_req, retained_bytes);
 		phase_end = gethrtime();
-		qat_dc_inflight_exit(dir, phase_end);
-		QAT_STAT_ADD_TIME(dc_compress_wait_ns, phase_start, phase_end);
+		if (request_timed_out) {
+			retain_qat_resources = B_TRUE;
+			status = CPA_STATUS_FAIL;
+			goto fail;
+		}
 
-		if (dc_results.status != CPA_STATUS_SUCCESS) {
-			if (dc_results.status == CPA_DC_OVERFLOW)
+		if (sync_req->callback_status != CPA_STATUS_SUCCESS ||
+		    sync_req->dc_results.status != CPA_STATUS_SUCCESS) {
+			if (sync_req->dc_results.status == CPA_DC_OVERFLOW)
 				QAT_STAT_BUMP(dc_compress_overflows);
 			status = CPA_STATUS_FAIL;
 			goto fail;
 		}
 
-		compressed_sz = dc_results.produced;
+		compressed_sz = sync_req->dc_results.produced;
 		if (compressed_sz + hdr_sz + ZLIB_FOOT_SZ > dst_len) {
 			QAT_STAT_BUMP(dc_compress_incompressible);
 			status = CPA_STATUS_INCOMPRESSIBLE;
@@ -1847,7 +2064,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 
 		/* get adler32 checksum and append footer */
 		*(Cpa32U*)(dst + hdr_sz + compressed_sz) =
-		    BSWAP_32(dc_results.checksum);
+		    BSWAP_32(sync_req->dc_results.checksum);
 
 		*c_len = hdr_sz + compressed_sz + ZLIB_FOOT_SZ;
 		if (dst_coalesced) {
@@ -1875,10 +2092,11 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		phase_end = gethrtime();
 		QAT_STAT_ADD_TIME(dc_decompress_setup_ns, op_start, phase_end);
 		phase_start = gethrtime();
+		sync_req->wait_start = phase_start;
 		qat_dc_inflight_enter(dir, phase_start);
 		status = cpaDcDecompressData(dc_inst_handle, session_handle,
-		    buf_list_src, buf_list_dst, &dc_results, CPA_DC_FLUSH_FINAL,
-		    &callback_ctx);
+		    buf_list_src, buf_list_dst, &sync_req->dc_results,
+		    CPA_DC_FLUSH_FINAL, &sync_req->callback_ctx);
 		phase_end = gethrtime();
 		QAT_STAT_ADD_TIME(dc_decompress_submit_ns, phase_start, phase_end);
 
@@ -1890,23 +2108,27 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 
 		/* we now wait until the completion of the operation. */
 		phase_start = gethrtime();
-		qat_dc_wait_completion(&complete);
+		request_timed_out = qat_dc_wait_request(sync_req, retained_bytes);
 		phase_end = gethrtime();
-		qat_dc_inflight_exit(dir, phase_end);
-		QAT_STAT_ADD_TIME(dc_decompress_wait_ns, phase_start, phase_end);
+		if (request_timed_out) {
+			status = CPA_STATUS_FAIL;
+			goto fail;
+		}
 
-		if (dc_results.status != CPA_STATUS_SUCCESS) {
+		if (sync_req->callback_status != CPA_STATUS_SUCCESS ||
+		    sync_req->dc_results.status != CPA_STATUS_SUCCESS) {
 			status = CPA_STATUS_FAIL;
 			goto fail;
 		}
 
 		/* verify adler checksum */
-		adler32 = *(Cpa32U *)(src + dc_results.consumed + ZLIB_HEAD_SZ);
-		if (adler32 != BSWAP_32(dc_results.checksum)) {
+		adler32 = *(Cpa32U *)(src + sync_req->dc_results.consumed +
+		    ZLIB_HEAD_SZ);
+		if (adler32 != BSWAP_32(sync_req->dc_results.checksum)) {
 			status = CPA_STATUS_FAIL;
 			goto fail;
 		}
-		*c_len = dc_results.produced;
+		*c_len = sync_req->dc_results.produced;
 		QAT_STAT_INCR(decomp_total_out_bytes, *c_len);
 	}
 
@@ -1925,13 +2147,15 @@ fail:
 	for (page_num = 0; page_num < add_pages; page_num++)
 		kunmap(scratch_pages[page_num]);
 
-	if (buffer_slot != NULL) {
-		qat_dc_buffer_pool_release(i, buffer_slot);
-	} else {
-		QAT_PHYS_CONTIG_FREE(buffer_meta_src);
-		QAT_PHYS_CONTIG_FREE(buffer_meta_dst);
-		QAT_PHYS_CONTIG_FREE(buf_list_src);
-		QAT_PHYS_CONTIG_FREE(buf_list_dst);
+	if (!retain_qat_resources) {
+		if (buffer_slot != NULL) {
+			qat_dc_buffer_pool_release(i, buffer_slot);
+		} else {
+			QAT_PHYS_CONTIG_FREE(buffer_meta_src);
+			QAT_PHYS_CONTIG_FREE(buffer_meta_dst);
+			QAT_PHYS_CONTIG_FREE(buf_list_src);
+			QAT_PHYS_CONTIG_FREE(buf_list_dst);
+		}
 	}
 
 	if (in_pages != in_pages_stack && in_pages != NULL)
@@ -1951,7 +2175,7 @@ fail:
 		    scratch_end);
 	}
 
-	if (coalesced_src != NULL) {
+	if (!retain_qat_resources && coalesced_src != NULL) {
 		free_start = gethrtime();
 		QAT_PHYS_CONTIG_FREE(coalesced_src);
 		free_end = gethrtime();
@@ -1959,7 +2183,7 @@ fail:
 		    free_end);
 	}
 
-	if (coalesced_dst != NULL) {
+	if (!retain_qat_resources && coalesced_dst != NULL) {
 		free_start = gethrtime();
 		QAT_PHYS_CONTIG_FREE(coalesced_dst);
 		free_end = gethrtime();
@@ -1975,6 +2199,9 @@ fail:
 		QAT_STAT_ADD_TIME(dc_decompress_cleanup_ns, phase_start,
 		    phase_end);
 	}
+
+	if (!retain_qat_resources && sync_req != NULL)
+		kmem_free(sync_req, sizeof (*sync_req));
 
 	return (status);
 }
@@ -2198,7 +2425,7 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 
 	req->add_len = qat_dc_compress_scratch_len(src_len, dst_len);
 	src_coalesced = qat_dc_try_coalesce_src(&req->src, req->src_len,
-	    &req->coalesced_src);
+	    &req->coalesced_src, B_FALSE);
 	dst_coalesce_requested = qat_dc_effective_coalesce_dst();
 
 	num_src_buf = src_coalesced ? 1 : ((src_len >> PAGE_SHIFT) + 2);
@@ -2561,7 +2788,9 @@ param_set_qat_compress(const char *val, zfs_kernel_param_t *kp)
 	}
 
 	if (*pvalue == 0 && qat_dc_runtime_failed != 0) {
-		if (qat_dc_inflight_total() != 0) {
+		if (qat_dc_inflight_total() != 0 ||
+		    qat_stats.dc_compress_quarantine_dst_retained.value.ui64 !=
+		    0) {
 			zfs_qat_compress_disable = 1;
 			return (-EBUSY);
 		}

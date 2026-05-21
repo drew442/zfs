@@ -162,6 +162,9 @@ typedef struct qat_stats {
 	kstat_named_t dc_compress_quarantine_dst_success;
 	kstat_named_t dc_compress_quarantine_dst_fails;
 	kstat_named_t dc_compress_quarantine_dst_copy_bytes;
+	kstat_named_t dc_compress_quarantine_dst_retained;
+	kstat_named_t dc_compress_quarantine_dst_retained_bytes;
+	kstat_named_t dc_compress_quarantine_dst_retained_released;
 	/*
 	 * Cumulative nanoseconds spent allocating and freeing QAT compression
 	 * scratch buffers.
@@ -211,6 +214,10 @@ typedef struct qat_stats {
 	kstat_named_t dc_watchdog_last_progress_ns;
 	kstat_named_t dc_watchdog_last_stall_ns;
 	kstat_named_t dc_watchdog_health;
+	kstat_named_t dc_watchdog_request_timeouts;
+	kstat_named_t dc_watchdog_request_recoveries;
+	kstat_named_t dc_watchdog_request_unrecoverable;
+	kstat_named_t dc_watchdog_late_completions;
 	/*
 	 * Experimental async QAT compression counters.
 	 */
