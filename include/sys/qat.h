@@ -219,7 +219,7 @@ typedef struct qat_stats {
 	kstat_named_t dc_watchdog_request_unrecoverable;
 	kstat_named_t dc_watchdog_late_completions;
 	/*
-	 * Experimental async QAT compression counters.
+	 * Async QAT compression counters.
 	 */
 	kstat_named_t dc_compress_async_submits;
 	kstat_named_t dc_compress_async_submit_fails;
@@ -365,6 +365,9 @@ extern qat_dc_async_t *qat_dc_compress_async_submit(char *src, int src_len,
     char *dst, int dst_len, void (*resume)(void *), void *resume_arg);
 extern void qat_dc_compress_async_arm(qat_dc_async_t *req);
 extern boolean_t qat_dc_compress_async_complete(qat_dc_async_t *req);
+extern boolean_t qat_dc_compress_async_timed_out(qat_dc_async_t *req);
+extern boolean_t qat_dc_compress_async_abandon(qat_dc_async_t *req,
+    void (*cleanup)(void *), void *cleanup_arg);
 extern int qat_dc_compress_async_finish(qat_dc_async_t *req, size_t *c_len);
 extern void qat_dc_compress_async_cancel(qat_dc_async_t *req);
 extern int qat_crypt(qat_encrypt_dir_t dir, uint8_t *src_buf, uint8_t *dst_buf,
@@ -394,6 +397,11 @@ extern int qat_checksum(uint64_t cksum, uint8_t *buf, uint64_t size,
 	((void) sizeof (req))
 #define	qat_dc_compress_async_complete(req)			\
 	((void) sizeof (req), 0)
+#define	qat_dc_compress_async_timed_out(req)			\
+	((void) sizeof (req), 0)
+#define	qat_dc_compress_async_abandon(req, cleanup, cleanup_arg)	\
+	((void) sizeof (req), (void) sizeof (cleanup),		\
+	    (void) sizeof (cleanup_arg), 0)
 #define	qat_dc_compress_async_finish(req, c_len)			\
 	((void) sizeof (req), (void) sizeof (c_len), CPA_STATUS_FAIL)
 #define	qat_dc_compress_async_cancel(req)			\

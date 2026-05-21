@@ -157,6 +157,12 @@ struct qat_dc_async {
 	void *coalesced_dst;
 	hrtime_t submit_end;
 	volatile uint32_t armed;
+	boolean_t active;
+	boolean_t timed_out;
+	boolean_t abandoned;
+	void (*abandon_cleanup)(void *);
+	void *abandon_arg;
+	struct list_head active_node;
 	qat_dc_callback_ctx_t callback_ctx;
 };
 
@@ -171,6 +177,8 @@ static struct task_struct *qat_dc_poll_task;
 static struct task_struct *qat_dc_watchdog_task;
 static DECLARE_WAIT_QUEUE_HEAD(qat_dc_poll_wq);
 static DECLARE_WAIT_QUEUE_HEAD(qat_dc_watchdog_wq);
+static LIST_HEAD(qat_dc_active_async_reqs);
+static DEFINE_SPINLOCK(qat_dc_async_lock);
 static int qat_dc_effective_decompress_disable(void);
 static int qat_dc_effective_level(void);
 static const char *qat_dc_effective_hufftype(void);
@@ -793,8 +801,10 @@ out:
 
 static void qat_dc_inflight_exit(qat_compress_dir_t dir, hrtime_t now);
 static void qat_dc_async_inflight_exit(void);
+static void qat_dc_async_cleanup(qat_dc_async_t *req);
 static void qat_dc_buffer_pool_release(Cpa16U inst, qat_dc_buffer_slot_t *slot);
 static uint64_t qat_dc_inflight_total(void);
+static void qat_dc_async_timeout_active(void);
 static void qat_dc_runtime_disable(const char *reason, uint64_t inflight,
     uint64_t stall_ms);
 
@@ -887,12 +897,63 @@ qat_dc_sync_req_drain_retained(void)
 }
 
 static void
+qat_dc_async_active_add(qat_dc_async_t *req)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&qat_dc_async_lock, flags);
+	if (!req->active) {
+		list_add_tail(&req->active_node, &qat_dc_active_async_reqs);
+		req->active = B_TRUE;
+	}
+	spin_unlock_irqrestore(&qat_dc_async_lock, flags);
+}
+
+static void
+qat_dc_async_active_remove_locked(qat_dc_async_t *req)
+{
+	if (req->active) {
+		list_del_init(&req->active_node);
+		req->active = B_FALSE;
+	}
+}
+
+static void
+qat_dc_async_active_remove(qat_dc_async_t *req)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&qat_dc_async_lock, flags);
+	qat_dc_async_active_remove_locked(req);
+	spin_unlock_irqrestore(&qat_dc_async_lock, flags);
+}
+
+static void
+qat_dc_async_abandoned_cleanup_task(void *arg)
+{
+	qat_dc_async_t *req = arg;
+	void (*cleanup)(void *);
+	void *cleanup_arg;
+
+	cleanup = req->abandon_cleanup;
+	cleanup_arg = req->abandon_arg;
+	if (cleanup != NULL)
+		cleanup(cleanup_arg);
+
+	qat_dc_async_cleanup(req);
+}
+
+static void
 qat_dc_callback(void *p_callback, CpaStatus status)
 {
 	qat_dc_callback_ctx_t *ctx = p_callback;
 	qat_dc_sync_req_t *sync_req;
 	qat_dc_async_t *req;
 	hrtime_t end;
+	void (*resume)(void *) = NULL;
+	void *resume_arg = NULL;
+	boolean_t abandoned;
+	unsigned long flags;
 
 	if (ctx == NULL || ctx->magic != QAT_DC_CALLBACK_MAGIC)
 		return;
@@ -929,11 +990,29 @@ qat_dc_callback(void *p_callback, CpaStatus status)
 	qat_dc_async_inflight_exit();
 	QAT_STAT_ADD_TIME(dc_compress_wait_ns, req->submit_end, end);
 	QAT_STAT_BUMP(dc_compress_async_completions);
-	membar_producer();
-	atomic_swap_32((uint32_t *)&req->complete, 1);
-	if (req->armed && req->resume != NULL) {
+
+	spin_lock_irqsave(&qat_dc_async_lock, flags);
+	req->complete = 1;
+	qat_dc_async_active_remove_locked(req);
+	abandoned = req->abandoned;
+	if (!abandoned && req->armed && req->resume != NULL) {
+		resume = req->resume;
+		resume_arg = req->resume_arg;
+	}
+	spin_unlock_irqrestore(&qat_dc_async_lock, flags);
+
+	if (abandoned) {
+		QAT_STAT_BUMP(dc_watchdog_late_completions);
+		if (taskq_dispatch(system_taskq,
+		    qat_dc_async_abandoned_cleanup_task, req, TQ_NOSLEEP) ==
+		    TASKQID_INVALID)
+			qat_dc_async_abandoned_cleanup_task(req);
+		return;
+	}
+
+	if (resume != NULL) {
 		QAT_STAT_BUMP(dc_compress_async_resumes);
-		req->resume(req->resume_arg);
+		resume(resume_arg);
 	}
 }
 
@@ -1046,6 +1125,41 @@ qat_dc_runtime_disable(const char *reason, uint64_t inflight,
 }
 
 static void
+qat_dc_async_timeout_active(void)
+{
+	qat_dc_async_t *req;
+	void (*resume)(void *);
+	void *resume_arg;
+	unsigned long flags;
+
+	for (;;) {
+		resume = NULL;
+		resume_arg = NULL;
+
+		spin_lock_irqsave(&qat_dc_async_lock, flags);
+		list_for_each_entry(req, &qat_dc_active_async_reqs, active_node) {
+			if (!req->complete && !req->timed_out &&
+			    !req->abandoned && req->resume != NULL) {
+				req->timed_out = B_TRUE;
+				resume = req->resume;
+				resume_arg = req->resume_arg;
+				req->resume = NULL;
+				req->resume_arg = NULL;
+				QAT_STAT_BUMP(dc_watchdog_request_timeouts);
+				break;
+			}
+		}
+		spin_unlock_irqrestore(&qat_dc_async_lock, flags);
+
+		if (resume == NULL)
+			break;
+
+		QAT_STAT_BUMP(dc_compress_async_resumes);
+		resume(resume_arg);
+	}
+}
+
+static void
 qat_dc_watchdog_check(void)
 {
 	uint64_t inflight;
@@ -1077,6 +1191,7 @@ qat_dc_watchdog_check(void)
 	QAT_STAT_BUMP(dc_watchdog_stalls);
 	qat_dc_runtime_disable("no QAT DC completion progress",
 	    inflight, ((uint64_t)now - last) / (NANOSEC / MILLISEC));
+	qat_dc_async_timeout_active();
 }
 
 static int
@@ -2423,6 +2538,7 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	req->resume_arg = resume_arg;
 	req->dc_results.checksum = 1;
 	req->submit_status = CPA_STATUS_FAIL;
+	INIT_LIST_HEAD(&req->active_node);
 
 	req->add_len = qat_dc_compress_scratch_len(src_len, dst_len);
 	src_coalesced = qat_dc_try_coalesce_src(&req->src, req->src_len,
@@ -2636,6 +2752,7 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 		phase_start = gethrtime();
 		req->submit_end = phase_start;
 		qat_dc_inflight_enter(QAT_COMPRESS, phase_start);
+		qat_dc_async_active_add(req);
 		status = cpaDcCompressData(dc_inst_handle, session_handle,
 		    req->buf_list_src, req->buf_list_dst, &req->dc_results,
 		    CPA_DC_FLUSH_FINAL, &req->callback_ctx);
@@ -2645,6 +2762,7 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 		if (status == CPA_STATUS_SUCCESS)
 			break;
 
+		qat_dc_async_active_remove(req);
 		qat_dc_inflight_exit(QAT_COMPRESS, phase_end);
 		if (status != CPA_STATUS_RETRY || attempt >= retry_limit)
 			break;
@@ -2681,25 +2799,85 @@ fail:
 void
 qat_dc_compress_async_arm(qat_dc_async_t *req)
 {
+	void (*resume)(void *) = NULL;
+	void *resume_arg = NULL;
+	unsigned long flags;
+
 	if (req == NULL)
 		return;
 
-	membar_producer();
-	atomic_swap_32((uint32_t *)&req->armed, 1);
-	if (req->complete && req->resume != NULL) {
+	spin_lock_irqsave(&qat_dc_async_lock, flags);
+	req->armed = 1;
+	if (req->complete && !req->abandoned && req->resume != NULL) {
+		resume = req->resume;
+		resume_arg = req->resume_arg;
+	}
+	spin_unlock_irqrestore(&qat_dc_async_lock, flags);
+
+	if (resume != NULL) {
 		QAT_STAT_BUMP(dc_compress_async_resumes);
-		req->resume(req->resume_arg);
+		resume(resume_arg);
 	}
 }
 
 boolean_t
 qat_dc_compress_async_complete(qat_dc_async_t *req)
 {
+	boolean_t complete;
+	unsigned long flags;
+
 	if (req == NULL)
 		return (B_FALSE);
 
-	membar_consumer();
-	return (req->complete != 0);
+	spin_lock_irqsave(&qat_dc_async_lock, flags);
+	complete = (req->complete != 0);
+	spin_unlock_irqrestore(&qat_dc_async_lock, flags);
+
+	return (complete);
+}
+
+boolean_t
+qat_dc_compress_async_timed_out(qat_dc_async_t *req)
+{
+	boolean_t timed_out;
+	unsigned long flags;
+
+	if (req == NULL)
+		return (B_FALSE);
+
+	spin_lock_irqsave(&qat_dc_async_lock, flags);
+	timed_out = (req->timed_out != 0);
+	spin_unlock_irqrestore(&qat_dc_async_lock, flags);
+
+	return (timed_out);
+}
+
+boolean_t
+qat_dc_compress_async_abandon(qat_dc_async_t *req, void (*cleanup)(void *),
+    void *cleanup_arg)
+{
+	boolean_t abandoned = B_FALSE;
+	unsigned long flags;
+
+	if (req == NULL)
+		return (B_FALSE);
+
+	spin_lock_irqsave(&qat_dc_async_lock, flags);
+	if (!req->complete && !req->abandoned) {
+		req->abandoned = B_TRUE;
+		req->abandon_cleanup = cleanup;
+		req->abandon_arg = cleanup_arg;
+		req->resume = NULL;
+		req->resume_arg = NULL;
+		qat_dc_async_active_remove_locked(req);
+		abandoned = B_TRUE;
+	}
+	spin_unlock_irqrestore(&qat_dc_async_lock, flags);
+
+	if (abandoned)
+		QAT_STAT_BUMP(dc_watchdog_request_recoveries);
+
+	return (abandoned);
 }
 
 int
@@ -2764,6 +2942,10 @@ qat_dc_compress_async_cancel(qat_dc_async_t *req)
 		return;
 
 	QAT_STAT_BUMP(dc_compress_async_cancels);
+	if (qat_dc_compress_async_abandon(req, NULL, NULL))
+		return;
+
+	qat_dc_async_active_remove(req);
 	qat_dc_async_cleanup(req);
 }
 
@@ -3617,7 +3799,7 @@ MODULE_PARM_DESC(zfs_qat_dc_quarantine_dst,
 module_param_call(zfs_qat_dc_async, param_set_qat_dc_async,
     param_get_qat_dc_async, &zfs_qat_dc_async, 0644);
 MODULE_PARM_DESC(zfs_qat_dc_async,
-    "Enable/Disable experimental asynchronous QAT compression: profile, "
+    "Enable/Disable asynchronous QAT compression: profile, "
     "0, or 1");
 
 module_param_call(zfs_qat_dc_async_submit_retries,
@@ -3639,7 +3821,7 @@ module_param_call(zfs_qat_dc_async_max_inflight,
     param_get_qat_dc_async_max_inflight,
     &zfs_qat_dc_async_max_inflight, 0644);
 MODULE_PARM_DESC(zfs_qat_dc_async_max_inflight,
-    "Maximum in-flight experimental asynchronous QAT compression requests: "
+    "Maximum in-flight asynchronous QAT compression requests: "
     "profile or integer");
 
 module_param_call(zfs_qat_dc_async_cap_policy,

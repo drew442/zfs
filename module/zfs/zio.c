@@ -1803,6 +1803,7 @@ typedef enum zio_qat_dc_async_result {
 
 typedef struct zio_qat_dc_async_state {
 	qat_dc_async_t *req;
+	abd_t *sabd;
 	abd_t *cabd;
 	void *s_buf;
 	void *d_buf;
@@ -1821,6 +1822,17 @@ static void
 zio_qat_dc_async_resume(void *arg)
 {
 	zio_interrupt(arg);
+}
+
+static void
+zio_qat_dc_async_state_discard(void *arg)
+{
+	zio_qat_dc_async_state_t *state = arg;
+
+	abd_return_buf(state->sabd, state->s_buf, state->s_len);
+	abd_return_buf(state->cabd, state->d_buf, state->d_len);
+	abd_free(state->cabd);
+	kmem_free(state, sizeof (*state));
 }
 
 static size_t
@@ -1850,12 +1862,21 @@ zio_qat_dc_async_write(zio_t *zio, enum zio_compress compress, uint64_t lsize,
 
 	if (state != NULL) {
 		if (!qat_dc_compress_async_complete(state->req)) {
-			zio->io_stage = ZIO_STAGE_ISSUE_ASYNC;
-			return (ZIO_QAT_DC_ASYNC_SUSPEND);
+			if (qat_dc_compress_async_timed_out(state->req) &&
+			    qat_dc_compress_async_abandon(state->req,
+			    zio_qat_dc_async_state_discard, state)) {
+				zio->io_qat_dc_async = NULL;
+				return (ZIO_QAT_DC_ASYNC_FALLBACK);
+			}
+
+			if (!qat_dc_compress_async_complete(state->req)) {
+				zio->io_stage = ZIO_STAGE_ISSUE_ASYNC;
+				return (ZIO_QAT_DC_ASYNC_SUSPEND);
+			}
 		}
 
 		ret = qat_dc_compress_async_finish(state->req, &c_len);
-		abd_return_buf(zio->io_abd, state->s_buf, state->s_len);
+		abd_return_buf(state->sabd, state->s_buf, state->s_len);
 		abd_return_buf_copy(state->cabd, state->d_buf, state->d_len);
 		zio->io_qat_dc_async = NULL;
 
@@ -1884,6 +1905,7 @@ zio_qat_dc_async_write(zio_t *zio, enum zio_compress compress, uint64_t lsize,
 		return (ZIO_QAT_DC_ASYNC_NOT_USED);
 
 	state = kmem_zalloc(sizeof (*state), KM_SLEEP);
+	state->sabd = zio->io_abd;
 	state->s_len = lsize;
 	state->d_len = d_len;
 	state->cabd = abd_alloc_sametype(zio->io_abd, lsize);
@@ -1892,7 +1914,7 @@ zio_qat_dc_async_write(zio_t *zio, enum zio_compress compress, uint64_t lsize,
 	state->req = qat_dc_compress_async_submit(state->s_buf, state->s_len,
 	    state->d_buf, state->d_len, zio_qat_dc_async_resume, zio);
 	if (state->req == NULL) {
-		abd_return_buf(zio->io_abd, state->s_buf, state->s_len);
+		abd_return_buf(state->sabd, state->s_buf, state->s_len);
 		abd_return_buf_copy(state->cabd, state->d_buf, state->d_len);
 		abd_free(state->cabd);
 		kmem_free(state, sizeof (*state));
