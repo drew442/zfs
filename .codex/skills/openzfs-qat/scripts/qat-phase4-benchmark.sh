@@ -1063,8 +1063,7 @@ if [[ "$QAT_DC_POLL" == "profile" ]]; then
 else
 	QAT_DC_EFFECTIVE_POLL="$QAT_DC_POLL"
 fi
-if [[ "$QAT_DC_EFFECTIVE_POLL" == "1" ||
-    "$QAT_DC_EFFECTIVE_QUARANTINE_DST" == "1" ]]; then
+if [[ "$QAT_DC_EFFECTIVE_QUARANTINE_DST" == "1" ]]; then
 	QAT_DC_EFFECTIVE_ASYNC="0"
 fi
 if [[ "$QAT_DC_POLL_INTERVAL_US" == "profile" ]]; then
