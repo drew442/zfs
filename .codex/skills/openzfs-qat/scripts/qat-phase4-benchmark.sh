@@ -1165,9 +1165,9 @@ for mode in $MODES; do
 		    "$QAT_DC_EFFECTIVE_WATCHDOG_TIMEOUT_MS"
 		    "$QAT_DC_WATCHDOG_INTERVAL_MS"
 		    "$QAT_DC_EFFECTIVE_WATCHDOG_INTERVAL_MS"
-		    "" "" "" "" "" ""
+		    "" "" "" "" "" "" "" "" "" ""
 		    "$QAT_DC_QUARANTINE_DST" "$QAT_DC_EFFECTIVE_QUARANTINE_DST"
-		    "" "" "" "")
+		    "" "" "" "" "" "" "")
 		(IFS=,; printf "%s\n" "${summary_row[*]}") | tee -a "$OUT"
 	done
 done
