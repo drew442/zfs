@@ -44,9 +44,11 @@ the poller only at QAT DC init, switch polling mode by changing both the QAT
 config and the ZFS module/boot parameter, then rebuilding initramfs and
 rebooting. Do not rely on changing `zfs_qat_dc_poll` live after QAT DC init.
 
-Polling forces the experimental async compression path off. The current async
-path depends on callback-driven `zio` resume and should not use QAT poll
-delivery until it has a real poller-aware design.
+Polling originally forced the experimental async compression path off. As of the
+2026-05-21 async-polling change, polling no longer disables async compression
+because the central poller can drive async callbacks through the aggregate QAT
+DC in-flight accounting. Quarantine still disables async until async timeout
+ownership and fallback are redesigned.
 
 Added QAT kstats:
 

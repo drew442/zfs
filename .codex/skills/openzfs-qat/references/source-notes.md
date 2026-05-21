@@ -139,9 +139,11 @@ These notes capture stable, primary-source details useful when reviewing this fo
   waiters polling the same traditional DC instances is not a safe reentrant
   shape. The implementation starts `zfs_qat_dc_poll` only when
   `zfs_qat_dc_poll` is enabled at QAT DC init time.
-- When `zfs_qat_dc_poll` is enabled, ZFS disables the experimental async
-  compression path because async `zio` resume currently depends on callback
-  delivery and has not been redesigned around polling.
+- As of the 2026-05-21 async-polling change, `zfs_qat_dc_poll` no longer
+  disables experimental async compression. The central poller can drive async
+  callbacks because async requests enter/exit the aggregate QAT DC in-flight
+  accounting. Quarantine still disables async until async timeout ownership and
+  fallback are redesigned.
 - A 2026-05-19 minimum-timer interrupt coalescing test on two dh895xcc cards did
   not produce a material end-to-end QAT win at 128 KiB. It improved driver wait
   at `JOBS=4`, but elapsed time did not improve and `JOBS=8` active CPU rose.

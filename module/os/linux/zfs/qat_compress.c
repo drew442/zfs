@@ -457,7 +457,7 @@ qat_dc_profile_async(const char *dc_profile)
 static int
 qat_dc_effective_async(void)
 {
-	if (qat_dc_effective_poll() || qat_dc_effective_quarantine_dst())
+	if (qat_dc_effective_quarantine_dst())
 		return (0);
 
 	if (strcmp(zfs_qat_dc_async, "profile") == 0)
