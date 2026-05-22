@@ -1,0 +1,19 @@
+May 22 21:36:28 pve systemd[1]: Starting qat.service - QAT service...
+May 22 21:36:28 pve qat_service[2704]: Restarting all devices.
+May 22 21:36:29 pve qat_service[2704]: Processing /etc/dh895xcc_dev0.conf
+May 22 21:36:29 pve qat_service[2704]: Ioctl failed
+May 22 21:36:29 pve qat_service[2704]: QAT Error: Failed to load config data to device
+May 22 21:36:29 pve qat_service[2704]: Failed to configure qat_dev0
+May 22 21:36:29 pve qat_service[2704]: Processing /etc/dh895xcc_dev1.conf
+May 22 21:36:29 pve qat_service[2704]: Ioctl failed
+May 22 21:36:29 pve qat_service[2704]: QAT Error: Failed to load config data to device
+May 22 21:36:29 pve qat_service[2704]: Failed to configure qat_dev1
+May 22 21:36:29 pve qat_service[2724]: Checking status of all devices.
+May 22 21:36:29 pve qat_service[2724]: There is 2 QAT acceleration device(s) in the system:
+May 22 21:36:29 pve qat_service[2724]:  qat_dev0 - type: dh895xcc,  inst_id: 0,  node_id: 2,  bsf: 0000:45:00.0,  #accel: 6 #engines: 12 state: down
+May 22 21:36:29 pve qat_service[2724]:  qat_dev1 - type: dh895xcc,  inst_id: 1,  node_id: 3,  bsf: 0000:64:00.0,  #accel: 6 #engines: 12 state: down
+May 22 21:36:29 pve systemd[1]: Finished qat.service - QAT service.
+Checking status of all devices.
+There is 2 QAT acceleration device(s) in the system:
+ qat_dev0 - type: dh895xcc,  inst_id: 0,  node_id: 2,  bsf: 0000:45:00.0,  #accel: 6 #engines: 12 state: down
+ qat_dev1 - type: dh895xcc,  inst_id: 1,  node_id: 3,  bsf: 0000:64:00.0,  #accel: 6 #engines: 12 state: down

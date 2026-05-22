@@ -41,6 +41,19 @@ The Intel performance guide points at the remaining likely bottlenecks:
   resources with crypto.
 - QAT driver parameter checking.
 
+Baseline status as of 2026-05-22:
+
+- PCIe link state was checked for both DH895XCC cards. Both trained at Gen2 x16,
+  matching the devices' reported capability.
+- The active `[KERNEL_QAT]` config was already DC-only with six DC instances per
+  card and no crypto instances. ZFS sees 12 DC instances.
+- `ServicesEnabled=dc` was tested and failed to configure both devices on this
+  QAT 4.28/dh895xcc deployment.
+- Keeping `ServicesEnabled=cy;dc` while setting `[KERNEL] NumberCyInstances=0`
+  is viable, but the `1M` throughput result was mixed: `JOBS=4` improved and
+  `JOBS=8` regressed.
+- See `references/qat-platform-service-baseline-20260522.md`.
+
 Those are mostly QAT-driver, platform, or integration-mode targets rather than
 simple ZFS policy knobs.
 
@@ -71,7 +84,8 @@ These should be the next optimization target because Intel's guide identifies
 them as performance-sensitive and our ZFS-side tuning has mostly hit CPU-vs-
 latency tradeoffs rather than broad throughput wins.
 
-1. Verify service split and disable unused services.
+1. Verify service split and disable unused services. Completed for the current
+   host baseline on 2026-05-22.
    - Goal: DC-only resources for compression benchmarking.
    - Check active `/etc/dh895xcc_dev*.conf` kernel sections.
    - Confirm `NumberDcInstances`, `NumberCyInstances`, service masks, and
@@ -86,7 +100,8 @@ latency tradeoffs rather than broad throughput wins.
    - If polling interval is configurable for QAT 1.x kernel instances, sweep it
      against the `target=1M throughput` benchmark.
 
-3. Check PCIe link state.
+3. Check PCIe link state. Completed for the current host baseline on
+   2026-05-22.
    - Goal: rule out a platform bottleneck before making more ZFS changes.
    - Record lane width/speed for both DH895XCC cards with `lspci -vv`.
    - Compare actual trained link width/speed with expected device capability
@@ -99,7 +114,8 @@ latency tradeoffs rather than broad throughput wins.
    - Because this host is single-socket EPYC with sub-socket NUMA, use this as
      hygiene only; defer conclusions to a true multi-socket host.
 
-5. Evaluate parameter checking as an explicit QAT-driver experiment.
+5. Evaluate parameter checking as an explicit QAT-driver experiment. This is the
+   next recommended target after the 2026-05-22 platform/service baseline.
    - Goal: reduce IA cycles in the access layer.
    - Only test if QAT 4.28 CE exposes the documented `ICP_PARAM_CHECK` or build
      option for this driver path.
@@ -153,16 +169,19 @@ work.
 
 ## Recommended Next Action
 
-Run a QAT-side baseline collection on `pve.drewnet.online` before changing more
-ZFS code:
+Run a controlled QAT driver parameter-checking experiment on
+`pve.drewnet.online` before changing more ZFS code:
 
 ```text
-1. Capture QAT config: /etc/dh895xcc_dev*.conf relevant kernel sections.
-2. Capture PCIe link state: lspci -vv for both DH895XCC cards.
-3. Capture QAT device NUMA nodes and CPU topology.
-4. Capture loaded QAT module parameters and service state.
-5. Repeat only the current best benchmark:
+1. Rebuild the QAT DKMS package with ICP_PARAM_CHECK=n.
+2. Reinstall/reload QAT and verify both dh895xcc devices are up.
+3. Rebuild/reload ZFS if needed to keep ICP_ROOT and ZFS DKMS in lock-step.
+4. Run a correctness smoke test with QAT compression enabled.
+5. Repeat the current comparison benchmark:
    target=1M, profile=throughput, record=1M, JOBS=4 and JOBS=8.
+6. Restore or keep the QAT build option only after comparing elapsed latency,
+   throughput, CPU seconds per GiB, compression ratio, QAT byte share, and QAT
+   driver timing counters.
 ```
 
 If QAT-side tuning does not improve the repeat candidate, the next ZFS-side

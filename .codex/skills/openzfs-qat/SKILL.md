@@ -31,7 +31,8 @@ Use this skill for QAT-specific work in this fork. It is meant for design review
 14. For the first request-overhead baseline and next optimization target, use `references/request-overhead-baseline-20260522.md`.
 15. For the source-coalescing request-shape retest, use `references/source-coalescing-request-shape-20260522.md`.
 16. For alignment/segment-shape instrumentation, use `references/alignment-shape-instrumentation-20260522.md`.
-17. Confirm which layer the task touches before editing:
+17. For the QAT platform/service baseline and service-split results, use `references/qat-platform-service-baseline-20260522.md`.
+18. Confirm which layer the task touches before editing:
    - Build integration and static configuration
    - Runtime tunables and initialization
    - Compression, checksum, or encryption call sites

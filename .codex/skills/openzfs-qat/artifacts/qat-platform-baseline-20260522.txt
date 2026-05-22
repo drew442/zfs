@@ -1,0 +1,689 @@
+# QAT platform baseline 2026-05-22
+## Host
+pve.drewnet.online
+2026-05-22T21:29:09+10:00
+Linux pve 7.0.0-3-pve #1 SMP PREEMPT_DYNAMIC PMX 7.0.0-3 (2026-04-21T22:56Z) x86_64 GNU/Linux
+
+## ZFS/QAT module state
+filename:       /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko
+version:        2.4.99-1
+srcversion:     38C562CCF5F59E6889FDE50
+zfs_qat_dc_profile=balanced
+zfs_qat_dc_profile_recordsize=131072
+zfs_qat_dc_max_buf_size=profile
+zfs_qat_dc_async=profile
+zfs_qat_dc_poll=profile
+zfs_qat_dc_poll_interval_us=profile
+zfs_qat_dc_poll_quota=profile
+zfs_qat_compress_disable=0
+zfs_qat_decompress_disable=profile
+zfs_qat_checksum_disable=1
+zfs_qat_encrypt_disable=1
+
+## QAT service and devices
+active
+enabled
+Checking status of all devices.
+There is 2 QAT acceleration device(s) in the system:
+ qat_dev0 - type: dh895xcc,  inst_id: 0,  node_id: 2,  bsf: 0000:45:00.0,  #accel: 6 #engines: 12 state: up
+ qat_dev1 - type: dh895xcc,  inst_id: 1,  node_id: 3,  bsf: 0000:64:00.0,  #accel: 6 #engines: 12 state: up
+
+## QAT kstats
+36 1 0x01 131 35632 6335039488 12684830357463
+name                            type data
+comp_requests                   4    0
+comp_total_in_bytes             4    0
+comp_total_out_bytes            4    0
+decomp_requests                 4    0
+decomp_total_in_bytes           4    0
+decomp_total_out_bytes          4    0
+dc_fails                        4    0
+dc_instances                    4    12
+dc_buffer_reuse_hits            4    0
+dc_buffer_reuse_misses          4    0
+dc_compress_bound_requests      4    0
+dc_compress_bound_fails         4    0
+dc_compress_bound_ns            4    0
+dc_compress_bound_total_bytes   4    0
+dc_compress_dst_total_bytes     4    0
+dc_compress_scratch_bytes       4    0
+dc_compress_scratch_saved_bytes 4    0
+dc_compress_overflows           4    0
+dc_compress_incompressible      4    0
+dc_compress_src_buffers         4    0
+dc_compress_dst_buffers         4    0
+dc_compress_add_buffers         4    0
+dc_compress_dst_total_buffers   4    0
+dc_compress_src_buffers_max     4    0
+dc_compress_dst_buffers_max     4    0
+dc_compress_add_buffers_max     4    0
+dc_compress_dst_total_buffers_max 4    0
+dc_compress_src_buf_unaligned_64 4    0
+dc_compress_src_buf_len_not_64  4    0
+dc_compress_src_first_bytes     4    0
+dc_compress_src_last_bytes      4    0
+dc_compress_dst_buf_unaligned_64 4    0
+dc_compress_dst_buf_len_not_64  4    0
+dc_compress_dst_first_bytes     4    0
+dc_compress_dst_last_bytes      4    0
+dc_compress_add_buf_unaligned_64 4    0
+dc_compress_add_buf_len_not_64  4    0
+dc_compress_add_first_bytes     4    0
+dc_compress_add_last_bytes      4    0
+dc_compress_sync_submits        4    0
+dc_compress_sync_completions    4    0
+dc_compress_sync_fallbacks      4    0
+dc_compress_page_array_stack_src 4    0
+dc_compress_page_array_heap_src 4    0
+dc_compress_page_array_stack_dst 4    0
+dc_compress_page_array_heap_dst 4    0
+dc_compress_page_array_stack_scratch 4    0
+dc_compress_page_array_heap_scratch 4    0
+dc_compress_page_array_alloc_ns 4    0
+dc_compress_page_array_free_ns  4    0
+dc_compress_buffer_list_alloc_ns 4    0
+dc_compress_buffer_list_free_ns 4    0
+dc_compress_req_alloc_ns        4    0
+dc_compress_req_free_ns         4    0
+dc_compress_coalesce_requests   4    0
+dc_compress_coalesce_success    4    0
+dc_compress_coalesce_fails      4    0
+dc_compress_coalesce_bytes      4    0
+dc_compress_coalesce_alloc_ns   4    0
+dc_compress_coalesce_copy_ns    4    0
+dc_compress_coalesce_free_ns    4    0
+dc_compress_dst_coalesce_requests 4    0
+dc_compress_dst_coalesce_success 4    0
+dc_compress_dst_coalesce_fails  4    0
+dc_compress_dst_coalesce_reuse_hits 4    0
+dc_compress_dst_coalesce_reuse_misses 4    0
+dc_compress_dst_coalesce_alloc_bytes 4    0
+dc_compress_dst_coalesce_copy_bytes 4    0
+dc_compress_dst_coalesce_alloc_ns 4    0
+dc_compress_dst_coalesce_copy_ns 4    0
+dc_compress_dst_coalesce_free_ns 4    0
+dc_compress_quarantine_dst_requests 4    0
+dc_compress_quarantine_dst_success 4    0
+dc_compress_quarantine_dst_fails 4    0
+dc_compress_quarantine_dst_copy_bytes 4    0
+dc_compress_quarantine_dst_retained 4    0
+dc_compress_quarantine_dst_retained_bytes 4    0
+dc_compress_quarantine_dst_retained_released 4    0
+dc_compress_scratch_alloc_ns    4    0
+dc_compress_scratch_free_ns     4    0
+dc_compress_setup_ns            4    0
+dc_compress_submit_ns           4    0
+dc_compress_wait_ns             4    0
+dc_compress_cleanup_ns          4    0
+dc_decompress_setup_ns          4    0
+dc_decompress_submit_ns         4    0
+dc_decompress_wait_ns           4    0
+dc_decompress_cleanup_ns        4    0
+dc_compress_inflight            4    0
+dc_compress_inflight_max        4    0
+dc_decompress_inflight          4    0
+dc_decompress_inflight_max      4    0
+dc_poll_calls                   4    0
+dc_poll_success                 4    0
+dc_poll_retries                 4    0
+dc_poll_fails                   4    0
+dc_poll_ns                      4    0
+dc_watchdog_checks              4    49498
+dc_watchdog_stalls              4    0
+dc_watchdog_runtime_disables    4    0
+dc_watchdog_last_progress_ns    4    13107571098
+dc_watchdog_last_stall_ns       4    0
+dc_watchdog_health              4    1
+dc_watchdog_request_timeouts    4    0
+dc_watchdog_request_recoveries  4    0
+dc_watchdog_request_unrecoverable 4    0
+dc_watchdog_late_completions    4    0
+dc_compress_async_submits       4    0
+dc_compress_async_submit_fails  4    0
+dc_compress_async_completions   4    0
+dc_compress_async_resumes       4    0
+dc_compress_async_fallbacks     4    0
+dc_compress_async_cancels       4    0
+dc_compress_async_submit_retries 4    0
+dc_compress_async_retry_success 4    0
+dc_compress_async_fail_retry    4    0
+dc_compress_async_fail_resource 4    0
+dc_compress_async_fail_other    4    0
+dc_compress_async_inflight      4    0
+dc_compress_async_inflight_max  4    0
+dc_compress_async_cap_skips     4    0
+encrypt_requests                4    0
+encrypt_total_in_bytes          4    0
+encrypt_total_out_bytes         4    0
+decrypt_requests                4    0
+decrypt_total_in_bytes          4    0
+decrypt_total_out_bytes         4    0
+crypt_fails                     4    0
+cksum_requests                  4    0
+cksum_total_in_bytes            4    0
+cksum_fails                     4    0
+
+## QAT config summaries
+### /etc/dh895xcc_dev0.conf
+[GENERAL]:[GENERAL]
+[GENERAL]:ServicesEnabled = cy;dc
+[GENERAL]:ServicesProfile = DEFAULT
+[GENERAL]:ConfigVersion = 2
+[GENERAL]:CyNumConcurrentSymRequests = 512
+[GENERAL]:CyNumConcurrentAsymRequests = 64
+[GENERAL]:statsGeneral = 1
+[GENERAL]:statsDh = 1
+[GENERAL]:statsDrbg = 1
+[GENERAL]:statsDsa = 1
+[GENERAL]:statsEcc = 1
+[GENERAL]:statsKeyGen = 1
+[GENERAL]:statsDc = 1
+[GENERAL]:statsLn = 1
+[GENERAL]:statsPrime = 1
+[GENERAL]:statsRsa = 1
+[GENERAL]:statsSym = 1
+[GENERAL]:AutoResetOnError = 0
+[KERNEL]:[KERNEL]
+[KERNEL]:NumberCyInstances = 1
+[KERNEL]:NumberDcInstances = 0
+[KERNEL]:Cy0Name = "IPSec0"
+[KERNEL]:Cy0IsPolled = 0
+[KERNEL]:Cy0CoreAffinity = 0
+[KERNEL_QAT]:[KERNEL_QAT]
+[KERNEL_QAT]:NumberCyInstances = 0
+[KERNEL_QAT]:NumberDcInstances = 6
+[KERNEL_QAT]:Dc0Name = "IPComp0"
+[KERNEL_QAT]:Dc0IsPolled = 0
+[KERNEL_QAT]:Dc0CoreAffinity = 1
+[KERNEL_QAT]:Dc1Name = "IPComp1"
+[KERNEL_QAT]:Dc1IsPolled = 0
+[KERNEL_QAT]:Dc1CoreAffinity = 2
+[KERNEL_QAT]:Dc2Name = "IPComp2"
+[KERNEL_QAT]:Dc2IsPolled = 0
+[KERNEL_QAT]:Dc2CoreAffinity = 3
+[KERNEL_QAT]:Dc3Name = "IPComp3"
+[KERNEL_QAT]:Dc3IsPolled = 0
+[KERNEL_QAT]:Dc3CoreAffinity = 4
+[KERNEL_QAT]:Dc4Name = "IPComp4"
+[KERNEL_QAT]:Dc4IsPolled = 0
+[KERNEL_QAT]:Dc4CoreAffinity = 5
+[KERNEL_QAT]:Dc5Name = "IPComp5"
+[KERNEL_QAT]:Dc5IsPolled = 0
+[KERNEL_QAT]:Dc5CoreAffinity = 6
+### /etc/dh895xcc_dev1.conf
+[GENERAL]:[GENERAL]
+[GENERAL]:ServicesEnabled = cy;dc
+[GENERAL]:ServicesProfile = DEFAULT
+[GENERAL]:ConfigVersion = 2
+[GENERAL]:CyNumConcurrentSymRequests = 512
+[GENERAL]:CyNumConcurrentAsymRequests = 64
+[GENERAL]:statsGeneral = 1
+[GENERAL]:statsDh = 1
+[GENERAL]:statsDrbg = 1
+[GENERAL]:statsDsa = 1
+[GENERAL]:statsEcc = 1
+[GENERAL]:statsKeyGen = 1
+[GENERAL]:statsDc = 1
+[GENERAL]:statsLn = 1
+[GENERAL]:statsPrime = 1
+[GENERAL]:statsRsa = 1
+[GENERAL]:statsSym = 1
+[GENERAL]:AutoResetOnError = 0
+[KERNEL]:[KERNEL]
+[KERNEL]:NumberCyInstances = 1
+[KERNEL]:NumberDcInstances = 0
+[KERNEL]:Cy0Name = "IPSec0"
+[KERNEL]:Cy0IsPolled = 0
+[KERNEL]:Cy0CoreAffinity = 0
+[KERNEL_QAT]:[KERNEL_QAT]
+[KERNEL_QAT]:NumberCyInstances = 0
+[KERNEL_QAT]:NumberDcInstances = 6
+[KERNEL_QAT]:Dc0Name = "IPComp0"
+[KERNEL_QAT]:Dc0IsPolled = 0
+[KERNEL_QAT]:Dc0CoreAffinity = 1
+[KERNEL_QAT]:Dc1Name = "IPComp1"
+[KERNEL_QAT]:Dc1IsPolled = 0
+[KERNEL_QAT]:Dc1CoreAffinity = 2
+[KERNEL_QAT]:Dc2Name = "IPComp2"
+[KERNEL_QAT]:Dc2IsPolled = 0
+[KERNEL_QAT]:Dc2CoreAffinity = 3
+[KERNEL_QAT]:Dc3Name = "IPComp3"
+[KERNEL_QAT]:Dc3IsPolled = 0
+[KERNEL_QAT]:Dc3CoreAffinity = 4
+[KERNEL_QAT]:Dc4Name = "IPComp4"
+[KERNEL_QAT]:Dc4IsPolled = 0
+[KERNEL_QAT]:Dc4CoreAffinity = 5
+[KERNEL_QAT]:Dc5Name = "IPComp5"
+[KERNEL_QAT]:Dc5IsPolled = 0
+[KERNEL_QAT]:Dc5CoreAffinity = 6
+
+## PCIe link state
+### 0000:45:00.0
+		DevCap:	MaxPayload 256 bytes, PhantFunc 0, Latency L0s <128ns, L1 <1us
+			MaxPayload 256 bytes, MaxReadReq 1024 bytes
+		LnkCap:	Port #0, Speed 5GT/s, Width x16, ASPM L0s, Exit Latency L0s <512ns
+		LnkSta:	Speed 5GT/s, Width x16
+	Kernel driver in use: dh895xcc
+	Kernel modules: qat_dh895xcc
+numa_node=2
+local_cpulist=16-23,48-55
+### 0000:64:00.0
+		DevCap:	MaxPayload 256 bytes, PhantFunc 0, Latency L0s <128ns, L1 <1us
+			MaxPayload 256 bytes, MaxReadReq 1024 bytes
+		LnkCap:	Port #0, Speed 5GT/s, Width x16, ASPM L0s, Exit Latency L0s <512ns
+		LnkSta:	Speed 5GT/s, Width x16
+	Kernel driver in use: dh895xcc
+	Kernel modules: qat_dh895xcc
+numa_node=3
+local_cpulist=24-31,56-63
+
+## IRQ placement
+### 0000:45:00.0 msi_irqs
+irq=260 affinity=0 effective=0  260:          7          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          1          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0    0-edge      qat0-bundle0
+irq=261 affinity=1 effective=50  261:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0    1-edge      qat0-bundle1
+irq=262 affinity=2 effective=51  262:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0    2-edge      qat0-bundle2
+irq=263 affinity=3 effective=52  263:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0    3-edge      qat0-bundle3
+irq=264 affinity=4 effective=53  264:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0    4-edge      qat0-bundle4
+irq=265 affinity=5 effective=54  265:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0    5-edge      qat0-bundle5
+irq=266 affinity=6 effective=55  266:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0    6-edge      qat0-bundle6
+irq=267 affinity=16-23,48-55 effective=17  267:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0    7-edge      UIO_dh895xcc_00_BUNDLE_00
+irq=268 affinity=16-23,48-55 effective=18  268:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0    8-edge      UIO_dh895xcc_00_BUNDLE_01
+irq=269 affinity=16-23,48-55 effective=19  269:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0    9-edge      UIO_dh895xcc_00_BUNDLE_02
+irq=270 affinity=16-23,48-55 effective=20  270:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   10-edge      UIO_dh895xcc_00_BUNDLE_03
+irq=271 affinity=16-23,48-55 effective=21  271:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   11-edge      UIO_dh895xcc_00_BUNDLE_04
+irq=272 affinity=16-23,48-55 effective=22  272:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   12-edge      UIO_dh895xcc_00_BUNDLE_05
+irq=273 affinity=16-23,48-55 effective=23  273:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   13-edge      UIO_dh895xcc_00_BUNDLE_06
+irq=274 affinity=16-23,48-55 effective=48  274:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   14-edge      UIO_dh895xcc_00_BUNDLE_07
+irq=275 affinity=16-23,48-55 effective=49  275:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   15-edge      UIO_dh895xcc_00_BUNDLE_08
+irq=276 affinity=16-23,48-55 effective=50  276:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   16-edge      UIO_dh895xcc_00_BUNDLE_09
+irq=277 affinity=16-23,48-55 effective=51  277:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   17-edge      UIO_dh895xcc_00_BUNDLE_10
+irq=278 affinity=16-23,48-55 effective=52  278:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   18-edge      UIO_dh895xcc_00_BUNDLE_11
+irq=279 affinity=16-23,48-55 effective=53  279:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   19-edge      UIO_dh895xcc_00_BUNDLE_12
+irq=280 affinity=16-23,48-55 effective=54  280:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   20-edge      UIO_dh895xcc_00_BUNDLE_13
+irq=281 affinity=16-23,48-55 effective=55  281:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   21-edge      UIO_dh895xcc_00_BUNDLE_14
+irq=282 affinity=16-23,48-55 effective=16  282:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   22-edge      UIO_dh895xcc_00_BUNDLE_15
+irq=283 affinity=16-23,48-55 effective=17  283:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   23-edge      UIO_dh895xcc_00_BUNDLE_16
+irq=284 affinity=16-23,48-55 effective=18  284:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   24-edge      UIO_dh895xcc_00_BUNDLE_17
+irq=285 affinity=16-23,48-55 effective=19  285:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   25-edge      UIO_dh895xcc_00_BUNDLE_18
+irq=286 affinity=16-23,48-55 effective=20  286:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   26-edge      UIO_dh895xcc_00_BUNDLE_19
+irq=287 affinity=16-23,48-55 effective=21  287:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   27-edge      UIO_dh895xcc_00_BUNDLE_20
+irq=288 affinity=16-23,48-55 effective=22  288:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   28-edge      UIO_dh895xcc_00_BUNDLE_21
+irq=289 affinity=16-23,48-55 effective=23  289:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   29-edge      UIO_dh895xcc_00_BUNDLE_22
+irq=290 affinity=16-23,48-55 effective=48  290:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   30-edge      UIO_dh895xcc_00_BUNDLE_23
+irq=291 affinity=16-23,48-55 effective=49  291:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   31-edge      UIO_dh895xcc_00_BUNDLE_24
+irq=292 affinity=16-23,48-55 effective=16  292:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:45:00.0   32-edge      qat0-ae-cluster
+### 0000:64:00.0 msi_irqs
+irq=293 affinity=0 effective=0  293:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          1          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0    0-edge      qat1-bundle0
+irq=294 affinity=1 effective=57  294:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0    1-edge      qat1-bundle1
+irq=295 affinity=2 effective=58  295:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0    2-edge      qat1-bundle2
+irq=296 affinity=3 effective=59  296:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0    3-edge      qat1-bundle3
+irq=297 affinity=4 effective=60  297:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0    4-edge      qat1-bundle4
+irq=298 affinity=5 effective=61  298:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0    5-edge      qat1-bundle5
+irq=299 affinity=6 effective=62  299:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0    6-edge      qat1-bundle6
+irq=300 affinity=24-31,56-63 effective=24  300:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0    7-edge      UIO_dh895xcc_01_BUNDLE_00
+irq=301 affinity=24-31,56-63 effective=25  301:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0    8-edge      UIO_dh895xcc_01_BUNDLE_01
+irq=302 affinity=24-31,56-63 effective=26  302:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0    9-edge      UIO_dh895xcc_01_BUNDLE_02
+irq=303 affinity=24-31,56-63 effective=27  303:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   10-edge      UIO_dh895xcc_01_BUNDLE_03
+irq=304 affinity=24-31,56-63 effective=28  304:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   11-edge      UIO_dh895xcc_01_BUNDLE_04
+irq=305 affinity=24-31,56-63 effective=29  305:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   12-edge      UIO_dh895xcc_01_BUNDLE_05
+irq=306 affinity=24-31,56-63 effective=30  306:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   13-edge      UIO_dh895xcc_01_BUNDLE_06
+irq=307 affinity=24-31,56-63 effective=31  307:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   14-edge      UIO_dh895xcc_01_BUNDLE_07
+irq=308 affinity=24-31,56-63 effective=56  308:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   15-edge      UIO_dh895xcc_01_BUNDLE_08
+irq=309 affinity=24-31,56-63 effective=57  309:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   16-edge      UIO_dh895xcc_01_BUNDLE_09
+irq=310 affinity=24-31,56-63 effective=58  310:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   17-edge      UIO_dh895xcc_01_BUNDLE_10
+irq=311 affinity=24-31,56-63 effective=59  311:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   18-edge      UIO_dh895xcc_01_BUNDLE_11
+irq=312 affinity=24-31,56-63 effective=60  312:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   19-edge      UIO_dh895xcc_01_BUNDLE_12
+irq=313 affinity=24-31,56-63 effective=61  313:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   20-edge      UIO_dh895xcc_01_BUNDLE_13
+irq=314 affinity=24-31,56-63 effective=62  314:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   21-edge      UIO_dh895xcc_01_BUNDLE_14
+irq=315 affinity=24-31,56-63 effective=63  315:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   22-edge      UIO_dh895xcc_01_BUNDLE_15
+irq=316 affinity=24-31,56-63 effective=24  316:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   23-edge      UIO_dh895xcc_01_BUNDLE_16
+irq=317 affinity=24-31,56-63 effective=25  317:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   24-edge      UIO_dh895xcc_01_BUNDLE_17
+irq=318 affinity=24-31,56-63 effective=26  318:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   25-edge      UIO_dh895xcc_01_BUNDLE_18
+irq=319 affinity=24-31,56-63 effective=27  319:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   26-edge      UIO_dh895xcc_01_BUNDLE_19
+irq=320 affinity=24-31,56-63 effective=28  320:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   27-edge      UIO_dh895xcc_01_BUNDLE_20
+irq=321 affinity=24-31,56-63 effective=29  321:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   28-edge      UIO_dh895xcc_01_BUNDLE_21
+irq=322 affinity=24-31,56-63 effective=30  322:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   29-edge      UIO_dh895xcc_01_BUNDLE_22
+irq=323 affinity=24-31,56-63 effective=31  323:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   30-edge      UIO_dh895xcc_01_BUNDLE_23
+irq=324 affinity=24-31,56-63 effective=56  324:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   31-edge      UIO_dh895xcc_01_BUNDLE_24
+irq=325 affinity=24-31,56-63 effective=63  325:          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0          0 PCI-MSIX-0000:64:00.0   32-edge      qat1-ae-cluster
+
+## Loaded QAT modules
+usdm_drv              102400  0
+qat_dh895xcc           20480  2
+zfs                  6737920  21
+qat_api               667648  3 zfs
+intel_qat             413696  3 qat_api,usdm_drv,qat_dh895xcc
+spl                   159744  1 zfs
+### modinfo -p qat_dh895xcc
+### /sys/module/qat_dh895xcc/parameters
+### modinfo -p qat_api
+### /sys/module/qat_api/parameters
+### modinfo -p intel_qat
+### /sys/module/intel_qat/parameters
+### modinfo -p usdm_drv
+max_mem_numa:Maximum number of allocatable memory in 1k units (uint)
+max_huge_pages:Maximum number of huge pages enabled for the module (uint)
+max_huge_pages_per_process:Maximum number of huge pages enabled for each process (uint)
+### /sys/module/usdm_drv/parameters
+max_huge_pages=0
+max_huge_pages_per_process=0
+max_mem_numa=0
+
+## Driver timing proc
+submits 0
+comp_submits 0
+decomp_submits 0
+tx_retries 0
+tx_errors 0
+callbacks 0
+comp_callbacks 0
+decomp_callbacks 0
+create_ns 0
+trans_put_ns 0
+response_wait_ns 0
+callback_process_ns 0
+user_callback_ns 0
+total_ns 0
+
+## QAT source build flag search
+/usr/src/qat-4.28.0-00004
+quickassist/Makefile:98:export ICP_PARAM_CHECK ?= y
+quickassist/utilities/apps/debug/daemon/Makefile:78:EXTRA_CFLAGS += -DUSER_SPACE -DQAT_UIO -DICP_QAT_DBG -DQAT_DBG -DICP_PARAM_CHECK
+quickassist/include/cpa.h:773:    CpaBoolean isPolled;
+quickassist/include/cpa.h:775:     * For hardware accelerators, the alternative to polling would be
+quickassist/include/icp/icp_sal_poll.h:73: *    Polling APIs for instance polling.
+quickassist/include/icp/icp_sal_poll.h:76: *    context of the polling function itself.
+quickassist/include/icp/icp_sal_poll.h:111: *                                   will be read in one polling. Setting
+quickassist/include/icp/icp_sal_poll.h:149: *                                   will be read in one polling. Setting
+quickassist/include/icp/icp_sal_poll.h:187: *                                   will be read in one polling. Setting
+quickassist/include/icp/icp_sal_poll.h:227: *    This polling function should be used with the functions described
+quickassist/include/icp/icp_sal_poll.h:244: *                               will be read in one polling. Setting
+quickassist/include/icp/icp_sal_poll.h:277: *                               will be read in one polling. Setting
+quickassist/include/icp/icp_sal_poll.h:309:  *    This polling function should be used with the functions described
+quickassist/include/icp/icp_sal_poll.h:327:  *                               will be read in one polling. Setting
+quickassist/include/icp/icp_sal_poll.h:367: *                               will be read in one polling. Setting
+quickassist/include/icp/icp_sal_poll.h:406: *                               will be read in one polling. Setting
+quickassist/build_system/build_files/common.mk:128:ifeq ($($(PROG_ACY)_PARAM_CHECK),y)
+quickassist/build_system/build_files/common.mk:129:EXTRA_CFLAGS+=-DICP_PARAM_CHECK
+quickassist/qat/drivers/crypto/qat/qat_common/adf_cfg_section.c:471:	unsigned long polling_mode = 0;
+quickassist/qat/drivers/crypto/qat/qat_common/adf_cfg_section.c:566:				      &polling_mode))
+quickassist/qat/drivers/crypto/qat/qat_common/adf_cfg_section.c:569:		crypto_inst->polling_mode = polling_mode;
+quickassist/qat/drivers/crypto/qat/qat_common/adf_cfg_section.c:622:	unsigned long polling_mode = 0;
+quickassist/qat/drivers/crypto/qat/qat_common/adf_cfg_section.c:720:				      key, &polling_mode))
+quickassist/qat/drivers/crypto/qat/qat_common/adf_cfg_section.c:723:		dc_inst->polling_mode = polling_mode;
+quickassist/qat/drivers/crypto/qat/qat_common/adf_cfg_section.c:1476:		    (bundle->polling_mode != ADF_CFG_RESP_EPOLL))
+quickassist/qat/drivers/crypto/qat/qat_common/adf_cfg_bundle.c:9:	return (bundle->polling_mode == ADF_CFG_RESP_EPOLL) ||
+quickassist/qat/drivers/crypto/qat/qat_common/adf_cfg_bundle.c:11:	       (bundle->polling_mode != ADF_CFG_RESP_POLL));
+quickassist/qat/drivers/crypto/qat/qat_common/adf_cfg_bundle.c:23:	if (bundle->polling_mode != inst->polling_mode)
+quickassist/qat/drivers/crypto/qat/qat_common/adf_cfg_bundle.c:85:	if (inst->polling_mode == ADF_CFG_RESP_POLL &&
+quickassist/qat/drivers/crypto/qat/qat_common/adf_cfg_bundle.c:98:	    inst->polling_mode != ADF_CFG_RESP_EPOLL &&
+quickassist/qat/drivers/crypto/qat/qat_common/adf_cfg_bundle.c:99:	    inst->polling_mode != ADF_CFG_RESP_POLL) {
+quickassist/qat/drivers/crypto/qat/qat_common/adf_cfg_bundle.c:110:		bundle->polling_mode = inst->polling_mode;
+quickassist/qat/drivers/crypto/qat/qat_common/adf_cfg_bundle.c:238:	bundle->polling_mode = -1;
+quickassist/qat/drivers/crypto/qat/qat_common/adf_cfg_bundle.h:54:	int polling_mode;
+quickassist/qat/drivers/crypto/qat/qat_common/adf_transport.c:182:	/* Return RETRY if the bank polling rings
+quickassist/qat/drivers/crypto/qat/qat_common/adf_transport.c:203:		/* And with polling ring mask.
+quickassist/qat/drivers/crypto/qat/qat_common/adf_transport.c:248:		/* if there are no polling rings on this bank
+quickassist/qat/drivers/crypto/qat/qat_common/adf_cfg_device.c:280:	    (inst->polling_mode == ADF_CFG_RESP_POLL)) {
+quickassist/qat/drivers/crypto/qat/qat_common/adf_cfg_instance.h:13:	int polling_mode;
+quickassist/qat/drivers/crypto/qat/qat_c4xxx/adf_c4xxx_reset.h:69:/* Allow 100ms polling interval */
+quickassist/qat/drivers/crypto/qat/qat_c4xxx/adf_c4xxx_reset.h:74:/* Ethernet notification polling interval */
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:360:        /* Set the polling mask for this ring handle. */
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:361:        pRingHandle->pollingMask = 1 << ring_rnum;
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:366:         * their polling and interrupt mask
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:368:        pRingHandle->pollingMask = 1 << ring_rnum;
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:405:    osalAtomicSet(1, (OsalAtomic *)&(pRingHandle->pollingInProgress));
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:668:    banks[pRingHandle->bank_num].pollingMask |= pRingHandle->pollingMask;
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:816:    banks[pRingHandle->bank_num].pollingMask |= pRingHandle->pollingMask;
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:869:    pbanks[pRingHandle->bank_num].pollingMask &=
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:1243:     * only if pRingHandle->pollingInProgress was previously
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:1245:     * pRingHandle->pollingInProgress is still zero no other
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:1246:     * thread will be able to poll. pollingInProgress is
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:1249:    if (osalAtomicDecAndTest((OsalAtomic *)&(pRingHandle->pollingInProgress)))
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:1254:        osalAtomicSet(1, (OsalAtomic *)&(pRingHandle->pollingInProgress));
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:1298:    /* Return RETRY if the bank polling rings
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:1300:    if (!(csrVal & bank->pollingMask))
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:1322:        /* And with polling ring mask
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:1324:        if (!(csrVal & pRingHandle->pollingMask))
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:1385:            ADF_ERROR("Failed to generate responses by polling bank\n");
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:1398:        /* if there are no polling rings on this bank
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:1400:        if (bank->pollingMask == 0)
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:1484:        /* And with polling ring mask. If the
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:1485:         * polling ring has no data move to the
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:1487:        if (!ring_hnd->pollingMask)
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_transport_ctrl.c:1539:        if (!ring_hnd->pollingMask)
+quickassist/lookaside/access_layer/src/qat_direct/src/common/include/adf_dev_ring_ctl.h:57:    uint32_t pollingMask;
+quickassist/lookaside/access_layer/src/qat_direct/src/common/include/adf_dev_ring_ctl.h:94:    uint32_t pollingMask;
+quickassist/lookaside/access_layer/src/qat_direct/src/common/include/adf_dev_ring_ctl.h:105:    int64_t pollingInProgress;
+quickassist/lookaside/access_layer/src/qat_direct/src/common/include/adf_user_transport.h:70: * Function notifies client that there is response message on polling rings
+quickassist/lookaside/access_layer/src/qat_direct/src/common/include/adf_user_transport.h:87: * a polling ring. This function does not check
+quickassist/lookaside/access_layer/src/qat_direct/src/common/include/adf_user_transport.h:88: * to see if the ring is a polling ring or
+quickassist/lookaside/access_layer/src/qat_direct/src/common/include/adf_platform_common.h:162: * Internal parameter to describe user polling method in kernel space.
+quickassist/lookaside/access_layer/src/qat_direct/src/common/include/icp_platform.h:61:#ifdef ICP_PARAM_CHECK
+quickassist/lookaside/access_layer/src/qat_direct/src/common/adf_user_ring.c:242: * Notify function used for polling. Messages are read until the ring is
+quickassist/lookaside/access_layer/src/sample_code/Makefile:78:PARAM_CHECK = -1
+quickassist/lookaside/access_layer/src/sample_code/Makefile:91:PARAM_CHECK = $(shell strings $(ICP_BUILD_OUTPUT)/$(DRV_OBJ) | grep -q dcParamCheck 1>&2 2> /dev/null; echo $$?)
+quickassist/lookaside/access_layer/src/sample_code/Makefile:119:PARAM_CHECK = 0
+quickassist/lookaside/access_layer/src/sample_code/Makefile:127:ifeq ($(PARAM_CHECK),0)
+quickassist/lookaside/access_layer/src/sample_code/Makefile:128:SC_PARAM_CHECK_ENABLED=1
+quickassist/lookaside/access_layer/src/sample_code/Makefile:129:export SC_PARAM_CHECK_ENABLED
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/ccm_sample/cpa_ccm_sample.c:405:         * If the instance is polled start the polling thread. Note that
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/ccm_sample/cpa_ccm_sample.c:406:         * how the polling is done is implementation-dependent.
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/ccm_sample/cpa_ccm_sample.c:408:        sampleCyStartPolling(cyInstHandle);
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/ccm_sample/cpa_ccm_sample.c:563:    /* Stop the polling thread */
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/ccm_sample/cpa_ccm_sample.c:564:    sampleCyStopPolling();
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/hkdf_sample/cpa_hkdf_sample.c:294:         * We now wait until the polling thread to complete
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/hkdf_sample/cpa_hkdf_sample.c:418:         * We now wait until the polling thread to complete
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/hkdf_sample/cpa_hkdf_sample.c:552:         * We now wait until the polling thread to complete
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/hkdf_sample/cpa_hkdf_sample.c:649:     * If the instance is polled start the polling thread. Note that
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/hkdf_sample/cpa_hkdf_sample.c:650:     * how the polling is done is implementation-dependent.
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/hkdf_sample/cpa_hkdf_sample.c:652:    sampleCyStartPolling(cyInstHandle);
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/hkdf_sample/cpa_hkdf_sample.c:658:    /* Stop the polling thread */
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/hkdf_sample/cpa_hkdf_sample.c:659:    sampleCyStopPolling();
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/symdp_sample/cpa_sym_dp_sample.c:292:            if (CPA_TRUE == info2.isPolled)
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/symdp_sample/cpa_sym_dp_sample.c:362:        if (info2->isPolled == CPA_FALSE)
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/symdp_sample/cpa_sym_dp_sample.c:366:                      "configured in polling mode\n");
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/symdp_sample/cpa_sym_dp_sample.c:442:    if (CPA_STATUS_SUCCESS == status && CPA_TRUE == info2->isPolled)
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/ssl_sample/cpa_ssl_sample.c:475:         * If the instance is polled start the polling thread. Note that
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/ssl_sample/cpa_ssl_sample.c:476:         * how the polling is done is implementation-dependant.
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/ssl_sample/cpa_ssl_sample.c:478:        sampleCyStartPolling(cyInstHandle);
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/ssl_sample/cpa_ssl_sample.c:629:    /* Stop the polling thread */
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/ssl_sample/cpa_ssl_sample.c:630:    sampleCyStopPolling();
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/hash_sample/cpa_hash_sample.c:308:         * If the instance is polled start the polling thread. Note that
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/hash_sample/cpa_hash_sample.c:309:         * how the polling is done is implementation-dependent.
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/hash_sample/cpa_hash_sample.c:311:        sampleCyStartPolling(cyInstHandle);
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/hash_sample/cpa_hash_sample.c:396:    /* Stop the polling thread */
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/hash_sample/cpa_hash_sample.c:397:    sampleCyStopPolling();
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/gcm_sample/cpa_gcm_sample.c:389:         * If the instance is polled start the polling thread. Note that
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/gcm_sample/cpa_gcm_sample.c:390:         * how the polling is done is implementation-dependent.
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/gcm_sample/cpa_gcm_sample.c:392:        sampleCyStartPolling(cyInstHandle);
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/gcm_sample/cpa_gcm_sample.c:552:    /* Stop the polling thread */
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/gcm_sample/cpa_gcm_sample.c:553:    sampleCyStopPolling();
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/cipher_sample/cpa_cipher_sample.c:353:         * If the instance is polled start the polling thread. Note that
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/cipher_sample/cpa_cipher_sample.c:354:         * how the polling is done is implementation-dependent.
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/cipher_sample/cpa_cipher_sample.c:356:        sampleCyStartPolling(cyInstHandle);
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/cipher_sample/cpa_cipher_sample.c:456:    /* Stop the polling thread */
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/cipher_sample/cpa_cipher_sample.c:457:    sampleCyStopPolling();
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/ipsec_sample/cpa_ipsec_sample.c:440:         * If the instance is polled start the polling thread. Note that
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/ipsec_sample/cpa_ipsec_sample.c:441:         * how the polling is done is implementation-dependent.
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/ipsec_sample/cpa_ipsec_sample.c:443:        sampleCyStartPolling(cyInstHandle);
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/ipsec_sample/cpa_ipsec_sample.c:604:    /* Stop the polling thread */
+quickassist/lookaside/access_layer/src/sample_code/functional/sym/ipsec_sample/cpa_ipsec_sample.c:605:    sampleCyStopPolling();
+quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateful_sample/cpa_dc_stateful_sam:568:         * If the instance is polled start the polling thread. Note that
+quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateful_sample/cpa_dc_stateful_sam:569:         * how the polling is done is implementation-dependent.
+quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateful_sample/cpa_dc_stateful_sam:571:        sampleDcStartPolling(dcInstHandle);
+quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateful_sample/cpa_dc_stateful_sam:699:    /* Stop the polling thread */
+quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateful_sample/cpa_dc_stateful_sam:700:    sampleDcStopPolling();
+quickassist/lookaside/access_layer/src/sample_code/functional/dc/dc_dp_sample/cpa_dc_dp_sample.c:307:        /* Poll for responses if instance configured for polling.
+quickassist/lookaside/access_layer/src/sample_code/functional/dc/dc_dp_sample/cpa_dc_dp_sample.c:312:            if (CPA_TRUE == info2.isPolled)
+quickassist/lookaside/access_layer/src/sample_code/functional/dc/dc_dp_sample/cpa_dc_dp_sample.c:421:            /* Poll for responses if instance configured for polling.
+quickassist/lookaside/access_layer/src/sample_code/functional/dc/dc_dp_sample/cpa_dc_dp_sample.c:426:                if (CPA_TRUE == info2.isPolled)
+quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateless_sample/cpa_dc_stateless_s:592:         * If the instance is polled start the polling thread. Note that
+quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateless_sample/cpa_dc_stateless_s:593:         * how the polling is done is implementation-dependent.
+quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateless_sample/cpa_dc_stateless_s:595:        sampleDcStartPolling(dcInstHandle);
+quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateless_sample/cpa_dc_stateless_s:706:    /* Stop the polling thread */
+quickassist/lookaside/access_layer/src/sample_code/functional/dc/stateless_sample/cpa_dc_stateless_s:707:    sampleDcStopPolling();
+quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c:190:static void sal_polling(CpaInstanceHandle cyInstHandle)
+quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c:204: * required to be polled then it starts a polling thread.
+quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c:208:void sampleCyStartPolling(CpaInstanceHandle cyInstHandle)
+quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c:214:    if ((status == CPA_STATUS_SUCCESS) && (info2.isPolled == CPA_TRUE))
+quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c:218:            &gPollingThread, sal_polling, cyInstHandle, CPA_TRUE);
+quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c:223: * This function stops the polling of a crypto instance.
+quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c:226:void sampleCyStopPolling(void)
+quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c:269:static void sal_dc_polling(CpaInstanceHandle dcInstHandle)
+quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c:284: * required to be polled then it starts a polling thread.
+quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c:286:void sampleDcStartPolling(CpaInstanceHandle dcInstHandle)
+quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c:292:    if ((status == CPA_STATUS_SUCCESS) && (info2.isPolled == CPA_TRUE))
+quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c:296:            &gPollingThreadDc, sal_dc_polling, dcInstHandle, CPA_TRUE);
+quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c:301: * This function stops the thread polling the compression instance.
+quickassist/lookaside/access_layer/src/sample_code/functional/common/cpa_sample_utils.c:303:void sampleDcStopPolling(void)
+quickassist/lookaside/access_layer/src/sample_code/functional/asym/eddsa_sample/cpa_eddsa_sample.c:719:    /* Start polling thread */
+quickassist/lookaside/access_layer/src/sample_code/functional/asym/eddsa_sample/cpa_eddsa_sample.c:720:    sampleCyStartPolling(cyInstHandle);
+quickassist/lookaside/access_layer/src/sample_code/functional/asym/eddsa_sample/cpa_eddsa_sample.c:725:    /* Stop the polling thread */
+quickassist/lookaside/access_layer/src/sample_code/functional/asym/eddsa_sample/cpa_eddsa_sample.c:726:    sampleCyStopPolling();
+quickassist/lookaside/access_layer/src/sample_code/functional/asym/prime_sample/cpa_prime_sample.c:282:         * If the instance is polled start the polling thread. Note that
+quickassist/lookaside/access_layer/src/sample_code/functional/asym/prime_sample/cpa_prime_sample.c:283:         * how the polling is done is implementation-dependent.
+quickassist/lookaside/access_layer/src/sample_code/functional/asym/prime_sample/cpa_prime_sample.c:285:        sampleCyStartPolling(cyInstHandle);
+quickassist/lookaside/access_layer/src/sample_code/functional/asym/prime_sample/cpa_prime_sample.c:292:            sampleCyStopPolling();
+quickassist/lookaside/access_layer/src/sample_code/functional/asym/prime_sample/cpa_prime_sample.c:305:            sampleCyStopPolling();
+quickassist/lookaside/access_layer/src/sample_code/functional/asym/prime_sample/cpa_prime_sample.c:313:    /* Stop the polling thread */
+quickassist/lookaside/access_layer/src/sample_code/functional/asym/prime_sample/cpa_prime_sample.c:314:    sampleCyStopPolling();
+quickassist/lookaside/access_layer/src/sample_code/functional/asym/rsa_sample/cpa_rsa_sample.c:603:    sampleCyStartPolling(cyInstHandle);
+quickassist/lookaside/access_layer/src/sample_code/functional/asym/rsa_sample/cpa_rsa_sample.c:614:        sampleCyStopPolling();
+quickassist/lookaside/access_layer/src/sample_code/functional/asym/rsa_sample/cpa_rsa_sample.c:626:        sampleCyStopPolling();
+quickassist/lookaside/access_layer/src/sample_code/functional/asym/rsa_sample/cpa_rsa_sample.c:648:        sampleCyStopPolling();
+quickassist/lookaside/access_layer/src/sample_code/functional/asym/rsa_sample/cpa_rsa_sample.c:664:        sampleCyStopPolling();
+quickassist/lookaside/access_layer/src/sample_code/functional/asym/rsa_sample/cpa_rsa_sample.c:688:    sampleCyStopPolling();
+quickassist/lookaside/access_layer/src/sample_code/functional/include/cpa_sample_utils.h:585:void sampleCyStartPolling(CpaInstanceHandle cyInstHandle);
+quickassist/lookaside/access_layer/src/sample_code/functional/include/cpa_sample_utils.h:587:void sampleCyStopPolling(void);
+quickassist/lookaside/access_layer/src/sample_code/functional/include/cpa_sample_utils.h:594:void sampleDcStartPolling(CpaInstanceHandle dcInstHandle);
+quickassist/lookaside/access_layer/src/sample_code/functional/include/cpa_sample_utils.h:596:void sampleDcStopPolling(void);
+quickassist/lookaside/access_layer/src/sample_code/performance/cpa_sample_code_main.c:446:#ifdef SC_PARAM_CHECK_ENABLED
+quickassist/lookaside/access_layer/src/sample_code/performance/Makefile:135:ifeq ($(SC_PARAM_CHECK_ENABLED),1)
+quickassist/lookaside/access_layer/src/sample_code/performance/Makefile:136:        EXTRA_CFLAGS += -DSC_PARAM_CHECK_ENABLED
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_latency.c:271:                    /* Keep polling until compression of the buffer completes
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_cycles.h:358:* @description                     Function performs polling on instance
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_cycles.h:359:*                                  and measures coo of polling. If polling
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_cycles.h:367:* @param[in]   func                pointer to function used to perform polling
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_cycles.h:369:* @param[in]   instance            instance handle used in polling function
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_cycles.h:371:* @param[in]   status              pointer to status where polling function
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_cycles.h:437:*                                  polling function in traditional mode for
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_cycles.h:443:* @param[in]   instance            instance handle used in polling function
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_cycles.h:445:* @param[in]   status              pointer to status where polling function
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_cycles.h:463:*                                  polling function in traditional mode for
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_cycles.h:469:* @param[in]   instance            instance handle used in polling function
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_cycles.h:471:* @param[in]   status              pointer to status where polling function
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_cycles.h:489:*                                  polling function in data plane mode for
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_cycles.h:495:* @param[in]   instance            instance handle used in polling function
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_cycles.h:497:* @param[in]   status              pointer to status where polling function
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_cycles.h:515:*                                  polling function in data plane mode for
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_cycles.h:521:* @param[in]   instance            instance handle used in polling function
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_cycles.h:523:* @param[in]   status              pointer to status where polling function
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_utils.h:158: * especially in multi-thread environment where few polling threads
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_utils.h:161: * equal across polling threads.*/
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_utils.h:197: * @param[in]   pollingInterval       how many request to be made for inline
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_utils.h:198: *                                    polling mode before a poll for responses
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_utils.h:213:                      Cpa32U pollingInterval);
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_utils.c:73:                      Cpa32U pollingInterval)
+quickassist/lookaside/access_layer/src/sample_code/performance/common/qat_perf_utils.c:82:    performanceStats->nextPoll = pollingInterval;
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/qat_sym_main.c:607:        /* start polling threads if polling is enabled in the configuration file
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/qat_sym_main.c:611:            PRINT_ERR("Error creating polling threads\n");
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.h:623: * especially in multi-thread environment where few polling threads
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.h:626: * equal across polling threads.*/
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.h:2537: *      This function checks whether each instance handle is set for polling
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.h:2538: *      and will allocate create and start the same number polling threads
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.h:2539: *      as they are polling instances.
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.h:2541: * @post numPolledInstances_g is set by the function to the number of polling
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.h:2553: *      This function checks whether all CY instances are configured for polling
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.h:2558: * @retval CPA_TRUE         All instances are configured for polling
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.h:2583: *  @retval CPA_STATUS_FAIL     Failure from polling operation or timeout.
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.h:2648: *      Wrapper function to crypto specific polling function which polls
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.h:2660: *      Wrapper function to crypto specific polling function which polls
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sm2_perf.c:751:        /* start polling threads if polling is enabled in the configuration
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sm2_perf.c:755:            PRINT_ERR("Error creating polling threads\n");
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ecdsa_perf.c:441:        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2->isPolled))
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ecdsa_perf.c:697:    CpaBoolean isPolled = CPA_FALSE;
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ecdsa_perf.c:734:    isPolled = instanceInfo2->isPolled;
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ecdsa_perf.c:882:        if ((CPA_STATUS_SUCCESS == status) && (isPolled))
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ecdsa_perf.c:1613:                        if (instanceInfo->isPolled)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ecdsa_perf.c:1646:                if (instanceInfo->isPolled)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ecdsa_perf.c:1677:        if ((instanceInfo->isPolled))
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ecdsa_perf.c:1983:        /* start polling threads if polling is enabled in the configuration file
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ecdsa_perf.c:1987:            PRINT_ERR("Error creating polling threads\n");
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/qat_sym_utils.c:794:                        if (instanceInfo2.isPolled)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/qat_sym_utils.c:818:                if (instanceInfo2.isPolled)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/qat_sym_utils.c:843:        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2.isPolled))
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dh_perf.c:406:                        if (instanceInfo->isPolled)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dh_perf.c:433:                if (instanceInfo->isPolled)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dh_perf.c:451:        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo->isPolled))
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dh_perf.c:716:                        if (instanceInfo->isPolled)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dh_perf.c:738:                if (instanceInfo->isPolled)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dh_perf.c:765:        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo->isPolled))
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dh_perf.c:1412:    /* start polling threads if polling is enabled in the configuration file */
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dh_perf.c:1417:            PRINT_ERR("Error creating polling threads\n");
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ike_rsa_perf.c:989:    /* start polling threads if polling is enabled in the configuration file */
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ike_rsa_perf.c:992:        PRINT_ERR("Error creating polling threads\n");
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ec_montedwds_p:586:                            if (instanceInfo2->isPolled)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ec_montedwds_p:618:                    if (instanceInfo2->isPolled)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ec_montedwds_p:648:            if ((instanceInfo2->isPolled))
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ec_montedwds_p:842:/* start polling threads if polling is enabled in the configuration file */
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ec_montedwds_p:847:            PRINT_ERR("Error creating polling threads\n");
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:119:volatile CpaBoolean cy_polling_started_g = CPA_FALSE;
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:137:volatile CpaBoolean asym_polling_started_g = CPA_FALSE;
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:180:sample_code_thread_t *pollingThread_g;
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:856:            PRINT_ERR("Error polling instance\n");
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:871:            PRINT_ERR("Timeout on polling remaining Operations\n");
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:1042:    /*free the polling threads*/
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:1043:    if (cy_polling_started_g == CPA_TRUE)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:1045:        /* set polling flag to false */
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:1046:        cy_polling_started_g = CPA_FALSE;
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:1050:            sampleCodeThreadJoin(&pollingThread_g[i]);
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:1054:            qaeMemFree((void **)&pollingThread_g);
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:1065:    /*free the polling threads*/
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:1066:    if (asym_polling_started_g == CPA_TRUE)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:1068:        /* set polling flag to false */
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:1069:        asym_polling_started_g = CPA_FALSE;
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:1943:    CpaBoolean isPolled = CPA_FALSE;
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:1969:    isPolled = instanceInfo2->isPolled;
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:2112:                        if (isPolled)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:2145:            if ((CPA_STATUS_SUCCESS == status) && (isPolled))
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:2484:    CpaBoolean isPolled = CPA_FALSE;
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:2520:    isPolled = instanceInfo2->isPolled;
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:2641:        if ((CPA_STATUS_SUCCESS == status) && (isPolled))
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:2994:    if (CPA_FALSE == cy_polling_started_g)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:3005:            PRINT_ERR("Failed to allocate memory for polling functions\n");
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:3020:            if (CPA_TRUE == instanceInfo2[i].isPolled)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:3056:        pollingThread_g =
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:3058:        if (NULL == pollingThread_g)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:3060:            PRINT_ERR("Failed to allocate memory for polling threads\n");
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:3070:                    &pollingThread_g[numCreatedPollingThreads],
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:3076:                    PRINT_ERR("Error starting polling thread %d\n", status);
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:3112:                sampleCodeThreadBind(&pollingThread_g[numCreatedPollingThreads],
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:3116:                    &pollingThread_g[numCreatedPollingThreads]);
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:3124:        cy_polling_started_g = CPA_TRUE;
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:3151:        if (CPA_FALSE == instanceInfo2[i].isPolled)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:3181:        if (CPA_TRUE == info2.isPolled)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:3186:                PRINT_ERR("Error polling instance\n");
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_crypto_utils.c:3207:            PRINT_ERR("Timeout on polling remaining Operations\n");
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_update_dp_:178:                if (CPA_TRUE == instanceInfo2->isPolled)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_update_dp_:195:            if (CPA_TRUE == instanceInfo2->isPolled)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ike_dsa_perf.c:1852:    /* start polling threads if polling is enabled in the configuration file */
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_ike_dsa_perf.c:1855:        PRINT_ERR("Error creating polling threads\n");
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_perf.c:804:                        if (instanceInfo2->isPolled)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_perf.c:839:                        /* Keep polling until compression of the buffer
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_perf.c:851:                if (instanceInfo2->isPolled)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_perf.c:874:        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2->isPolled))
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_perf.c:1621:        /* start polling threads if polling is enabled in the configuration file
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_perf.c:1625:            PRINT_ERR("Error creating polling threads\n");
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dsa_perf.c:454:        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2.isPolled))
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dsa_perf.c:549:        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2.isPolled))
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dsa_perf.c:651:        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2.isPolled))
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dsa_perf.c:1211:                        if (instanceInfo2->isPolled)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dsa_perf.c:1235:                if (instanceInfo2->isPolled)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dsa_perf.c:1265:        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2->isPolled))
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dsa_perf.c:1659:                        if (instanceInfo2->isPolled)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dsa_perf.c:1683:                if (instanceInfo2->isPolled)
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dsa_perf.c:1712:        if ((CPA_STATUS_SUCCESS == status) && (instanceInfo2->isPolled))
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dsa_perf.c:2019:        /* start polling threads if polling is enabled in the configuration file
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_dsa_perf.c:2023:            PRINT_ERR("Error creating polling threads\n");
+quickassist/lookaside/access_layer/src/sample_code/performance/crypto/cpa_sample_code_sym_perf_dp.c:124:CpaStatus setSymPollingInterval(Cpa64U pollingInterval);
