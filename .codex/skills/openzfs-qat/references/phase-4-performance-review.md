@@ -1391,3 +1391,48 @@ Interpretation:
   later policy changes prove otherwise.
 - Even with two cards, fallback remains high enough that these are hybrid
   policy results rather than pure-QAT throughput results.
+
+## Source Coalescing Retest With Request-Shape Counters
+
+Run date: 2026-05-22.
+
+Source CSVs:
+
+```text
+.codex/skills/openzfs-qat/artifacts/zfs-qat-step5-src-coalesce-sync-src0-jobs4-20260522.csv
+.codex/skills/openzfs-qat/artifacts/zfs-qat-step5-src-coalesce-sync-src1-jobs4-20260522.csv
+.codex/skills/openzfs-qat/artifacts/zfs-qat-step5-src-coalesce-sync-src0-jobs8-20260522.csv
+.codex/skills/openzfs-qat/artifacts/zfs-qat-step5-src-coalesce-sync-src1-jobs8-20260522.csv
+.codex/skills/openzfs-qat/artifacts/zfs-qat-step5-src-coalesce-async-src0-jobs4-20260522.csv
+.codex/skills/openzfs-qat/artifacts/zfs-qat-step5-src-coalesce-async-src1-jobs4-20260522.csv
+.codex/skills/openzfs-qat/artifacts/zfs-qat-step5-src-coalesce-async-src0-jobs8-20260522.csv
+.codex/skills/openzfs-qat/artifacts/zfs-qat-step5-src-coalesce-async-src1-jobs8-20260522.csv
+.codex/skills/openzfs-qat/artifacts/zfs-qat-step5-src-coalesce-summary-20260522.csv
+.codex/skills/openzfs-qat/artifacts/zfs-qat-step5-src-coalesce-comparison-20260522.csv
+```
+
+Summary:
+
+- Source coalescing changed the source side from `16-256` source buffers per
+  request down to one source buffer per request.
+- The required copy cost scaled from about `10 us/request` at `64K` to about
+  `0.9-1.1 ms/request` in async `1M` rows.
+- Sync rows were mixed: three clear wins, four regressions, and three neutral
+  rows across `JOBS=4/8`.
+- Async rows mostly regressed: no clear wins, seven regressions, and three
+  neutral rows.
+- QAT byte share sometimes increased, but elapsed time and CPU cost usually did
+  not improve. That means source coalescing was not a QAT engine improvement or
+  a useful hybrid-policy default.
+
+Profile decision:
+
+- Keep `zfs_qat_dc_coalesce_src=profile` resolving to off.
+- Keep `zfs_qat_dc_coalesce_dst=profile` resolving to off.
+- Keep source coalescing available as a manual diagnostic knob only.
+
+Next practical target:
+
+- Add alignment and segment-shape instrumentation before considering any more
+  copy-based source path. A targeted alignment fix may still be worth testing,
+  but broad coalescing is not justified by the current data.

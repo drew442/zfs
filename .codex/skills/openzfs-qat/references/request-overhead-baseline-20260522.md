@@ -148,3 +148,21 @@ The next optimization target should be QAT service-time/request-shape behavior:
   were mixed.
 - Continue treating async wins as policy wins unless QAT byte share and
   wait-per-request improve at the same time.
+
+## Follow-Up: Source Coalescing Retest
+
+The immediate source-coalescing follow-up was completed on 2026-05-22; see
+`source-coalescing-request-shape-20260522.md`.
+
+Result:
+
+- Source coalescing reliably reduced source scatter/gather shape to one source
+  buffer per QAT request.
+- The copy cost scaled with record size and was large enough to erase or reverse
+  the benefit in most concurrent rows.
+- Sync results were mixed and async results mostly regressed.
+- No profile default was changed. `zfs_qat_dc_coalesce_src=profile` and
+  `zfs_qat_dc_coalesce_dst=profile` should continue to resolve to off.
+
+The next request-shape target should be alignment instrumentation and targeted
+copying only for shapes that are proven harmful, not broad source coalescing.
