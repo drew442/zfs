@@ -36,6 +36,11 @@ This means generated ZFS `dkms.conf` files use the QAT DKMS source path for `--w
 
 Install or rebuild QAT DKMS before rebuilding ZFS DKMS. The ZFS configure checks need the QAT headers, built objects under `${ICP_ROOT}/build`, and QAT `Module.symvers` files to come from the same QAT source tree and target kernel.
 
+Do not regenerate initramfs after a failed QAT or ZFS DKMS build. If command
+output is piped through `tee`, run the remote command under `bash -o pipefail` so
+the script stops on the real DKMS failure instead of continuing to
+`update-initramfs`.
+
 ## End-to-end rebuild flow
 
 These commands are the known-good host flow used on `pve.drewnet.online`.
@@ -102,6 +107,38 @@ sudo reboot
 ```
 
 Do not install dracut packages on `pve.drewnet.online`; this flow is compatible with the host's existing initramfs-based boot path.
+
+## Rescue-kernel repair flow
+
+If the host boots an older rescue kernel because the target kernel's initramfs
+has mismatched QAT/ZFS symbols, rebuild explicitly for the target kernel. Do not
+use `$(uname -r)` in that situation.
+
+The 2026-05-23 recovery used this shape after booting `6.17.13-6-pve` to repair
+`7.0.0-3-pve`:
+
+```sh
+TARGET_KERNEL=7.0.0-3-pve
+QAT_USR=/usr/src/qat-4.28.0-00004
+
+dkms remove -m qat -v 4.28.0-00004 --all || true
+# Refresh $QAT_USR from contrib/qat/QAT.L.4.28.0-00004 before dkms add.
+dkms add -m qat -v 4.28.0-00004
+dkms build --force -m qat -v 4.28.0-00004 -k "$TARGET_KERNEL"
+dkms install --force -m qat -v 4.28.0-00004 -k "$TARGET_KERNEL"
+
+dkms remove -m zfs -v 2.4.99 -k "$TARGET_KERNEL" || true
+ICP_ROOT="$QAT_USR" dkms build --force -m zfs -v 2.4.99 -k "$TARGET_KERNEL"
+dkms install --force -m zfs -v 2.4.99 -k "$TARGET_KERNEL"
+
+depmod -a "$TARGET_KERNEL"
+modinfo -k "$TARGET_KERNEL" -n qat_api
+modinfo -k "$TARGET_KERNEL" -n zfs
+update-initramfs -u -k "$TARGET_KERNEL"
+```
+
+See `references/qat-dkms-initramfs-recovery-20260523.md` for the incident and
+validation details.
 
 ## Boot-order helper
 
