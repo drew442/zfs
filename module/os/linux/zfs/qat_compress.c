@@ -1392,6 +1392,64 @@ qat_dc_record_compress_shape(Cpa32U src_buffers, Cpa32U dst_buffers,
 	    dst_total_buffers);
 }
 
+typedef struct qat_dc_buffer_shape {
+	Cpa32U src_unaligned_64;
+	Cpa32U src_len_not_64;
+	Cpa32U dst_unaligned_64;
+	Cpa32U dst_len_not_64;
+	Cpa32U add_unaligned_64;
+	Cpa32U add_len_not_64;
+	uint64_t src_first_bytes;
+	uint64_t src_last_bytes;
+	uint64_t dst_first_bytes;
+	uint64_t dst_last_bytes;
+	uint64_t add_first_bytes;
+	uint64_t add_last_bytes;
+} qat_dc_buffer_shape_t;
+
+static void
+qat_dc_note_flat_buffer(CpaFlatBuffer *buf, Cpa32U *unaligned_64,
+    Cpa32U *len_not_64, uint64_t *first_bytes, uint64_t *last_bytes,
+    boolean_t first)
+{
+	if ((((uintptr_t)buf->pData) & 63) != 0)
+		(*unaligned_64)++;
+	if ((buf->dataLenInBytes & 63) != 0)
+		(*len_not_64)++;
+	if (first)
+		*first_bytes = buf->dataLenInBytes;
+	*last_bytes = buf->dataLenInBytes;
+}
+
+static void
+qat_dc_record_compress_buffer_shape(qat_dc_buffer_shape_t *shape)
+{
+	QAT_STAT_INCR(dc_compress_src_buf_unaligned_64,
+	    shape->src_unaligned_64);
+	QAT_STAT_INCR(dc_compress_src_buf_len_not_64,
+	    shape->src_len_not_64);
+	QAT_STAT_INCR(dc_compress_src_first_bytes,
+	    shape->src_first_bytes);
+	QAT_STAT_INCR(dc_compress_src_last_bytes,
+	    shape->src_last_bytes);
+	QAT_STAT_INCR(dc_compress_dst_buf_unaligned_64,
+	    shape->dst_unaligned_64);
+	QAT_STAT_INCR(dc_compress_dst_buf_len_not_64,
+	    shape->dst_len_not_64);
+	QAT_STAT_INCR(dc_compress_dst_first_bytes,
+	    shape->dst_first_bytes);
+	QAT_STAT_INCR(dc_compress_dst_last_bytes,
+	    shape->dst_last_bytes);
+	QAT_STAT_INCR(dc_compress_add_buf_unaligned_64,
+	    shape->add_unaligned_64);
+	QAT_STAT_INCR(dc_compress_add_buf_len_not_64,
+	    shape->add_len_not_64);
+	QAT_STAT_INCR(dc_compress_add_first_bytes,
+	    shape->add_first_bytes);
+	QAT_STAT_INCR(dc_compress_add_last_bytes,
+	    shape->add_last_bytes);
+}
+
 static boolean_t
 qat_dc_try_coalesce_src(char **src, int src_len, void **coalesced_src,
     boolean_t force)
@@ -1891,6 +1949,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	boolean_t request_timed_out = B_FALSE;
 	boolean_t retain_qat_resources = B_FALSE;
 	boolean_t sync_compress_submitted = B_FALSE;
+	qat_dc_buffer_shape_t buffer_shape = { 0 };
 	uint64_t retained_bytes = 0;
 
 	/*
@@ -2077,6 +2136,13 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	if (src_coalesced) {
 		flat_buf_src->pData = src;
 		flat_buf_src->dataLenInBytes = src_len;
+		if (dir == QAT_COMPRESS) {
+			qat_dc_note_flat_buffer(flat_buf_src,
+			    &buffer_shape.src_unaligned_64,
+			    &buffer_shape.src_len_not_64,
+			    &buffer_shape.src_first_bytes,
+			    &buffer_shape.src_last_bytes, B_TRUE);
+		}
 		buf_list_src->numBuffers = 1;
 		src_pages = 0;
 	} else {
@@ -2090,6 +2156,14 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 			flat_buf_src->pData = kmap(page) + page_off;
 			flat_buf_src->dataLenInBytes =
 			    min((long)PAGE_SIZE - page_off, (long)bytes_left);
+			if (dir == QAT_COMPRESS) {
+				qat_dc_note_flat_buffer(flat_buf_src,
+				    &buffer_shape.src_unaligned_64,
+				    &buffer_shape.src_len_not_64,
+				    &buffer_shape.src_first_bytes,
+				    &buffer_shape.src_last_bytes,
+				    page_num == 0);
+			}
 
 			bytes_left -= flat_buf_src->dataLenInBytes;
 			data += flat_buf_src->dataLenInBytes;
@@ -2105,6 +2179,13 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	if (dst_coalesced) {
 		flat_buf_dst->pData = dst;
 		flat_buf_dst->dataLenInBytes = coalesced_dst_len;
+		if (dir == QAT_COMPRESS) {
+			qat_dc_note_flat_buffer(flat_buf_dst,
+			    &buffer_shape.dst_unaligned_64,
+			    &buffer_shape.dst_len_not_64,
+			    &buffer_shape.dst_first_bytes,
+			    &buffer_shape.dst_last_bytes, B_TRUE);
+		}
 		buf_list_dst->numBuffers = 1;
 		dst_pages = 0;
 		add_pages = 0;
@@ -2119,6 +2200,14 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 			out_pages[page_num] = page;
 			flat_buf_dst->dataLenInBytes =
 			    min((long)PAGE_SIZE - page_off, (long)bytes_left);
+			if (dir == QAT_COMPRESS) {
+				qat_dc_note_flat_buffer(flat_buf_dst,
+				    &buffer_shape.dst_unaligned_64,
+				    &buffer_shape.dst_len_not_64,
+				    &buffer_shape.dst_first_bytes,
+				    &buffer_shape.dst_last_bytes,
+				    page_num == 0);
+			}
 
 			bytes_left -= flat_buf_dst->dataLenInBytes;
 			data += flat_buf_dst->dataLenInBytes;
@@ -2139,6 +2228,14 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 			scratch_pages[page_num] = page;
 			flat_buf_dst->dataLenInBytes =
 			    min((long)PAGE_SIZE - page_off, (long)bytes_left);
+			if (dir == QAT_COMPRESS) {
+				qat_dc_note_flat_buffer(flat_buf_dst,
+				    &buffer_shape.add_unaligned_64,
+				    &buffer_shape.add_len_not_64,
+				    &buffer_shape.add_first_bytes,
+				    &buffer_shape.add_last_bytes,
+				    page_num == 0);
+			}
 
 			bytes_left -= flat_buf_dst->dataLenInBytes;
 			data += flat_buf_dst->dataLenInBytes;
@@ -2187,6 +2284,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		qat_dc_record_compress_shape(buf_list_src->numBuffers,
 		    dst_coalesced ? buf_list_dst->numBuffers : dst_pages,
 		    add_pages);
+		qat_dc_record_compress_buffer_shape(&buffer_shape);
 
 		cpaDcGenerateHeader(session_handle,
 		    buf_list_dst->pBuffers, &hdr_sz);
@@ -2635,6 +2733,7 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	boolean_t src_coalesced;
 	boolean_t dst_coalesced = B_FALSE;
 	boolean_t dst_coalesce_requested;
+	qat_dc_buffer_shape_t buffer_shape = { 0 };
 
 	if (!qat_dc_compress_async_enabled() ||
 	    src_len < 0 || dst_len < 0 ||
@@ -2798,6 +2897,11 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	if (src_coalesced) {
 		flat_buf_src->pData = req->src;
 		flat_buf_src->dataLenInBytes = src_len;
+		qat_dc_note_flat_buffer(flat_buf_src,
+		    &buffer_shape.src_unaligned_64,
+		    &buffer_shape.src_len_not_64,
+		    &buffer_shape.src_first_bytes,
+		    &buffer_shape.src_last_bytes, B_TRUE);
 		req->buf_list_src->numBuffers = 1;
 		req->src_pages = 0;
 	} else {
@@ -2811,6 +2915,11 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 			flat_buf_src->pData = kmap(page) + page_off;
 			flat_buf_src->dataLenInBytes =
 			    min((long)PAGE_SIZE - page_off, (long)bytes_left);
+			qat_dc_note_flat_buffer(flat_buf_src,
+			    &buffer_shape.src_unaligned_64,
+			    &buffer_shape.src_len_not_64,
+			    &buffer_shape.src_first_bytes,
+			    &buffer_shape.src_last_bytes, page_num == 0);
 
 			bytes_left -= flat_buf_src->dataLenInBytes;
 			data += flat_buf_src->dataLenInBytes;
@@ -2829,6 +2938,11 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	if (dst_coalesced) {
 		flat_buf_dst->pData = req->dst;
 		flat_buf_dst->dataLenInBytes = coalesced_dst_len;
+		qat_dc_note_flat_buffer(flat_buf_dst,
+		    &buffer_shape.dst_unaligned_64,
+		    &buffer_shape.dst_len_not_64,
+		    &buffer_shape.dst_first_bytes,
+		    &buffer_shape.dst_last_bytes, B_TRUE);
 		req->buf_list_dst->numBuffers = 1;
 		req->dst_pages = 0;
 		req->add_pages = 0;
@@ -2843,6 +2957,11 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 			flat_buf_dst->pData = kmap(page) + page_off;
 			flat_buf_dst->dataLenInBytes =
 			    min((long)PAGE_SIZE - page_off, (long)bytes_left);
+			qat_dc_note_flat_buffer(flat_buf_dst,
+			    &buffer_shape.dst_unaligned_64,
+			    &buffer_shape.dst_len_not_64,
+			    &buffer_shape.dst_first_bytes,
+			    &buffer_shape.dst_last_bytes, page_num == 0);
 
 			bytes_left -= flat_buf_dst->dataLenInBytes;
 			data += flat_buf_dst->dataLenInBytes;
@@ -2862,6 +2981,11 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 			flat_buf_dst->pData = kmap(page) + page_off;
 			flat_buf_dst->dataLenInBytes =
 			    min((long)PAGE_SIZE - page_off, (long)bytes_left);
+			qat_dc_note_flat_buffer(flat_buf_dst,
+			    &buffer_shape.add_unaligned_64,
+			    &buffer_shape.add_len_not_64,
+			    &buffer_shape.add_first_bytes,
+			    &buffer_shape.add_last_bytes, page_num == 0);
 
 			bytes_left -= flat_buf_dst->dataLenInBytes;
 			data += flat_buf_dst->dataLenInBytes;
@@ -2877,6 +3001,7 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	qat_dc_record_compress_shape(req->buf_list_src->numBuffers,
 	    dst_coalesced ? req->buf_list_dst->numBuffers : req->dst_pages,
 	    req->add_pages);
+	qat_dc_record_compress_buffer_shape(&buffer_shape);
 
 	cpaDcGenerateHeader(session_handle, req->buf_list_dst->pBuffers,
 	    &req->hdr_sz);

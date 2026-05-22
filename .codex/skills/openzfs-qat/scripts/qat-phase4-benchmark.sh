@@ -311,9 +311,23 @@ shape_metrics_csv() {
 	local req_alloc_delta="${13}"
 	local req_free_delta="${14}"
 	local src_buffers_delta="${15}"
-	local dst_total_buffers_delta="${16}"
-	local bound_total_delta="${17}"
-	local scratch_bytes_delta="${18}"
+	local dst_buffers_delta="${16}"
+	local add_buffers_delta="${17}"
+	local dst_total_buffers_delta="${18}"
+	local bound_total_delta="${19}"
+	local scratch_bytes_delta="${20}"
+	local src_unaligned_64_delta="${21}"
+	local src_len_not_64_delta="${22}"
+	local src_first_bytes_delta="${23}"
+	local src_last_bytes_delta="${24}"
+	local dst_unaligned_64_delta="${25}"
+	local dst_len_not_64_delta="${26}"
+	local dst_first_bytes_delta="${27}"
+	local dst_last_bytes_delta="${28}"
+	local add_unaligned_64_delta="${29}"
+	local add_len_not_64_delta="${30}"
+	local add_first_bytes_delta="${31}"
+	local add_last_bytes_delta="${32}"
 
 	awk -v comp_requests_delta="$comp_requests_delta" \
 	    -v sync_submits_delta="$sync_submits_delta" \
@@ -330,9 +344,23 @@ shape_metrics_csv() {
 	    -v req_alloc_delta="$req_alloc_delta" \
 	    -v req_free_delta="$req_free_delta" \
 	    -v src_buffers_delta="$src_buffers_delta" \
+	    -v dst_buffers_delta="$dst_buffers_delta" \
+	    -v add_buffers_delta="$add_buffers_delta" \
 	    -v dst_total_buffers_delta="$dst_total_buffers_delta" \
 	    -v bound_total_delta="$bound_total_delta" \
-	    -v scratch_bytes_delta="$scratch_bytes_delta" '
+	    -v scratch_bytes_delta="$scratch_bytes_delta" \
+	    -v src_unaligned_64_delta="$src_unaligned_64_delta" \
+	    -v src_len_not_64_delta="$src_len_not_64_delta" \
+	    -v src_first_bytes_delta="$src_first_bytes_delta" \
+	    -v src_last_bytes_delta="$src_last_bytes_delta" \
+	    -v dst_unaligned_64_delta="$dst_unaligned_64_delta" \
+	    -v dst_len_not_64_delta="$dst_len_not_64_delta" \
+	    -v dst_first_bytes_delta="$dst_first_bytes_delta" \
+	    -v dst_last_bytes_delta="$dst_last_bytes_delta" \
+	    -v add_unaligned_64_delta="$add_unaligned_64_delta" \
+	    -v add_len_not_64_delta="$add_len_not_64_delta" \
+	    -v add_first_bytes_delta="$add_first_bytes_delta" \
+	    -v add_last_bytes_delta="$add_last_bytes_delta" '
 	function per_req(n) {
 		return comp_requests_delta > 0 ?
 		    sprintf("%.3f", n / comp_requests_delta) : "na"
@@ -341,7 +369,7 @@ shape_metrics_csv() {
 		return d > 0 ? sprintf("%.2f", 100 * n / d) : "na"
 	}
 	BEGIN {
-		printf "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s",
+		printf "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s",
 		    per_req(comp_setup_delta),
 		    per_req(comp_submit_delta),
 		    per_req(comp_wait_delta),
@@ -356,6 +384,18 @@ shape_metrics_csv() {
 		    per_req(dst_total_buffers_delta),
 		    per_req(bound_total_delta),
 		    per_req(scratch_bytes_delta),
+		    pct(src_unaligned_64_delta, src_buffers_delta),
+		    pct(src_len_not_64_delta, src_buffers_delta),
+		    per_req(src_first_bytes_delta),
+		    per_req(src_last_bytes_delta),
+		    pct(dst_unaligned_64_delta, dst_buffers_delta),
+		    pct(dst_len_not_64_delta, dst_buffers_delta),
+		    per_req(dst_first_bytes_delta),
+		    per_req(dst_last_bytes_delta),
+		    pct(add_unaligned_64_delta, add_buffers_delta),
+		    pct(add_len_not_64_delta, add_buffers_delta),
+		    per_req(add_first_bytes_delta),
+		    per_req(add_last_bytes_delta),
 		    pct(sync_completions_delta, sync_submits_delta),
 		    pct(sync_fallbacks_delta, sync_submits_delta)
 	}'
@@ -527,6 +567,30 @@ run_one() {
 	local dst_buffers_max_after
 	local add_buffers_max_after
 	local dst_total_buffers_max_after
+	local src_unaligned_64_before
+	local src_unaligned_64_after
+	local src_len_not_64_before
+	local src_len_not_64_after
+	local src_first_bytes_before
+	local src_first_bytes_after
+	local src_last_bytes_before
+	local src_last_bytes_after
+	local dst_unaligned_64_before
+	local dst_unaligned_64_after
+	local dst_len_not_64_before
+	local dst_len_not_64_after
+	local dst_first_bytes_before
+	local dst_first_bytes_after
+	local dst_last_bytes_before
+	local dst_last_bytes_after
+	local add_unaligned_64_before
+	local add_unaligned_64_after
+	local add_len_not_64_before
+	local add_len_not_64_after
+	local add_first_bytes_before
+	local add_first_bytes_after
+	local add_last_bytes_before
+	local add_last_bytes_after
 	local sync_submits_before
 	local sync_submits_after
 	local sync_completions_before
@@ -668,6 +732,8 @@ run_one() {
 	local sync_completions_delta
 	local sync_fallbacks_delta
 	local src_buffers_delta
+	local dst_buffers_delta
+	local add_buffers_delta
 	local dst_total_buffers_delta
 	local bound_total_delta
 	local scratch_bytes_delta
@@ -710,6 +776,18 @@ run_one() {
 	dst_buffers_before="$(statv dc_compress_dst_buffers)"
 	add_buffers_before="$(statv dc_compress_add_buffers)"
 	dst_total_buffers_before="$(statv dc_compress_dst_total_buffers)"
+	src_unaligned_64_before="$(statv dc_compress_src_buf_unaligned_64)"
+	src_len_not_64_before="$(statv dc_compress_src_buf_len_not_64)"
+	src_first_bytes_before="$(statv dc_compress_src_first_bytes)"
+	src_last_bytes_before="$(statv dc_compress_src_last_bytes)"
+	dst_unaligned_64_before="$(statv dc_compress_dst_buf_unaligned_64)"
+	dst_len_not_64_before="$(statv dc_compress_dst_buf_len_not_64)"
+	dst_first_bytes_before="$(statv dc_compress_dst_first_bytes)"
+	dst_last_bytes_before="$(statv dc_compress_dst_last_bytes)"
+	add_unaligned_64_before="$(statv dc_compress_add_buf_unaligned_64)"
+	add_len_not_64_before="$(statv dc_compress_add_buf_len_not_64)"
+	add_first_bytes_before="$(statv dc_compress_add_first_bytes)"
+	add_last_bytes_before="$(statv dc_compress_add_last_bytes)"
 	sync_submits_before="$(statv dc_compress_sync_submits)"
 	sync_completions_before="$(statv dc_compress_sync_completions)"
 	sync_fallbacks_before="$(statv dc_compress_sync_fallbacks)"
@@ -862,6 +940,18 @@ run_one() {
 	dst_buffers_after="$(statv dc_compress_dst_buffers)"
 	add_buffers_after="$(statv dc_compress_add_buffers)"
 	dst_total_buffers_after="$(statv dc_compress_dst_total_buffers)"
+	src_unaligned_64_after="$(statv dc_compress_src_buf_unaligned_64)"
+	src_len_not_64_after="$(statv dc_compress_src_buf_len_not_64)"
+	src_first_bytes_after="$(statv dc_compress_src_first_bytes)"
+	src_last_bytes_after="$(statv dc_compress_src_last_bytes)"
+	dst_unaligned_64_after="$(statv dc_compress_dst_buf_unaligned_64)"
+	dst_len_not_64_after="$(statv dc_compress_dst_buf_len_not_64)"
+	dst_first_bytes_after="$(statv dc_compress_dst_first_bytes)"
+	dst_last_bytes_after="$(statv dc_compress_dst_last_bytes)"
+	add_unaligned_64_after="$(statv dc_compress_add_buf_unaligned_64)"
+	add_len_not_64_after="$(statv dc_compress_add_buf_len_not_64)"
+	add_first_bytes_after="$(statv dc_compress_add_first_bytes)"
+	add_last_bytes_after="$(statv dc_compress_add_last_bytes)"
 	src_buffers_max_after="$(statv dc_compress_src_buffers_max)"
 	dst_buffers_max_after="$(statv dc_compress_dst_buffers_max)"
 	add_buffers_max_after="$(statv dc_compress_add_buffers_max)"
@@ -984,6 +1074,8 @@ run_one() {
 	sync_completions_delta="$((sync_completions_after - sync_completions_before))"
 	sync_fallbacks_delta="$((sync_fallbacks_after - sync_fallbacks_before))"
 	src_buffers_delta="$((src_buffers_after - src_buffers_before))"
+	dst_buffers_delta="$((dst_buffers_after - dst_buffers_before))"
+	add_buffers_delta="$((add_buffers_after - add_buffers_before))"
 	dst_total_buffers_delta="$((dst_total_buffers_after - dst_total_buffers_before))"
 	bound_total_delta="$((bound_total_after - bound_total_before))"
 	scratch_bytes_delta="$((scratch_bytes_after - scratch_bytes_before))"
@@ -1012,8 +1104,21 @@ run_one() {
 	    "$page_array_alloc_delta" "$page_array_free_delta" \
 	    "$buffer_list_alloc_delta" "$buffer_list_free_delta" \
 	    "$req_alloc_delta" "$req_free_delta" "$src_buffers_delta" \
+	    "$dst_buffers_delta" "$add_buffers_delta" \
 	    "$dst_total_buffers_delta" "$bound_total_delta" \
-	    "$scratch_bytes_delta")"
+	    "$scratch_bytes_delta" \
+	    "$((src_unaligned_64_after - src_unaligned_64_before))" \
+	    "$((src_len_not_64_after - src_len_not_64_before))" \
+	    "$((src_first_bytes_after - src_first_bytes_before))" \
+	    "$((src_last_bytes_after - src_last_bytes_before))" \
+	    "$((dst_unaligned_64_after - dst_unaligned_64_before))" \
+	    "$((dst_len_not_64_after - dst_len_not_64_before))" \
+	    "$((dst_first_bytes_after - dst_first_bytes_before))" \
+	    "$((dst_last_bytes_after - dst_last_bytes_before))" \
+	    "$((add_unaligned_64_after - add_unaligned_64_before))" \
+	    "$((add_len_not_64_after - add_len_not_64_before))" \
+	    "$((add_first_bytes_after - add_first_bytes_before))" \
+	    "$((add_last_bytes_after - add_last_bytes_before))")"
 
 	raw_row=(raw "$mode" "$verify_mode" "$record" "$iter" "$JOBS"
 	    "$SOURCE_LABEL" "$total_bytes" "$elapsed_ms" "" "" "" "" ""
@@ -1042,6 +1147,18 @@ run_one() {
 	    "$((dst_total_buffers_after - dst_total_buffers_before))"
 	    "$src_buffers_max_after" "$dst_buffers_max_after"
 	    "$add_buffers_max_after" "$dst_total_buffers_max_after"
+	    "$((src_unaligned_64_after - src_unaligned_64_before))"
+	    "$((src_len_not_64_after - src_len_not_64_before))"
+	    "$((src_first_bytes_after - src_first_bytes_before))"
+	    "$((src_last_bytes_after - src_last_bytes_before))"
+	    "$((dst_unaligned_64_after - dst_unaligned_64_before))"
+	    "$((dst_len_not_64_after - dst_len_not_64_before))"
+	    "$((dst_first_bytes_after - dst_first_bytes_before))"
+	    "$((dst_last_bytes_after - dst_last_bytes_before))"
+	    "$((add_unaligned_64_after - add_unaligned_64_before))"
+	    "$((add_len_not_64_after - add_len_not_64_before))"
+	    "$((add_first_bytes_after - add_first_bytes_before))"
+	    "$((add_last_bytes_after - add_last_bytes_before))"
 	    "$sync_submits_delta"
 	    "$sync_completions_delta"
 	    "$sync_fallbacks_delta"
@@ -1310,7 +1427,7 @@ ZFS_SRCVERSION="$(modinfo zfs | awk '$1 == "srcversion:" { print $2 }')"
 CPU_COUNT="$(online_cpu_count)"
 
 mkdir -p "$(dirname "$OUT")"
-printf "row_type,mode,verify_mode,recordsize,iter,jobs,source_label,source_bytes,elapsed_ms,latency_avg_ms,latency_p50_ms,latency_p95_ms,latency_p99_ms,latency_max_ms,write_bw_mib_s,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct,compressratio,used,logicalused,comp_requests_delta,comp_in_delta,comp_out_delta,decomp_requests_delta,decomp_in_delta,decomp_out_delta,dc_fails_delta,dc_buffer_reuse_hits_delta,dc_buffer_reuse_misses_delta,dc_compress_bound_requests_delta,dc_compress_bound_fails_delta,dc_compress_bound_ns_delta,dc_compress_bound_total_bytes_delta,dc_compress_dst_total_bytes_delta,dc_compress_scratch_bytes_delta,dc_compress_scratch_saved_bytes_delta,dc_compress_overflows_delta,dc_compress_incompressible_delta,dc_compress_src_buffers_delta,dc_compress_dst_buffers_delta,dc_compress_add_buffers_delta,dc_compress_dst_total_buffers_delta,dc_compress_src_buffers_max,dc_compress_dst_buffers_max,dc_compress_add_buffers_max,dc_compress_dst_total_buffers_max,dc_compress_sync_submits_delta,dc_compress_sync_completions_delta,dc_compress_sync_fallbacks_delta,dc_compress_page_array_stack_src_delta,dc_compress_page_array_heap_src_delta,dc_compress_page_array_stack_dst_delta,dc_compress_page_array_heap_dst_delta,dc_compress_page_array_stack_scratch_delta,dc_compress_page_array_heap_scratch_delta,dc_compress_page_array_alloc_ns_delta,dc_compress_page_array_free_ns_delta,dc_compress_buffer_list_alloc_ns_delta,dc_compress_buffer_list_free_ns_delta,dc_compress_req_alloc_ns_delta,dc_compress_req_free_ns_delta,dc_compress_coalesce_requests_delta,dc_compress_coalesce_success_delta,dc_compress_coalesce_fails_delta,dc_compress_coalesce_bytes_delta,dc_compress_coalesce_alloc_ns_delta,dc_compress_coalesce_copy_ns_delta,dc_compress_coalesce_free_ns_delta,dc_compress_dst_coalesce_requests_delta,dc_compress_dst_coalesce_success_delta,dc_compress_dst_coalesce_fails_delta,dc_compress_dst_coalesce_reuse_hits_delta,dc_compress_dst_coalesce_reuse_misses_delta,dc_compress_dst_coalesce_alloc_bytes_delta,dc_compress_dst_coalesce_copy_bytes_delta,dc_compress_dst_coalesce_alloc_ns_delta,dc_compress_dst_coalesce_copy_ns_delta,dc_compress_dst_coalesce_free_ns_delta,dc_compress_scratch_alloc_ns_delta,dc_compress_scratch_free_ns_delta,dc_compress_setup_ns_delta,dc_compress_submit_ns_delta,dc_compress_wait_ns_delta,dc_compress_cleanup_ns_delta,dc_decompress_setup_ns_delta,dc_decompress_submit_ns_delta,dc_decompress_wait_ns_delta,dc_decompress_cleanup_ns_delta,dc_compress_inflight,dc_compress_inflight_max,dc_decompress_inflight,dc_decompress_inflight_max,dc_compress_async_submits_delta,dc_compress_async_submit_fails_delta,dc_compress_async_completions_delta,dc_compress_async_resumes_delta,dc_compress_async_fallbacks_delta,dc_compress_async_cancels_delta,dc_compress_async_submit_retries_delta,dc_compress_async_retry_success_delta,dc_compress_async_fail_retry_delta,dc_compress_async_fail_resource_delta,dc_compress_async_fail_other_delta,dc_compress_async_inflight,dc_compress_async_inflight_max,dc_compress_async_cap_skips_delta,qat_driver_submits_delta,qat_driver_comp_submits_delta,qat_driver_decomp_submits_delta,qat_driver_tx_retries_delta,qat_driver_tx_errors_delta,qat_driver_callbacks_delta,qat_driver_comp_callbacks_delta,qat_driver_decomp_callbacks_delta,qat_driver_create_ns_delta,qat_driver_trans_put_ns_delta,qat_driver_response_wait_ns_delta,qat_driver_callback_process_ns_delta,qat_driver_user_callback_ns_delta,qat_driver_total_ns_delta,qat_driver_avg_response_wait_ns,qat_driver_avg_total_ns,sha_ok,zfs_qat_cpa_dc_level,zfs_qat_effective_cpa_dc_level,zfs_qat_cpa_dc_hufftype,zfs_qat_effective_cpa_dc_hufftype,zfs_qat_dc_max_buf_size,zfs_qat_dc_effective_max_buf_size,zfs_qat_dc_max_instances,zfs_qat_dc_coalesce_src,zfs_qat_dc_effective_coalesce_src,zfs_qat_dc_coalesce_dst,zfs_qat_dc_effective_coalesce_dst,zfs_qat_dc_async,zfs_qat_dc_effective_async,zfs_qat_dc_async_submit_retries,zfs_qat_dc_effective_async_submit_retries,zfs_qat_dc_async_retry_us,zfs_qat_dc_effective_async_retry_us,zfs_qat_dc_async_max_inflight,zfs_qat_dc_effective_async_max_inflight,zfs_qat_dc_async_cap_policy,zfs_qat_dc_profile,zfs_qat_dc_profile_recordsize,zfs_qat_dc_ratio_profile,zfs_qat_decompress_disable,zfs_qat_effective_decompress_disable,qat_kernel_cy_instances,qat_kernel_dc_instances,zfs_srcversion,qat_pci_dh895xcc_count,qat_conf_file_count,qat_kernel_cy_instances_total,qat_kernel_dc_instances_total,zfs_qat_dc_instances,cpu_count,cpu_active_pct,cpu_active_s_per_gib,cpu_system_s_per_gib,qat_byte_share_pct,qat_completion_share_pct,qat_fallback_share_pct,qat_cap_skip_share_pct,qat_service_ns_per_mib,qat_wait_ns_per_mib,qat_setup_ns_per_req,qat_submit_ns_per_req,qat_wait_ns_per_req,qat_cleanup_ns_per_req,qat_page_array_alloc_ns_per_req,qat_page_array_free_ns_per_req,qat_buffer_list_alloc_ns_per_req,qat_buffer_list_free_ns_per_req,qat_req_alloc_ns_per_req,qat_req_free_ns_per_req,qat_src_buffers_per_req,qat_dst_total_buffers_per_req,qat_bound_bytes_per_req,qat_scratch_bytes_per_req,qat_sync_completion_share_pct,qat_sync_fallback_share_pct,zfs_qat_dc_poll,zfs_qat_dc_effective_poll,zfs_qat_dc_poll_interval_us,zfs_qat_dc_effective_poll_interval_us,zfs_qat_dc_poll_quota,zfs_qat_dc_effective_poll_quota,dc_poll_calls_delta,dc_poll_success_delta,dc_poll_retries_delta,dc_poll_fails_delta,dc_poll_ns_delta,zfs_qat_dc_watchdog,zfs_qat_dc_effective_watchdog,zfs_qat_dc_watchdog_timeout_ms,zfs_qat_dc_effective_watchdog_timeout_ms,zfs_qat_dc_watchdog_interval_ms,zfs_qat_dc_effective_watchdog_interval_ms,dc_watchdog_checks_delta,dc_watchdog_stalls_delta,dc_watchdog_runtime_disables_delta,dc_watchdog_last_progress_ns,dc_watchdog_last_stall_ns,dc_watchdog_health,dc_watchdog_request_timeouts_delta,dc_watchdog_request_recoveries_delta,dc_watchdog_request_unrecoverable_delta,dc_watchdog_late_completions_delta,zfs_qat_dc_quarantine_dst,zfs_qat_dc_effective_quarantine_dst,dc_compress_quarantine_dst_requests_delta,dc_compress_quarantine_dst_success_delta,dc_compress_quarantine_dst_fails_delta,dc_compress_quarantine_dst_copy_bytes_delta,dc_compress_quarantine_dst_retained_delta,dc_compress_quarantine_dst_retained_bytes_delta,dc_compress_quarantine_dst_retained_released_delta\n" > "$OUT"
+printf "row_type,mode,verify_mode,recordsize,iter,jobs,source_label,source_bytes,elapsed_ms,latency_avg_ms,latency_p50_ms,latency_p95_ms,latency_p99_ms,latency_max_ms,write_bw_mib_s,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct,compressratio,used,logicalused,comp_requests_delta,comp_in_delta,comp_out_delta,decomp_requests_delta,decomp_in_delta,decomp_out_delta,dc_fails_delta,dc_buffer_reuse_hits_delta,dc_buffer_reuse_misses_delta,dc_compress_bound_requests_delta,dc_compress_bound_fails_delta,dc_compress_bound_ns_delta,dc_compress_bound_total_bytes_delta,dc_compress_dst_total_bytes_delta,dc_compress_scratch_bytes_delta,dc_compress_scratch_saved_bytes_delta,dc_compress_overflows_delta,dc_compress_incompressible_delta,dc_compress_src_buffers_delta,dc_compress_dst_buffers_delta,dc_compress_add_buffers_delta,dc_compress_dst_total_buffers_delta,dc_compress_src_buffers_max,dc_compress_dst_buffers_max,dc_compress_add_buffers_max,dc_compress_dst_total_buffers_max,dc_compress_src_buf_unaligned_64_delta,dc_compress_src_buf_len_not_64_delta,dc_compress_src_first_bytes_delta,dc_compress_src_last_bytes_delta,dc_compress_dst_buf_unaligned_64_delta,dc_compress_dst_buf_len_not_64_delta,dc_compress_dst_first_bytes_delta,dc_compress_dst_last_bytes_delta,dc_compress_add_buf_unaligned_64_delta,dc_compress_add_buf_len_not_64_delta,dc_compress_add_first_bytes_delta,dc_compress_add_last_bytes_delta,dc_compress_sync_submits_delta,dc_compress_sync_completions_delta,dc_compress_sync_fallbacks_delta,dc_compress_page_array_stack_src_delta,dc_compress_page_array_heap_src_delta,dc_compress_page_array_stack_dst_delta,dc_compress_page_array_heap_dst_delta,dc_compress_page_array_stack_scratch_delta,dc_compress_page_array_heap_scratch_delta,dc_compress_page_array_alloc_ns_delta,dc_compress_page_array_free_ns_delta,dc_compress_buffer_list_alloc_ns_delta,dc_compress_buffer_list_free_ns_delta,dc_compress_req_alloc_ns_delta,dc_compress_req_free_ns_delta,dc_compress_coalesce_requests_delta,dc_compress_coalesce_success_delta,dc_compress_coalesce_fails_delta,dc_compress_coalesce_bytes_delta,dc_compress_coalesce_alloc_ns_delta,dc_compress_coalesce_copy_ns_delta,dc_compress_coalesce_free_ns_delta,dc_compress_dst_coalesce_requests_delta,dc_compress_dst_coalesce_success_delta,dc_compress_dst_coalesce_fails_delta,dc_compress_dst_coalesce_reuse_hits_delta,dc_compress_dst_coalesce_reuse_misses_delta,dc_compress_dst_coalesce_alloc_bytes_delta,dc_compress_dst_coalesce_copy_bytes_delta,dc_compress_dst_coalesce_alloc_ns_delta,dc_compress_dst_coalesce_copy_ns_delta,dc_compress_dst_coalesce_free_ns_delta,dc_compress_scratch_alloc_ns_delta,dc_compress_scratch_free_ns_delta,dc_compress_setup_ns_delta,dc_compress_submit_ns_delta,dc_compress_wait_ns_delta,dc_compress_cleanup_ns_delta,dc_decompress_setup_ns_delta,dc_decompress_submit_ns_delta,dc_decompress_wait_ns_delta,dc_decompress_cleanup_ns_delta,dc_compress_inflight,dc_compress_inflight_max,dc_decompress_inflight,dc_decompress_inflight_max,dc_compress_async_submits_delta,dc_compress_async_submit_fails_delta,dc_compress_async_completions_delta,dc_compress_async_resumes_delta,dc_compress_async_fallbacks_delta,dc_compress_async_cancels_delta,dc_compress_async_submit_retries_delta,dc_compress_async_retry_success_delta,dc_compress_async_fail_retry_delta,dc_compress_async_fail_resource_delta,dc_compress_async_fail_other_delta,dc_compress_async_inflight,dc_compress_async_inflight_max,dc_compress_async_cap_skips_delta,qat_driver_submits_delta,qat_driver_comp_submits_delta,qat_driver_decomp_submits_delta,qat_driver_tx_retries_delta,qat_driver_tx_errors_delta,qat_driver_callbacks_delta,qat_driver_comp_callbacks_delta,qat_driver_decomp_callbacks_delta,qat_driver_create_ns_delta,qat_driver_trans_put_ns_delta,qat_driver_response_wait_ns_delta,qat_driver_callback_process_ns_delta,qat_driver_user_callback_ns_delta,qat_driver_total_ns_delta,qat_driver_avg_response_wait_ns,qat_driver_avg_total_ns,sha_ok,zfs_qat_cpa_dc_level,zfs_qat_effective_cpa_dc_level,zfs_qat_cpa_dc_hufftype,zfs_qat_effective_cpa_dc_hufftype,zfs_qat_dc_max_buf_size,zfs_qat_dc_effective_max_buf_size,zfs_qat_dc_max_instances,zfs_qat_dc_coalesce_src,zfs_qat_dc_effective_coalesce_src,zfs_qat_dc_coalesce_dst,zfs_qat_dc_effective_coalesce_dst,zfs_qat_dc_async,zfs_qat_dc_effective_async,zfs_qat_dc_async_submit_retries,zfs_qat_dc_effective_async_submit_retries,zfs_qat_dc_async_retry_us,zfs_qat_dc_effective_async_retry_us,zfs_qat_dc_async_max_inflight,zfs_qat_dc_effective_async_max_inflight,zfs_qat_dc_async_cap_policy,zfs_qat_dc_profile,zfs_qat_dc_profile_recordsize,zfs_qat_dc_ratio_profile,zfs_qat_decompress_disable,zfs_qat_effective_decompress_disable,qat_kernel_cy_instances,qat_kernel_dc_instances,zfs_srcversion,qat_pci_dh895xcc_count,qat_conf_file_count,qat_kernel_cy_instances_total,qat_kernel_dc_instances_total,zfs_qat_dc_instances,cpu_count,cpu_active_pct,cpu_active_s_per_gib,cpu_system_s_per_gib,qat_byte_share_pct,qat_completion_share_pct,qat_fallback_share_pct,qat_cap_skip_share_pct,qat_service_ns_per_mib,qat_wait_ns_per_mib,qat_setup_ns_per_req,qat_submit_ns_per_req,qat_wait_ns_per_req,qat_cleanup_ns_per_req,qat_page_array_alloc_ns_per_req,qat_page_array_free_ns_per_req,qat_buffer_list_alloc_ns_per_req,qat_buffer_list_free_ns_per_req,qat_req_alloc_ns_per_req,qat_req_free_ns_per_req,qat_src_buffers_per_req,qat_dst_total_buffers_per_req,qat_bound_bytes_per_req,qat_scratch_bytes_per_req,qat_src_buf_unaligned_64_pct,qat_src_buf_len_not_64_pct,qat_src_first_bytes_per_req,qat_src_last_bytes_per_req,qat_dst_buf_unaligned_64_pct,qat_dst_buf_len_not_64_pct,qat_dst_first_bytes_per_req,qat_dst_last_bytes_per_req,qat_add_buf_unaligned_64_pct,qat_add_buf_len_not_64_pct,qat_add_first_bytes_per_req,qat_add_last_bytes_per_req,qat_sync_completion_share_pct,qat_sync_fallback_share_pct,zfs_qat_dc_poll,zfs_qat_dc_effective_poll,zfs_qat_dc_poll_interval_us,zfs_qat_dc_effective_poll_interval_us,zfs_qat_dc_poll_quota,zfs_qat_dc_effective_poll_quota,dc_poll_calls_delta,dc_poll_success_delta,dc_poll_retries_delta,dc_poll_fails_delta,dc_poll_ns_delta,zfs_qat_dc_watchdog,zfs_qat_dc_effective_watchdog,zfs_qat_dc_watchdog_timeout_ms,zfs_qat_dc_effective_watchdog_timeout_ms,zfs_qat_dc_watchdog_interval_ms,zfs_qat_dc_effective_watchdog_interval_ms,dc_watchdog_checks_delta,dc_watchdog_stalls_delta,dc_watchdog_runtime_disables_delta,dc_watchdog_last_progress_ns,dc_watchdog_last_stall_ns,dc_watchdog_health,dc_watchdog_request_timeouts_delta,dc_watchdog_request_recoveries_delta,dc_watchdog_request_unrecoverable_delta,dc_watchdog_late_completions_delta,zfs_qat_dc_quarantine_dst,zfs_qat_dc_effective_quarantine_dst,dc_compress_quarantine_dst_requests_delta,dc_compress_quarantine_dst_success_delta,dc_compress_quarantine_dst_fails_delta,dc_compress_quarantine_dst_copy_bytes_delta,dc_compress_quarantine_dst_retained_delta,dc_compress_quarantine_dst_retained_bytes_delta,dc_compress_quarantine_dst_retained_released_delta\n" > "$OUT"
 CSV_HEADER="$(head -n 1 "$OUT")"
 
 echo "Results: $OUT" >&2

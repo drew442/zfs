@@ -1436,3 +1436,33 @@ Next practical target:
 - Add alignment and segment-shape instrumentation before considering any more
   copy-based source path. A targeted alignment fix may still be worth testing,
   but broad coalescing is not justified by the current data.
+
+## Alignment Shape Instrumentation
+
+Run date: 2026-05-22.
+
+Source CSVs:
+
+```text
+.codex/skills/openzfs-qat/artifacts/zfs-qat-alignment-shape-sync-jobs1-20260522.csv
+.codex/skills/openzfs-qat/artifacts/zfs-qat-alignment-shape-async-jobs4-20260522.csv
+.codex/skills/openzfs-qat/artifacts/zfs-qat-alignment-shape-summary-20260522.csv
+```
+
+Summary:
+
+- Added source, destination, and scratch/add 64-byte alignment counters.
+- Added first/last segment byte counters to the phase-4 benchmark CSV.
+- Smoke-tested `128K` and `1M` rows, including software comparison rows.
+- Source and destination buffers were already 64-byte aligned and had
+  64-byte-multiple segment lengths in the tested QAT rows.
+- Only the scratch/add tail was not 64-byte-length aligned; the observed final
+  scratch segment was `57` bytes.
+
+Decision:
+
+- Do not add a targeted source or destination alignment-copy policy from this
+  evidence.
+- Leave the counters in place for future workloads.
+- Move the next optimization target to QAT-side/platform tuning unless another
+  workload proves source or destination misalignment.

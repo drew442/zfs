@@ -164,3 +164,9 @@ The next ZFS-side optimization should be narrower than broad source coalescing:
 Do not promote additional profile defaults until a candidate improves elapsed
 time or CPU cost without relying on lower QAT byte share or an unacceptable copy
 cost.
+
+Follow-up status: completed on 2026-05-22; see
+`alignment-shape-instrumentation-20260522.md`. The measured source and
+destination buffers were already 64-byte aligned with 64-byte length multiples
+for the tested rows, so no targeted source/destination copy policy was
+implemented.

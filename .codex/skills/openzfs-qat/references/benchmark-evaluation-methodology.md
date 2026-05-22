@@ -107,6 +107,15 @@ New `qat-phase4-benchmark.sh` runs append these derived fields:
 - `qat_service_ns_per_mib`: QAT compression setup, submit, wait, and cleanup
   nanoseconds per QAT-completed MiB.
 - `qat_wait_ns_per_mib`: QAT compression wait nanoseconds per QAT-completed MiB.
+- `qat_src_buf_unaligned_64_pct`, `qat_src_buf_len_not_64_pct`,
+  `qat_src_first_bytes_per_req`, and `qat_src_last_bytes_per_req`: source
+  buffer alignment and first/last segment shape.
+- `qat_dst_buf_unaligned_64_pct`, `qat_dst_buf_len_not_64_pct`,
+  `qat_dst_first_bytes_per_req`, and `qat_dst_last_bytes_per_req`:
+  destination buffer alignment and first/last segment shape.
+- `qat_add_buf_unaligned_64_pct`, `qat_add_buf_len_not_64_pct`,
+  `qat_add_first_bytes_per_req`, and `qat_add_last_bytes_per_req`: scratch/add
+  buffer alignment and first/last segment shape.
 
 Scale-test runs also append these hardware-state fields:
 

@@ -132,6 +132,18 @@ typedef struct qat_stats {
 	kstat_named_t dc_compress_dst_buffers_max;
 	kstat_named_t dc_compress_add_buffers_max;
 	kstat_named_t dc_compress_dst_total_buffers_max;
+	kstat_named_t dc_compress_src_buf_unaligned_64;
+	kstat_named_t dc_compress_src_buf_len_not_64;
+	kstat_named_t dc_compress_src_first_bytes;
+	kstat_named_t dc_compress_src_last_bytes;
+	kstat_named_t dc_compress_dst_buf_unaligned_64;
+	kstat_named_t dc_compress_dst_buf_len_not_64;
+	kstat_named_t dc_compress_dst_first_bytes;
+	kstat_named_t dc_compress_dst_last_bytes;
+	kstat_named_t dc_compress_add_buf_unaligned_64;
+	kstat_named_t dc_compress_add_buf_len_not_64;
+	kstat_named_t dc_compress_add_first_bytes;
+	kstat_named_t dc_compress_add_last_bytes;
 	/*
 	 * QAT compression request path counters.
 	 */
