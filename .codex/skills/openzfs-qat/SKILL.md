@@ -28,13 +28,14 @@ Use this skill for QAT-specific work in this fork. It is meant for design review
 11. For the interrupt coalescing minimum-timer experiment, use `references/qat-coalescing-min-timer-20260519.md`.
 12. For the QAT DC polling implementation and results, use `references/qat-dc-polling-20260519.md`.
 13. For the completed async/profile matrix and request-overhead step 5 plan, use `references/async-profile-matrix-20260521.md`.
-14. Confirm which layer the task touches before editing:
+14. For the first request-overhead baseline and next optimization target, use `references/request-overhead-baseline-20260522.md`.
+15. Confirm which layer the task touches before editing:
    - Build integration and static configuration
    - Runtime tunables and initialization
    - Compression, checksum, or encryption call sites
    - Documentation or validation workflow
-14. Preserve software fallback behavior unless the task explicitly changes policy. Current QAT paths generally attempt acceleration first and then fall back to software on failure.
-15. Treat usability and performance separately:
+16. Preserve software fallback behavior unless the task explicitly changes policy. Current QAT paths generally attempt acceleration first and then fall back to software on failure.
+17. Treat usability and performance separately:
    - Usability work usually means clearer build flags, safer defaults, less surprising runtime behavior, or better observability.
    - Performance work usually means thresholding, allocation strategy, instance selection, avoiding unnecessary copies, or reducing failed offload attempts.
 

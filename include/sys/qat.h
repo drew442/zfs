@@ -133,6 +133,24 @@ typedef struct qat_stats {
 	kstat_named_t dc_compress_add_buffers_max;
 	kstat_named_t dc_compress_dst_total_buffers_max;
 	/*
+	 * QAT compression request path counters.
+	 */
+	kstat_named_t dc_compress_sync_submits;
+	kstat_named_t dc_compress_sync_completions;
+	kstat_named_t dc_compress_sync_fallbacks;
+	kstat_named_t dc_compress_page_array_stack_src;
+	kstat_named_t dc_compress_page_array_heap_src;
+	kstat_named_t dc_compress_page_array_stack_dst;
+	kstat_named_t dc_compress_page_array_heap_dst;
+	kstat_named_t dc_compress_page_array_stack_scratch;
+	kstat_named_t dc_compress_page_array_heap_scratch;
+	kstat_named_t dc_compress_page_array_alloc_ns;
+	kstat_named_t dc_compress_page_array_free_ns;
+	kstat_named_t dc_compress_buffer_list_alloc_ns;
+	kstat_named_t dc_compress_buffer_list_free_ns;
+	kstat_named_t dc_compress_req_alloc_ns;
+	kstat_named_t dc_compress_req_free_ns;
+	/*
 	 * Experimental source-buffer coalescing counters.
 	 */
 	kstat_named_t dc_compress_coalesce_requests;

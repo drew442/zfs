@@ -147,6 +147,7 @@ service time.
 | Midpoint cap profile sweep | Tested caps between balanced DC6 ceilings and linear DC12 endpoints at `JOBS=8`. | `128K` and `256K` do not justify higher caps. `1M` needed a repeat before policy. |
 | 1M cap repeat | Repeated `1M` caps `96`, `160`, and `192` with six iterations at `JOBS=8`. | Cap `192` was fastest and lowest system CPU in this window. Added explicit `throughput` cap policy for `1M+` only. |
 | Completed async/profile matrix | Compared software, sync QAT, and async QAT across `64K`, `128K`, `256K`, `512K`, and `1M`; `JOBS=1/4/8`; interrupt and polling delivery. | Keep async disabled for `balanced` and `latency`; keep async enabled only for `throughput` and `offload`; keep polling explicit. Large concurrent `512K`/`1M` rows benefit, but smaller rows are mixed or software fallback. See `async-profile-matrix-20260521.md`. |
+| Request-overhead counters | Added sync path, page-array path, buffer-list allocation, request allocation, and per-request derived benchmark fields. | Narrow `JOBS=4` baseline showed allocation overhead is small relative to QAT wait time. Next target should be QAT service-time/request-shape behavior, especially source scatter/gather shape. See `request-overhead-baseline-20260522.md`. |
 
 ## Current Fair Comparison
 
