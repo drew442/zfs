@@ -1,0 +1,12 @@
+Sign command: /lib/modules/7.0.0-3-pve/build/scripts/sign-file
+Signing key: /var/lib/dkms/mok.key
+Public certificate (MOK): /var/lib/dkms/mok.pub
+
+
+Warning: The pre_build script is not executable.
+Building module(s)...(bad exit status: 2)
+Failed command:
+make -j64 KERNELRELEASE=7.0.0-3-pve
+
+Error! Bad return status for module build on kernel: 7.0.0-3-pve (x86_64)
+Consult /var/lib/dkms/zfs/2.4.99/build/make.log for more information.

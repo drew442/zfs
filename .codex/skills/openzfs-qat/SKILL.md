@@ -37,7 +37,8 @@ Use this skill for QAT-specific work in this fork. It is meant for design review
 20. For the QAT `[KERNEL_QAT]` DC polling-mode experiment, use `references/qat-kernelqat-polling-20260523.md`.
 21. For the expanded QAT completion-mode matrix and lock-step config helper, use `references/qat-completion-mode-lockstep-20260523.md`.
 22. For the imported host-root artifact corpus and chronological performance progression table, use `references/performance-progression-20260523.md`.
-23. Confirm which layer the task touches before editing:
+23. For the async page-array and scratch-buffer reuse optimization, use `references/qat-scratch-reuse-20260523.md`.
+24. Confirm which layer the task touches before editing:
    - Build integration and static configuration
    - Runtime tunables and initialization
    - Compression, checksum, or encryption call sites
