@@ -10,6 +10,7 @@ MODES="${MODES:-qat sw}"
 ITERS="${ITERS:-3}"
 JOBS="${JOBS:-1}"
 VERIFY_MODE="${VERIFY_MODE:-same}"
+RUN_ORDER="${RUN_ORDER:-mode}"
 OUT="${OUT:-/root/zfs-qat-phase4-$(date +%Y%m%d-%H%M%S).csv}"
 
 ensure_record_1m() {
@@ -1448,82 +1449,105 @@ echo "Verify mode: $VERIFY_MODE" >&2
 echo "Records: $RECORDS" >&2
 echo "Iterations: $ITERS" >&2
 echo "Jobs: $JOBS" >&2
+echo "Run order: $RUN_ORDER" >&2
 
-for mode in $MODES; do
-	for record in $RECORDS; do
-		LATENCY_FILE="$(mktemp "/tmp/qat-phase4-${mode}-${record}.XXXXXX")"
-		set_mode "$mode"
-		for iter in $(seq 1 "$ITERS"); do
-			run_one "$mode" "$record" "$iter"
-		done
+run_mode_record() {
+	local mode="$1"
+	local record="$2"
 
-		latency_csv="$(percentiles_csv "$LATENCY_FILE")"
-		rm -f "$LATENCY_FILE"
-		IFS=, read -r latency_avg latency_p50 latency_p95 \
-		    latency_p99 latency_max <<< "$latency_csv"
-		verify_mode="$(effective_verify_mode "$mode")"
-		unset summary_row
-		declare -A summary_row=(
-		    [row_type]=summary
-		    [mode]="$mode"
-		    [verify_mode]="$verify_mode"
-		    [recordsize]="$record"
-		    [jobs]="$JOBS"
-		    [source_label]="$SOURCE_LABEL"
-		    [source_bytes]="$((SOURCE_BYTES * JOBS))"
-		    [latency_avg_ms]="$latency_avg"
-		    [latency_p50_ms]="$latency_p50"
-		    [latency_p95_ms]="$latency_p95"
-		    [latency_p99_ms]="$latency_p99"
-		    [latency_max_ms]="$latency_max"
-		    [zfs_qat_cpa_dc_level]="$QAT_DC_LEVEL"
-		    [zfs_qat_effective_cpa_dc_level]="$QAT_DC_EFFECTIVE_LEVEL"
-		    [zfs_qat_cpa_dc_hufftype]="$QAT_DC_HUFFTYPE"
-		    [zfs_qat_effective_cpa_dc_hufftype]="$QAT_DC_EFFECTIVE_HUFFTYPE"
-		    [zfs_qat_dc_min_buf_size]="$QAT_DC_MIN_BUF_SIZE"
-		    [zfs_qat_dc_effective_min_buf_size]="$QAT_DC_EFFECTIVE_MIN_BUF_SIZE"
-		    [zfs_qat_dc_max_buf_size]="$QAT_DC_MAX_BUF_SIZE"
-		    [zfs_qat_dc_effective_max_buf_size]="$QAT_DC_EFFECTIVE_MAX_BUF_SIZE"
-		    [zfs_qat_dc_max_instances]="$QAT_DC_MAX_INSTANCES"
-		    [zfs_qat_dc_coalesce_src]="$QAT_DC_COALESCE_SRC"
-		    [zfs_qat_dc_effective_coalesce_src]="$QAT_DC_EFFECTIVE_COALESCE_SRC"
-		    [zfs_qat_dc_coalesce_dst]="$QAT_DC_COALESCE_DST"
-		    [zfs_qat_dc_effective_coalesce_dst]="$QAT_DC_EFFECTIVE_COALESCE_DST"
-		    [zfs_qat_dc_async]="$QAT_DC_ASYNC"
-		    [zfs_qat_dc_effective_async]="$QAT_DC_EFFECTIVE_ASYNC"
-		    [zfs_qat_dc_async_submit_retries]="$QAT_DC_ASYNC_RETRIES"
-		    [zfs_qat_dc_effective_async_submit_retries]="$QAT_DC_EFFECTIVE_ASYNC_RETRIES"
-		    [zfs_qat_dc_async_retry_us]="$QAT_DC_ASYNC_RETRY_US"
-		    [zfs_qat_dc_effective_async_retry_us]="$QAT_DC_EFFECTIVE_ASYNC_RETRY_US"
-		    [zfs_qat_dc_async_max_inflight]="$QAT_DC_ASYNC_MAX_INFLIGHT"
-		    [zfs_qat_dc_effective_async_max_inflight]="$QAT_DC_EFFECTIVE_ASYNC_MAX_INFLIGHT"
-		    [zfs_qat_dc_async_cap_policy]="$QAT_DC_ASYNC_CAP_POLICY"
-		    [zfs_qat_dc_profile]="$QAT_DC_PROFILE"
-		    [zfs_qat_dc_profile_recordsize]="$QAT_DC_PROFILE_RECORDSIZE"
-		    [zfs_qat_dc_ratio_profile]="$QAT_DC_RATIO_PROFILE"
-		    [qat_kernel_cy_instances]="$QAT_KERNEL_CY_INSTANCES"
-		    [qat_kernel_dc_instances]="$QAT_KERNEL_DC_INSTANCES"
-		    [zfs_srcversion]="$ZFS_SRCVERSION"
-		    [qat_pci_dh895xcc_count]="$QAT_PCI_DH895XCC_COUNT"
-		    [qat_conf_file_count]="$QAT_CONF_FILE_COUNT"
-		    [qat_kernel_cy_instances_total]="$QAT_KERNEL_CY_INSTANCES_TOTAL"
-		    [qat_kernel_dc_instances_total]="$QAT_KERNEL_DC_INSTANCES_TOTAL"
-		    [zfs_qat_dc_instances]="$(statv dc_instances)"
-		    [zfs_qat_dc_poll]="$QAT_DC_POLL"
-		    [zfs_qat_dc_effective_poll]="$QAT_DC_EFFECTIVE_POLL"
-		    [zfs_qat_dc_poll_interval_us]="$QAT_DC_POLL_INTERVAL_US"
-		    [zfs_qat_dc_effective_poll_interval_us]="$QAT_DC_EFFECTIVE_POLL_INTERVAL_US"
-		    [zfs_qat_dc_poll_quota]="$QAT_DC_POLL_QUOTA"
-		    [zfs_qat_dc_effective_poll_quota]="$QAT_DC_EFFECTIVE_POLL_QUOTA"
-		    [zfs_qat_dc_watchdog]="$QAT_DC_WATCHDOG"
-		    [zfs_qat_dc_effective_watchdog]="$QAT_DC_EFFECTIVE_WATCHDOG"
-		    [zfs_qat_dc_watchdog_timeout_ms]="$QAT_DC_WATCHDOG_TIMEOUT_MS"
-		    [zfs_qat_dc_effective_watchdog_timeout_ms]="$QAT_DC_EFFECTIVE_WATCHDOG_TIMEOUT_MS"
-		    [zfs_qat_dc_watchdog_interval_ms]="$QAT_DC_WATCHDOG_INTERVAL_MS"
-		    [zfs_qat_dc_effective_watchdog_interval_ms]="$QAT_DC_EFFECTIVE_WATCHDOG_INTERVAL_MS"
-		    [zfs_qat_dc_quarantine_dst]="$QAT_DC_QUARANTINE_DST"
-		    [zfs_qat_dc_effective_quarantine_dst]="$QAT_DC_EFFECTIVE_QUARANTINE_DST"
-		)
-		emit_csv_row_from_assoc summary_row | tee -a "$OUT"
+	LATENCY_FILE="$(mktemp "/tmp/qat-phase4-${mode}-${record}.XXXXXX")"
+	set_mode "$mode"
+	for iter in $(seq 1 "$ITERS"); do
+		run_one "$mode" "$record" "$iter"
 	done
-done
+
+	latency_csv="$(percentiles_csv "$LATENCY_FILE")"
+	rm -f "$LATENCY_FILE"
+	IFS=, read -r latency_avg latency_p50 latency_p95 \
+	    latency_p99 latency_max <<< "$latency_csv"
+	verify_mode="$(effective_verify_mode "$mode")"
+	unset summary_row
+	declare -A summary_row=(
+	    [row_type]=summary
+	    [mode]="$mode"
+	    [verify_mode]="$verify_mode"
+	    [recordsize]="$record"
+	    [jobs]="$JOBS"
+	    [source_label]="$SOURCE_LABEL"
+	    [source_bytes]="$((SOURCE_BYTES * JOBS))"
+	    [latency_avg_ms]="$latency_avg"
+	    [latency_p50_ms]="$latency_p50"
+	    [latency_p95_ms]="$latency_p95"
+	    [latency_p99_ms]="$latency_p99"
+	    [latency_max_ms]="$latency_max"
+	    [zfs_qat_cpa_dc_level]="$QAT_DC_LEVEL"
+	    [zfs_qat_effective_cpa_dc_level]="$QAT_DC_EFFECTIVE_LEVEL"
+	    [zfs_qat_cpa_dc_hufftype]="$QAT_DC_HUFFTYPE"
+	    [zfs_qat_effective_cpa_dc_hufftype]="$QAT_DC_EFFECTIVE_HUFFTYPE"
+	    [zfs_qat_dc_min_buf_size]="$QAT_DC_MIN_BUF_SIZE"
+	    [zfs_qat_dc_effective_min_buf_size]="$QAT_DC_EFFECTIVE_MIN_BUF_SIZE"
+	    [zfs_qat_dc_max_buf_size]="$QAT_DC_MAX_BUF_SIZE"
+	    [zfs_qat_dc_effective_max_buf_size]="$QAT_DC_EFFECTIVE_MAX_BUF_SIZE"
+	    [zfs_qat_dc_max_instances]="$QAT_DC_MAX_INSTANCES"
+	    [zfs_qat_dc_coalesce_src]="$QAT_DC_COALESCE_SRC"
+	    [zfs_qat_dc_effective_coalesce_src]="$QAT_DC_EFFECTIVE_COALESCE_SRC"
+	    [zfs_qat_dc_coalesce_dst]="$QAT_DC_COALESCE_DST"
+	    [zfs_qat_dc_effective_coalesce_dst]="$QAT_DC_EFFECTIVE_COALESCE_DST"
+	    [zfs_qat_dc_async]="$QAT_DC_ASYNC"
+	    [zfs_qat_dc_effective_async]="$QAT_DC_EFFECTIVE_ASYNC"
+	    [zfs_qat_dc_async_submit_retries]="$QAT_DC_ASYNC_RETRIES"
+	    [zfs_qat_dc_effective_async_submit_retries]="$QAT_DC_EFFECTIVE_ASYNC_RETRIES"
+	    [zfs_qat_dc_async_retry_us]="$QAT_DC_ASYNC_RETRY_US"
+	    [zfs_qat_dc_effective_async_retry_us]="$QAT_DC_EFFECTIVE_ASYNC_RETRY_US"
+	    [zfs_qat_dc_async_max_inflight]="$QAT_DC_ASYNC_MAX_INFLIGHT"
+	    [zfs_qat_dc_effective_async_max_inflight]="$QAT_DC_EFFECTIVE_ASYNC_MAX_INFLIGHT"
+	    [zfs_qat_dc_async_cap_policy]="$QAT_DC_ASYNC_CAP_POLICY"
+	    [zfs_qat_dc_profile]="$QAT_DC_PROFILE"
+	    [zfs_qat_dc_profile_recordsize]="$QAT_DC_PROFILE_RECORDSIZE"
+	    [zfs_qat_dc_ratio_profile]="$QAT_DC_RATIO_PROFILE"
+	    [qat_kernel_cy_instances]="$QAT_KERNEL_CY_INSTANCES"
+	    [qat_kernel_dc_instances]="$QAT_KERNEL_DC_INSTANCES"
+	    [zfs_srcversion]="$ZFS_SRCVERSION"
+	    [qat_pci_dh895xcc_count]="$QAT_PCI_DH895XCC_COUNT"
+	    [qat_conf_file_count]="$QAT_CONF_FILE_COUNT"
+	    [qat_kernel_cy_instances_total]="$QAT_KERNEL_CY_INSTANCES_TOTAL"
+	    [qat_kernel_dc_instances_total]="$QAT_KERNEL_DC_INSTANCES_TOTAL"
+	    [zfs_qat_dc_instances]="$(statv dc_instances)"
+	    [zfs_qat_dc_poll]="$QAT_DC_POLL"
+	    [zfs_qat_dc_effective_poll]="$QAT_DC_EFFECTIVE_POLL"
+	    [zfs_qat_dc_poll_interval_us]="$QAT_DC_POLL_INTERVAL_US"
+	    [zfs_qat_dc_effective_poll_interval_us]="$QAT_DC_EFFECTIVE_POLL_INTERVAL_US"
+	    [zfs_qat_dc_poll_quota]="$QAT_DC_POLL_QUOTA"
+	    [zfs_qat_dc_effective_poll_quota]="$QAT_DC_EFFECTIVE_POLL_QUOTA"
+	    [zfs_qat_dc_watchdog]="$QAT_DC_WATCHDOG"
+	    [zfs_qat_dc_effective_watchdog]="$QAT_DC_EFFECTIVE_WATCHDOG"
+	    [zfs_qat_dc_watchdog_timeout_ms]="$QAT_DC_WATCHDOG_TIMEOUT_MS"
+	    [zfs_qat_dc_effective_watchdog_timeout_ms]="$QAT_DC_EFFECTIVE_WATCHDOG_TIMEOUT_MS"
+	    [zfs_qat_dc_watchdog_interval_ms]="$QAT_DC_WATCHDOG_INTERVAL_MS"
+	    [zfs_qat_dc_effective_watchdog_interval_ms]="$QAT_DC_EFFECTIVE_WATCHDOG_INTERVAL_MS"
+	    [zfs_qat_dc_quarantine_dst]="$QAT_DC_QUARANTINE_DST"
+	    [zfs_qat_dc_effective_quarantine_dst]="$QAT_DC_EFFECTIVE_QUARANTINE_DST"
+	)
+	emit_csv_row_from_assoc summary_row | tee -a "$OUT"
+}
+
+case "$RUN_ORDER" in
+mode)
+	for mode in $MODES; do
+		for record in $RECORDS; do
+			run_mode_record "$mode" "$record"
+		done
+	done
+	;;
+record)
+	for record in $RECORDS; do
+		for mode in $MODES; do
+			run_mode_record "$mode" "$record"
+		done
+	done
+	;;
+*)
+	echo "RUN_ORDER must be mode or record" >&2
+	exit 1
+	;;
+esac
