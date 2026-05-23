@@ -40,7 +40,8 @@ Use this skill for QAT-specific work in this fork. It is meant for design review
 23. For the async page-array and scratch-buffer reuse optimization, use `references/qat-scratch-reuse-20260523.md`.
 24. For the post-scratch-reuse full record-size matrix, use `references/qat-scratch-reuse-fullmatrix-20260523.md`.
 25. For the offload-profile async cap policy and QAT/ZFS boot-order cleanup, use `references/qat-offload-profile-cap-20260523.md`.
-26. Confirm which layer the task touches before editing:
+26. For the profile-driven minimum QAT DC request-size policy, use `references/qat-minbuf-profile-policy-20260523.md`.
+27. Confirm which layer the task touches before editing:
    - Build integration and static configuration
    - Runtime tunables and initialization
    - Compression, checksum, or encryption call sites

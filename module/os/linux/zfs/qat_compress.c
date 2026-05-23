@@ -194,6 +194,7 @@ static DEFINE_SPINLOCK(qat_dc_async_lock);
 static int qat_dc_effective_decompress_disable(void);
 static int qat_dc_effective_level(void);
 static const char *qat_dc_effective_hufftype(void);
+static int qat_dc_effective_min_buf_size(void);
 static int qat_dc_effective_max_buf_size(void);
 static int qat_dc_effective_coalesce_src(void);
 static int qat_dc_effective_coalesce_dst(void);
@@ -216,6 +217,8 @@ char *zfs_qat_cpa_dc_level = "profile";
 static int zfs_qat_cpa_dc_level_value = 1;
 char *zfs_qat_cpa_dc_hufftype = "profile";
 static const char *zfs_qat_cpa_dc_hufftype_value = "dynamic";
+char *zfs_qat_dc_min_buf_size = "profile";
+static int zfs_qat_dc_min_buf_size_value = QAT_DC_MIN_BUF_SIZE;
 char *zfs_qat_dc_max_buf_size = "profile";
 static int zfs_qat_dc_max_buf_size_value = QAT_DC_DEFAULT_MAX_BUF_SIZE;
 int zfs_qat_dc_max_instances = QAT_DC_MAX_INSTANCES;
@@ -259,25 +262,27 @@ static DEFINE_SPINLOCK(qat_dc_retained_lock);
 boolean_t
 qat_dc_compress_use_accel(size_t s_len)
 {
+	int min_buf_size = qat_dc_effective_min_buf_size();
 	int max_buf_size = qat_dc_effective_max_buf_size();
 
 	return (!zfs_qat_compress_disable &&
 	    qat_dc_runtime_failed == 0 &&
 	    qat_dc_init_done &&
-	    s_len >= QAT_DC_MIN_BUF_SIZE &&
+	    s_len >= min_buf_size &&
 	    s_len <= max_buf_size);
 }
 
 boolean_t
 qat_dc_decompress_use_accel(size_t s_len)
 {
+	int min_buf_size = qat_dc_effective_min_buf_size();
 	int max_buf_size = qat_dc_effective_max_buf_size();
 
 	return (!zfs_qat_compress_disable &&
 	    qat_dc_runtime_failed == 0 &&
 	    !qat_dc_effective_decompress_disable() &&
 	    qat_dc_init_done &&
-	    s_len >= QAT_DC_MIN_BUF_SIZE &&
+	    s_len >= min_buf_size &&
 	    s_len <= max_buf_size);
 }
 
@@ -340,6 +345,43 @@ qat_dc_valid_max_buf_size(int max_buf_size)
 	default:
 		return (B_FALSE);
 	}
+}
+
+static boolean_t
+qat_dc_valid_min_buf_size(int min_buf_size)
+{
+	switch (min_buf_size) {
+	case 8 * 1024:
+	case 16 * 1024:
+	case 32 * 1024:
+	case 64 * 1024:
+	case 128 * 1024:
+	case 256 * 1024:
+	case 512 * 1024:
+	case 1024 * 1024:
+		return (B_TRUE);
+	default:
+		return (B_FALSE);
+	}
+}
+
+static int
+qat_dc_profile_min_buf_size(const char *dc_profile)
+{
+	if (strcmp(dc_profile, "latency") == 0 ||
+	    strcmp(dc_profile, "throughput") == 0)
+		return (512 * 1024);
+
+	return (QAT_DC_MIN_BUF_SIZE);
+}
+
+static int
+qat_dc_effective_min_buf_size(void)
+{
+	if (strcmp(zfs_qat_dc_min_buf_size, "profile") == 0)
+		return (qat_dc_profile_min_buf_size(zfs_qat_dc_profile));
+
+	return (zfs_qat_dc_min_buf_size_value);
 }
 
 static int
@@ -3518,6 +3560,41 @@ param_get_qat_cpa_dc_hufftype(char *buffer, zfs_kernel_param_t *kp)
 }
 
 static int
+param_set_qat_dc_min_buf_size(const char *val, zfs_kernel_param_t *kp)
+{
+	unsigned int new_value;
+	char **pvalue = kp->arg;
+	int ret;
+
+	if (qat_dc_param_profile(val)) {
+		*pvalue = "profile";
+		return (0);
+	}
+
+	ret = kstrtouint(val, 0, &new_value);
+	if (ret != 0)
+		return (ret);
+
+	if (!qat_dc_valid_min_buf_size((int)new_value))
+		return (-EINVAL);
+
+	zfs_qat_dc_min_buf_size_value = (int)new_value;
+	*pvalue = "manual";
+	return (0);
+}
+
+static int
+param_get_qat_dc_min_buf_size(char *buffer, zfs_kernel_param_t *kp)
+{
+	char **pvalue = kp->arg;
+
+	if (strcmp(*pvalue, "profile") == 0)
+		return (sprintf(buffer, "profile\n"));
+
+	return (sprintf(buffer, "%d\n", zfs_qat_dc_min_buf_size_value));
+}
+
+static int
 param_set_qat_dc_max_buf_size(const char *val, zfs_kernel_param_t *kp)
 {
 	int old_value;
@@ -4114,10 +4191,17 @@ module_param_call(zfs_qat_cpa_dc_hufftype, param_set_qat_cpa_dc_hufftype,
 MODULE_PARM_DESC(zfs_qat_cpa_dc_hufftype,
     "QAT compression Huffman type: profile, dynamic, or static");
 
+module_param_call(zfs_qat_dc_min_buf_size, param_set_qat_dc_min_buf_size,
+    param_get_qat_dc_min_buf_size, &zfs_qat_dc_min_buf_size, 0644);
+MODULE_PARM_DESC(zfs_qat_dc_min_buf_size,
+    "Minimum QAT compression buffer size: profile, 8192, 16384, 32768, "
+    "65536, 131072, 262144, 524288, or 1048576");
+
 module_param_call(zfs_qat_dc_max_buf_size, param_set_qat_dc_max_buf_size,
     param_get_qat_dc_max_buf_size, &zfs_qat_dc_max_buf_size, 0644);
 MODULE_PARM_DESC(zfs_qat_dc_max_buf_size,
-    "Maximum QAT compression buffer size");
+    "Maximum QAT compression buffer size: profile, 131072, 262144, "
+    "524288, or 1048576");
 
 module_param_call(zfs_qat_dc_max_instances, param_set_qat_dc_max_instances,
     param_get_int, &zfs_qat_dc_max_instances, 0644);

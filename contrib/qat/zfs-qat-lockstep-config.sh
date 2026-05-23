@@ -108,7 +108,7 @@ write_zfs_modprobe() {
 	recordsize="$2"
 	decompress_disable="$3"
 	stamp="$4"
-	line="options zfs zfs_qat_compress_disable=0 zfs_qat_checksum_disable=1 zfs_qat_encrypt_disable=1 zfs_qat_cpa_dc_level=profile zfs_qat_dc_max_buf_size=profile zfs_qat_dc_poll=$poll_value"
+	line="options zfs zfs_qat_compress_disable=0 zfs_qat_checksum_disable=1 zfs_qat_encrypt_disable=1 zfs_qat_cpa_dc_level=profile zfs_qat_dc_min_buf_size=profile zfs_qat_dc_max_buf_size=profile zfs_qat_dc_poll=$poll_value"
 
 	if [ "$recordsize" ]; then
 		validate_uint "$recordsize" "--recordsize"
@@ -131,7 +131,7 @@ write_default_modprobe() {
 	stamp="$1"
 
 	backup_file "$modprobe_conf" "$stamp"
-	printf '%s\n' "options zfs zfs_qat_compress_disable=0 zfs_qat_checksum_disable=1 zfs_qat_encrypt_disable=1 zfs_qat_cpa_dc_level=profile zfs_qat_dc_max_buf_size=profile" > "$modprobe_conf"
+	printf '%s\n' "options zfs zfs_qat_compress_disable=0 zfs_qat_checksum_disable=1 zfs_qat_encrypt_disable=1 zfs_qat_cpa_dc_level=profile zfs_qat_dc_min_buf_size=profile zfs_qat_dc_max_buf_size=profile" > "$modprobe_conf"
 }
 
 run_update_initramfs() {
