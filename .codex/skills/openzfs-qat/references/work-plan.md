@@ -218,7 +218,10 @@ Workstream F: optimization bias controls:
   valuable on slower rotational pools than on flash/NVMe if reduced compressed
   bytes relieve the device bottleneck enough to offset QAT or CPU cost. Do not
   add `rotational` or `flash` profile inputs until HDD and NVMe results prove
-  this is a repeatable policy split rather than benchmark noise.
+  this is a repeatable policy split rather than benchmark noise. Initial paired
+  HDD/NVMe testing on 2026-05-23 showed `1M` winning elapsed time on HDD at
+  jobs `4` and `8` while losing on NVMe, so the premise is plausible but still
+  needs confirmation with other source data and less-compressible input.
 - Do not assume every QAT tuning knob cleanly maps to one bias. `zfs_qat_cpa_dc_level` directly affects QAT compression effort, but larger record eligibility, allocation reuse, and software fallback thresholds may affect throughput and latency without improving ratio.
 - Initial implementation should keep explicit low-level parameters available for controlled benchmarking. Bias parameters can later set coherent defaults for those lower-level knobs once measurements prove the policies.
 

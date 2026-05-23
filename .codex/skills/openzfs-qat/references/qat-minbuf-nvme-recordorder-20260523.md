@@ -100,10 +100,13 @@ compressed bytes pass through the device bottleneck. Before adding a
 `test-hdd-pool` and classify whether any win is driven by elapsed time, CPU
 offload, compression ratio, or reduced write bandwidth.
 
+Status: completed on 2026-05-23. See
+`references/qat-minbuf-hdd-recordorder-20260523.md`.
+
 ## Next Target
 
 Use `RUN_ORDER=record` by default for future phase 4 profile comparisons. The
 benchmark harness now defaults to this paired order while still accepting
 `RUN_ORDER=mode` for legacy mode-sweep ordering.
-Before changing the default throughput profile to target `512K`, repeat the
-paired matrix on `test-hdd-pool` so HDD-vs-NVMe behavior is understood.
+Before adding a media-bias profile input, repeat the HDD/NVMe comparison with
+other source data and at least one less-compressible workload.
