@@ -10,7 +10,7 @@ MODES="${MODES:-qat sw}"
 ITERS="${ITERS:-3}"
 JOBS="${JOBS:-1}"
 VERIFY_MODE="${VERIFY_MODE:-same}"
-RUN_ORDER="${RUN_ORDER:-mode}"
+RUN_ORDER="${RUN_ORDER:-record}"
 OUT="${OUT:-/root/zfs-qat-phase4-$(date +%Y%m%d-%H%M%S).csv}"
 
 ensure_record_1m() {

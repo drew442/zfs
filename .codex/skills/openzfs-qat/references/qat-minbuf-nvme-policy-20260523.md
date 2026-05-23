@@ -117,3 +117,12 @@ Before changing additional profile defaults, rerun the NVMe matrix with
 `RUN_ORDER=record`. That will give a better same-record comparison for rows
 where QAT is skipped by policy and should make it easier to distinguish actual
 QAT performance from benchmark-window drift.
+
+Status: completed on 2026-05-23. See
+`references/qat-minbuf-nvme-recordorder-20260523.md`.
+
+Also keep a storage-media follow-up open. HDD pools may benefit more from
+higher compression ratio than flash/NVMe pools if the smaller compressed write
+stream relieves the device bottleneck. If HDD-vs-NVMe comparisons show a
+repeatable split, add a profile-level media or storage-bottleneck input instead
+of leaving the operator to tune low-level parameters manually.

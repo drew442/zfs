@@ -42,7 +42,8 @@ Use this skill for QAT-specific work in this fork. It is meant for design review
 25. For the offload-profile async cap policy and QAT/ZFS boot-order cleanup, use `references/qat-offload-profile-cap-20260523.md`.
 26. For the profile-driven minimum QAT DC request-size policy, use `references/qat-minbuf-profile-policy-20260523.md`.
 27. For the NVMe-backed validation of the min-buffer policy and benchmark run-order update, use `references/qat-minbuf-nvme-policy-20260523.md`.
-28. Confirm which layer the task touches before editing:
+28. For the paired `RUN_ORDER=record` NVMe min-buffer validation, use `references/qat-minbuf-nvme-recordorder-20260523.md`.
+29. Confirm which layer the task touches before editing:
    - Build integration and static configuration
    - Runtime tunables and initialization
    - Compression, checksum, or encryption call sites

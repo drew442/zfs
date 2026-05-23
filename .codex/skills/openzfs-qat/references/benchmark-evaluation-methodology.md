@@ -25,6 +25,14 @@ therefore needs to evaluate two different questions separately:
 Use this scorecard when evaluating whether a profile or admission policy is
 worth enabling.
 
+Storage-media context matters when interpreting elapsed time. A compression
+policy with a higher compression ratio may help slower or more I/O-bound media
+such as HDD pools more than faster flash or NVMe pools, because fewer compressed
+bytes pass through the storage bottleneck. Treat this as a profile follow-up:
+future HDD-vs-flash comparisons should record whether a result is dominated by
+QAT service cost, CPU cost, or device write bandwidth before adding any
+rotational/flash bias flag.
+
 Required metrics:
 
 - Elapsed time and throughput versus same-window software gzip.
@@ -161,5 +169,10 @@ workloads.
   path can actually submit to.
 - Require CPU and ratio evidence before enabling a policy that is not faster
   than software.
+- Do not promote an HDD-only ratio win into a general default until the same
+  policy has been classified against flash/NVMe results. If the media split is
+  repeatable, consider profile inputs such as `rotational`, `flash`, or an
+  explicit storage-bottleneck bias rather than making the operator hand-tune
+  low-level QAT parameters.
 - Preserve software fallback unless the benchmark intentionally measures a pure
   QAT path.

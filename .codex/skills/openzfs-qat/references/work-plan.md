@@ -214,6 +214,11 @@ Workstream F: optimization bias controls:
 - The premise is useful but should not become a no-op API. Add bias parameters only when there are multiple proven policies to select between.
 - A throughput/latency bias is valid if implementation choices create real tradeoffs, such as queue depth, batching, offload threshold, instance selection, or metadata reuse. Candidate values: `latency`, `balanced`, and `throughput`.
 - A performance/compression-ratio bias is valid if implementation choices affect compression effort or fallback policy. Candidate values: `performance`, `balanced`, and `compressionratio`.
+- Storage-media bias may also be needed. A higher-ratio policy can be more
+  valuable on slower rotational pools than on flash/NVMe if reduced compressed
+  bytes relieve the device bottleneck enough to offset QAT or CPU cost. Do not
+  add `rotational` or `flash` profile inputs until HDD and NVMe results prove
+  this is a repeatable policy split rather than benchmark noise.
 - Do not assume every QAT tuning knob cleanly maps to one bias. `zfs_qat_cpa_dc_level` directly affects QAT compression effort, but larger record eligibility, allocation reuse, and software fallback thresholds may affect throughput and latency without improving ratio.
 - Initial implementation should keep explicit low-level parameters available for controlled benchmarking. Bias parameters can later set coherent defaults for those lower-level knobs once measurements prove the policies.
 
