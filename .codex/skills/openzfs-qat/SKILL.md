@@ -34,7 +34,8 @@ Use this skill for QAT-specific work in this fork. It is meant for design review
 17. For the QAT platform/service baseline and service-split results, use `references/qat-platform-service-baseline-20260522.md`.
 18. For the QAT/ZFS DKMS initramfs recovery procedure, use `references/qat-dkms-initramfs-recovery-20260523.md`.
 19. For the QAT parameter-checking experiment, use `references/qat-param-check-experiment-20260523.md`.
-20. Confirm which layer the task touches before editing:
+20. For the QAT `[KERNEL_QAT]` DC polling-mode experiment, use `references/qat-kernelqat-polling-20260523.md`.
+21. Confirm which layer the task touches before editing:
    - Build integration and static configuration
    - Runtime tunables and initialization
    - Compression, checksum, or encryption call sites

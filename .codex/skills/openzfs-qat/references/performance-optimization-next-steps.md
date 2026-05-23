@@ -92,13 +92,17 @@ latency tradeoffs rather than broad throughput wins.
      actual `dc_instances` kstat.
    - Keep ZFS checksum/encryption disabled during compression benchmarking.
 
-2. Determine polling mode and tune if supported.
+2. Determine polling mode and tune if supported. Initial `[KERNEL_QAT]` DC
+   polling test completed on 2026-05-23.
    - Goal: reduce completion latency and offload cost without starving
      throughput.
    - Identify whether the QAT 4.28 CE kernel API path is using interrupt,
      polling, or a poll thread for the configured instances.
    - If polling interval is configurable for QAT 1.x kernel instances, sweep it
      against the `target=1M throughput` benchmark.
+   - Result: matching `DcNIsPolled=1` with `zfs_qat_dc_poll=1` improved elapsed
+     time by 2.88% at `JOBS=4` and 5.07% at `JOBS=8` versus the comparable
+     interrupt baseline. See `references/qat-kernelqat-polling-20260523.md`.
 
 3. Check PCIe link state. Completed for the current host baseline on
    2026-05-22.
@@ -173,19 +177,18 @@ work.
 
 ## Recommended Next Action
 
-Run a controlled QAT completion-mode experiment on `pve.drewnet.online` before
+Run an expanded QAT completion-mode matrix on `pve.drewnet.online` before
 changing more ZFS code:
 
 ```text
-1. Change only [KERNEL_QAT] DC completion mode in /etc/dh895xcc_dev*.conf.
-2. Keep ServicesEnabled=cy;dc and six DC instances per card.
-3. Reboot or restart QAT only after saving a rollback copy of both config files.
-4. Verify both dh895xcc devices are up and ZFS sees 12 DC instances.
-5. Run a correctness smoke test with QAT compression enabled.
-6. Repeat the current comparison benchmark:
-   target=1M, profile=throughput, record=1M, JOBS=4 and JOBS=8.
-7. Compare elapsed latency, throughput, CPU seconds per GiB, compression ratio,
-   QAT byte share, and QAT driver timing counters.
+1. Repeat interrupt and poll mode with more iterations.
+2. Include record sizes 128K and 1M.
+3. Include JOBS=4, JOBS=8, and one higher-concurrency point if stable.
+4. Keep ServicesEnabled=cy;dc and six DC instances per card.
+5. Match QAT driver `DcNIsPolled` with ZFS `zfs_qat_dc_poll`; mismatches disable
+   QAT compression by design.
+6. Compare elapsed latency, throughput, CPU seconds per GiB, compression ratio,
+   QAT byte share, poll counters, and QAT driver timing counters.
 ```
 
 If QAT-side tuning does not improve the repeat candidate, the next ZFS-side
