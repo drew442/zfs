@@ -177,6 +177,11 @@ Recommended next validation:
    QAT runtime config also has DcNIsPolled=1.
 ```
 
+Follow-up completed: the expanded completion-mode matrix, polling interval and
+quota sweeps, and lock-step helper are documented in
+`qat-completion-mode-lockstep-20260523.md`. That follow-up did not justify
+promoting polling to a profile default.
+
 ## Final Host State
 
 After the benchmark, the host was restored to default interrupt-mode QAT config

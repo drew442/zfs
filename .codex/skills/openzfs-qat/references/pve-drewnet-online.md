@@ -268,6 +268,20 @@ host was restored and rebooted after testing. Active state is again
 thread, and `[KERNEL_QAT] Dc0IsPolled` through `Dc5IsPolled = 0` on both QAT
 cards.
 
+Completion-mode lock-step note: on 2026-05-23 the expanded interrupt-vs-poll
+matrix was run with `128K` and `1M` records, `JOBS=4,8,12`, five iterations,
+and two DH895XCC cards. Polling was not promoted to a profile default because
+it only won clearly for the `1M/JOBS=12` QAT row and was worse for all tested
+`128K` rows plus `1M/JOBS=4` and `1M/JOBS=8`. Focused polling sweeps found
+`zfs_qat_dc_poll_interval_us=5` and `zfs_qat_dc_poll_quota=1` promising for
+`1M` throughput tests, but not broad enough for default policy. The host was
+restored and rebooted after testing. Active state is again
+`zfs_qat_dc_poll=profile`, `zfs_qat_dc_profile_recordsize=131072`,
+`zfs_qat_decompress_disable=profile`, and `[KERNEL_QAT] Dc0IsPolled` through
+`Dc5IsPolled = 0` on both QAT cards. Use
+`contrib/qat/zfs-qat-lockstep-config.sh` for future completion-mode changes so
+QAT driver `DcNIsPolled` values and ZFS `zfs_qat_dc_poll` stay synchronized.
+
 The ZFS QAT kstat now includes `dc_instances`, which records the active DC
 instances initialized by ZFS after the lazy QAT DC init path runs. Immediately
 after boot this can remain `0` until QAT compression is first exercised; use it

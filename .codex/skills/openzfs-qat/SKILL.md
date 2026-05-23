@@ -35,7 +35,8 @@ Use this skill for QAT-specific work in this fork. It is meant for design review
 18. For the QAT/ZFS DKMS initramfs recovery procedure, use `references/qat-dkms-initramfs-recovery-20260523.md`.
 19. For the QAT parameter-checking experiment, use `references/qat-param-check-experiment-20260523.md`.
 20. For the QAT `[KERNEL_QAT]` DC polling-mode experiment, use `references/qat-kernelqat-polling-20260523.md`.
-21. Confirm which layer the task touches before editing:
+21. For the expanded QAT completion-mode matrix and lock-step config helper, use `references/qat-completion-mode-lockstep-20260523.md`.
+22. Confirm which layer the task touches before editing:
    - Build integration and static configuration
    - Runtime tunables and initialization
    - Compression, checksum, or encryption call sites
