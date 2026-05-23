@@ -1,0 +1,28 @@
+autoreconf: export WARNINGS=
+autoreconf: Entering directory '.'
+autoreconf: configure.ac: not using Gettext
+autoreconf: running: aclocal --force -I config
+autoreconf: configure.ac: tracing
+configure.ac: warning: AM_GNU_GETTEXT is used, but not AM_GNU_GETTEXT_VERSION or AM_GNU_GETTEXT_REQUIRE_VERSION
+autoreconf: running: libtoolize --copy --force
+libtoolize: putting auxiliary files in AC_CONFIG_AUX_DIR, 'config'.
+libtoolize: copying file 'config/ltmain.sh'
+libtoolize: putting macros in AC_CONFIG_MACRO_DIRS, 'config'.
+libtoolize: copying file 'config/libtool.m4'
+libtoolize: copying file 'config/ltoptions.m4'
+libtoolize: copying file 'config/ltsugar.m4'
+libtoolize: copying file 'config/ltversion.m4'
+libtoolize: copying file 'config/lt~obsolete.m4'
+autoreconf: configure.ac: not using Intltool
+autoreconf: configure.ac: not using Gtkdoc
+autoreconf: running: aclocal --force -I config
+autoreconf: running: /usr/bin/autoconf --force
+autoreconf: running: /usr/bin/autoheader --force
+autoreconf: running: automake --add-missing --copy --force-missing
+configure.ac:50: installing 'config/compile'
+configure.ac:41: installing 'config/config.guess'
+configure.ac:41: installing 'config/config.sub'
+configure.ac:44: installing 'config/install-sh'
+configure.ac:44: installing 'config/missing'
+Makefile.am: installing 'config/depcomp'
+autoreconf: Leaving directory '.'

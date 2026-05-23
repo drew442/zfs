@@ -1,0 +1,2 @@
+dataset,compression,checksum,size,jobs,elapsed_seconds,write_bw_mib_s,compressratio,used,referenced,lrefer,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct
+test-hdd-pool/bench/qat-gzip-1,gzip-1,sha256,20GB,1,107.831,185.17,1.05x,18.3G,18.3G,19.4G,0.14,1.41,1.69,96.76

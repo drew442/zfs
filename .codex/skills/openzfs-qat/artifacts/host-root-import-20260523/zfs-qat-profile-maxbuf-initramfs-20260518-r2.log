@@ -1,0 +1,18 @@
+update-initramfs: Generating /boot/initrd.img-7.0.0-3-pve
+Running hook script 'zz-proxmox-boot'..
+Re-executing '/etc/kernel/postinst.d/zz-proxmox-boot' in new private mount namespace..
+Copying and configuring kernels on /dev/disk/by-uuid/EECF-2083
+	Copying kernel and creating boot-entry for 6.17.13-6-pve
+	Copying kernel and creating boot-entry for 7.0.0-3-pve
+update-initramfs: Generating /boot/initrd.img-6.17.13-6-pve
+Running hook script 'zz-proxmox-boot'..
+Re-executing '/etc/kernel/postinst.d/zz-proxmox-boot' in new private mount namespace..
+Copying and configuring kernels on /dev/disk/by-uuid/EECF-2083
+	Copying kernel and creating boot-entry for 6.17.13-6-pve
+	Copying kernel and creating boot-entry for 7.0.0-3-pve
+update-initramfs: Generating /boot/initrd.img-6.17.2-1-pve
+Running hook script 'zz-proxmox-boot'..
+Re-executing '/etc/kernel/postinst.d/zz-proxmox-boot' in new private mount namespace..
+Copying and configuring kernels on /dev/disk/by-uuid/EECF-2083
+	Copying kernel and creating boot-entry for 6.17.13-6-pve
+	Copying kernel and creating boot-entry for 7.0.0-3-pve

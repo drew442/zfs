@@ -1,0 +1,56 @@
+### current QAT dkms.conf
+PACKAGE_NAME="qat"
+PACKAGE_VERSION="4.28.0-00004"
+AUTOINSTALL="yes"
+
+MAKE[0]="QAT_DKMS_PARAM_CHECK=n ./scripts/dkms-build.sh ${kernel_source_dir} ${kernelver}"
+CLEAN="test ! -f Makefile || make clean"
+
+BUILT_MODULE_NAME[0]="intel_qat"
+### QAT param-check evidence
+### QAT module paths
+intel_qat /lib/modules/7.0.0-3-pve/updates/dkms/intel_qat.ko
+qat_api /lib/modules/7.0.0-3-pve/updates/dkms/qat_api.ko
+usdm_drv /lib/modules/7.0.0-3-pve/updates/dkms/usdm_drv.ko
+qat_dh895xcc /lib/modules/7.0.0-3-pve/updates/dkms/qat_dh895xcc.ko
+qat_c62x /lib/modules/7.0.0-3-pve/updates/dkms/qat_c62x.ko
+qat_dh895xccvf /lib/modules/7.0.0-3-pve/updates/dkms/qat_dh895xccvf.ko
+qat_c62xvf /lib/modules/7.0.0-3-pve/updates/dkms/qat_c62xvf.ko
+Sign command: /lib/modules/7.0.0-3-pve/build/scripts/sign-file
+Signing key: /var/lib/dkms/mok.key
+Public certificate (MOK): /var/lib/dkms/mok.pub
+
+Running the pre_build script.............. done.
+Building module(s)............ done.
+Signing module /var/lib/dkms/zfs/2.4.99/build/module/zfs.ko
+Signing module /var/lib/dkms/zfs/2.4.99/build/module/spl.ko
+Running the post_build script... done.
+Module zfs/2.4.99 for kernel 7.0.0-3-pve (x86_64):
+Before uninstall, this module version was ACTIVE on this kernel.
+Deleting /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko
+Restoring archived original module /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko
+Deleting /lib/modules/7.0.0-3-pve/updates/dkms/spl.ko
+Restoring archived original module /lib/modules/7.0.0-3-pve/updates/dkms/spl.ko
+Running depmod... done.
+
+Found pre-existing /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko, archiving for uninstallation
+Installing /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko
+Found pre-existing /lib/modules/7.0.0-3-pve/updates/dkms/spl.ko, archiving for uninstallation
+Installing /lib/modules/7.0.0-3-pve/updates/dkms/spl.ko
+Running depmod... done.
+### final module paths
+qat_api /lib/modules/7.0.0-3-pve/updates/dkms/qat_api.ko
+zfs /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko
+spl /lib/modules/7.0.0-3-pve/updates/dkms/spl.ko
+### final srcversions
+qat_api 6003E3A15DD5AE52379CE9F
+zfs 38C562CCF5F59E6889FDE50
+### dkms status
+qat/4.28.0-00004, 7.0.0-3-pve, x86_64: installed (Original modules exist)
+zfs/2.4.99, 7.0.0-3-pve, x86_64: installed (Original modules exist)
+update-initramfs: Generating /boot/initrd.img-7.0.0-3-pve
+Running hook script 'zz-proxmox-boot'..
+Re-executing '/etc/kernel/postinst.d/zz-proxmox-boot' in new private mount namespace..
+Copying and configuring kernels on /dev/disk/by-uuid/EECF-2083
+	Copying kernel and creating boot-entry for 6.17.13-6-pve
+	Copying kernel and creating boot-entry for 7.0.0-3-pve

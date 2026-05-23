@@ -1,0 +1,30 @@
+Module qat/4.28.0-00004 for kernel 7.0.0-3-pve (x86_64):
+Before uninstall, this module version was ACTIVE on this kernel.
+Deleting /lib/modules/7.0.0-3-pve/updates/dkms/intel_qat.ko
+Restoring archived original module /lib/modules/7.0.0-3-pve/kernel/drivers/crypto/intel/qat/qat_common/intel_qat.ko
+Deleting /lib/modules/7.0.0-3-pve/updates/dkms/qat_api.ko
+Restoring archived original module /lib/modules/7.0.0-3-pve/kernel/drivers/qat_api.ko
+Deleting /lib/modules/7.0.0-3-pve/updates/dkms/usdm_drv.ko
+Restoring archived original module /lib/modules/7.0.0-3-pve/kernel/drivers/usdm_drv.ko
+Deleting /lib/modules/7.0.0-3-pve/updates/dkms/qat_dh895xcc.ko
+Restoring archived original module /lib/modules/7.0.0-3-pve/kernel/drivers/crypto/intel/qat/qat_dh895xcc/qat_dh895xcc.ko
+Deleting /lib/modules/7.0.0-3-pve/updates/dkms/qat_c62x.ko
+Restoring archived original module /lib/modules/7.0.0-3-pve/kernel/drivers/crypto/intel/qat/qat_c62x/qat_c62x.ko
+Deleting /lib/modules/7.0.0-3-pve/updates/dkms/qat_dh895xccvf.ko
+Restoring archived original module /lib/modules/7.0.0-3-pve/kernel/drivers/crypto/intel/qat/qat_dh895xccvf/qat_dh895xccvf.ko
+Deleting /lib/modules/7.0.0-3-pve/updates/dkms/qat_c62xvf.ko
+Restoring archived original module /lib/modules/7.0.0-3-pve/kernel/drivers/crypto/intel/qat/qat_c62xvf/qat_c62xvf.ko
+Running depmod..... done.
+
+Deleting module qat/4.28.0-00004 completely from the DKMS tree.
+Creating symlink /var/lib/dkms/qat/4.28.0-00004/source -> /usr/src/qat-4.28.0-00004
+Sign command: /lib/modules/7.0.0-3-pve/build/scripts/sign-file
+Signing key: /var/lib/dkms/mok.key
+Public certificate (MOK): /var/lib/dkms/mok.pub
+
+Building module(s)....(bad exit status: 1)
+Failed command:
+QAT_DKMS_PARAM_CHECK=n ./scripts/dkms-build.sh /lib/modules/7.0.0-3-pve/build 7.0.0-3-pve
+
+Error! Bad return status for module build on kernel: 7.0.0-3-pve (x86_64)
+Consult /var/lib/dkms/qat/4.28.0-00004/build/make.log for more information.

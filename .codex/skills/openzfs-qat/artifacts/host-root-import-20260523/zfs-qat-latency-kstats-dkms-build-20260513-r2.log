@@ -1,0 +1,9 @@
+Sign command: /lib/modules/7.0.0-3-pve/build/scripts/sign-file
+Signing key: /var/lib/dkms/mok.key
+Public certificate (MOK): /var/lib/dkms/mok.pub
+
+Running the pre_build script.............. done.
+Building module(s)........... done.
+Signing module /var/lib/dkms/zfs/2.4.99/build/module/zfs.ko
+Signing module /var/lib/dkms/zfs/2.4.99/build/module/spl.ko
+Running the post_build script... done.

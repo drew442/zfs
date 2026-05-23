@@ -1,0 +1,3 @@
+row_type,mode,recordsize,iter,source_label,source_bytes,elapsed_ms,latency_avg_ms,latency_p50_ms,latency_p95_ms,latency_p99_ms,latency_max_ms,write_bw_mib_s,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct,compressratio,used,logicalused,comp_requests_delta,comp_in_delta,comp_out_delta,decomp_requests_delta,decomp_in_delta,decomp_out_delta,dc_fails_delta,sha_ok,zfs_qat_cpa_dc_level,zfs_qat_dc_max_buf_size,zfs_qat_dc_max_instances,zfs_srcversion
+raw,qat,256K,1,Image.tif_,191346108,708.142,,,,,,257.69,0.02,1.12,0.92,97.94,21.89x,9.42M,183M,730,191365120,6896804,635,7495680,166461440,0,yes,4,1048576,48,C4619ACEB8C6341E0CD1155
+summary,qat,256K,,Image.tif_,191346108,,708.142,708.142,708.142,708.142,708.142,,,,,,,,,,,,,,,,,4,1048576,48,C4619ACEB8C6341E0CD1155

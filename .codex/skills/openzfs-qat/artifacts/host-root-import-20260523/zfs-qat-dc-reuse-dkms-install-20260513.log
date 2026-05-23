@@ -1,0 +1,13 @@
+Module zfs/2.4.99 for kernel 7.0.0-3-pve (x86_64):
+Before uninstall, this module version was ACTIVE on this kernel.
+Deleting /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko
+Restoring archived original module /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko
+Deleting /lib/modules/7.0.0-3-pve/updates/dkms/spl.ko
+Restoring archived original module /lib/modules/7.0.0-3-pve/updates/dkms/spl.ko
+Running depmod..... done.
+
+Found pre-existing /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko, archiving for uninstallation
+Installing /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko
+Found pre-existing /lib/modules/7.0.0-3-pve/updates/dkms/spl.ko, archiving for uninstallation
+Installing /lib/modules/7.0.0-3-pve/updates/dkms/spl.ko
+Running depmod... done.

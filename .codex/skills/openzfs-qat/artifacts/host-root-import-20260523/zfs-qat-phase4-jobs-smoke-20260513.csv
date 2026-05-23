@@ -1,0 +1,5 @@
+row_type,mode,recordsize,iter,jobs,source_label,source_bytes,elapsed_ms,latency_avg_ms,latency_p50_ms,latency_p95_ms,latency_p99_ms,latency_max_ms,write_bw_mib_s,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct,compressratio,used,logicalused,comp_requests_delta,comp_in_delta,comp_out_delta,decomp_requests_delta,decomp_in_delta,decomp_out_delta,dc_fails_delta,dc_buffer_reuse_hits_delta,dc_buffer_reuse_misses_delta,sha_ok,zfs_qat_cpa_dc_level,zfs_qat_dc_max_buf_size,zfs_qat_dc_max_instances,zfs_srcversion
+raw,qat,256K,1,2,Image.tif_,382692216,1050.113,,,,,,347.55,0.03,1.51,1.40,97.06,21.94x,18.7M,365M,1460,382730240,13793212,1377,16449536,360972288,0,1642,1195,yes,4,1048576,48,3A6C45EADEB1E3DF1D6F3C9
+summary,qat,256K,,2,Image.tif_,382692216,,1050.113,1050.113,1050.113,1050.113,1050.113,,,,,,,,,,,,,,,,,,,4,1048576,48,3A6C45EADEB1E3DF1D6F3C9
+raw,sw,256K,1,2,Image.tif_,382692216,811.631,,,,,,449.67,0.02,8.06,0.82,91.10,21.57x,19.0M,365M,0,0,0,0,0,0,0,0,0,yes,4,1048576,48,3A6C45EADEB1E3DF1D6F3C9
+summary,sw,256K,,2,Image.tif_,382692216,,811.631,811.631,811.631,811.631,811.631,,,,,,,,,,,,,,,,,,,4,1048576,48,3A6C45EADEB1E3DF1D6F3C9

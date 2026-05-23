@@ -1,0 +1,6 @@
+dataset,compression,checksum,size,jobs,elapsed_seconds,write_bw_mib_s,compressratio,used,referenced,lrefer,cpu_user_pct,cpu_system_pct,cpu_iowait_pct,cpu_idle_pct
+test-hdd-pool/bench/cpu-lz4,lz4,fletcher4,20GB,1,73.454,271.83,1.05x,18.4G,18.4G,19.4G,0.21,2.78,1.84,95.16
+test-hdd-pool/bench/qat-gzip-1,gzip-1,sha256,20GB,1,83.478,239.18,1.06x,18.3G,18.3G,19.4G,0.21,20.73,1.52,77.54
+test-hdd-pool/bench/qat-gzip-2,gzip-2,sha256,20GB,1,94.351,211.62,1.06x,18.3G,18.3G,19.4G,0.18,18.58,1.47,79.77
+test-hdd-pool/bench/qat-gzip-3,gzip-3,sha256,20GB,1,79.328,251.70,1.06x,18.3G,18.3G,19.4G,0.23,22.17,1.33,76.26
+test-hdd-pool/bench/qat-gzip-4,gzip-4,sha256,20GB,1,80.356,248.48,1.06x,18.3G,18.3G,19.4G,0.22,23.32,1.63,74.83

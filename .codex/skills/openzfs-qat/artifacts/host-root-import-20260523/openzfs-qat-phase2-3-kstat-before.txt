@@ -1,0 +1,19 @@
+36 1 0x01 17 4624 6299534362 85511031533
+name                            type data
+comp_requests                   4    0
+comp_total_in_bytes             4    0
+comp_total_out_bytes            4    0
+decomp_requests                 4    0
+decomp_total_in_bytes           4    0
+decomp_total_out_bytes          4    0
+dc_fails                        4    0
+encrypt_requests                4    0
+encrypt_total_in_bytes          4    0
+encrypt_total_out_bytes         4    0
+decrypt_requests                4    0
+decrypt_total_in_bytes          4    0
+decrypt_total_out_bytes         4    0
+crypt_fails                     4    0
+cksum_requests                  4    0
+cksum_total_in_bytes            4    0
+cksum_fails                     4    0

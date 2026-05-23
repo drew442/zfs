@@ -1,0 +1,18 @@
+DKMS_CONF
+PACKAGE_NAME="qat"
+PACKAGE_VERSION="4.28.0-00004"
+AUTOINSTALL="yes"
+
+MAKE[0]="QAT_DKMS_PARAM_CHECK=n ./scripts/dkms-build.sh ${kernel_source_dir} ${kernelver}"
+CLEAN="test ! -f Makefile || make clean"
+
+BUILT_MODULE_NAME[0]="intel_qat"
+MAKEFILE
+MODULES
+intel_qat /lib/modules/7.0.0-3-pve/kernel/drivers/crypto/intel/qat/qat_common/intel_qat.ko
+qat_api /lib/modules/7.0.0-3-pve/kernel/drivers/qat_api.ko
+usdm_drv /lib/modules/7.0.0-3-pve/kernel/drivers/usdm_drv.ko
+qat_dh895xcc /lib/modules/7.0.0-3-pve/kernel/drivers/crypto/intel/qat/qat_dh895xcc/qat_dh895xcc.ko
+qat_c62x /lib/modules/7.0.0-3-pve/kernel/drivers/crypto/intel/qat/qat_c62x/qat_c62x.ko
+qat_dh895xccvf /lib/modules/7.0.0-3-pve/kernel/drivers/crypto/intel/qat/qat_dh895xccvf/qat_dh895xccvf.ko
+qat_c62xvf /lib/modules/7.0.0-3-pve/kernel/drivers/crypto/intel/qat/qat_c62xvf/qat_c62xvf.ko

@@ -1,0 +1,888 @@
+Making distclean in include
+make[1]: Entering directory '/root/openzfs-qat-src-stage/include'
+rm -rf .libs _libs
+rm -f *.lo
+rm -f  
+test . = "." || rm -f  
+rm -f TAGS ID GTAGS GRTAGS GSYMS GPATH tags
+rm -f Makefile
+make[1]: Leaving directory '/root/openzfs-qat-src-stage/include'
+Making distclean in tests/zfs-tests/tests
+make[1]: Entering directory '/root/openzfs-qat-src-stage/tests/zfs-tests/tests'
+rm -f  functional/pam/utilities.kshlib functional/pyzfs/pyzfs_unittest.ksh
+rm -rf .libs _libs
+rm -f *.lo
+rm -f  
+test . = "." || rm -f  
+rm -f Makefile
+make[1]: Leaving directory '/root/openzfs-qat-src-stage/tests/zfs-tests/tests'
+Making distclean in module
+make[1]: Entering directory '/root/openzfs-qat-src-stage/module'
+make -C /lib/modules/7.0.0-3-pve/build M="$PWD"  clean
+make[2]: Entering directory '/usr/src/linux-headers-7.0.0-3-pve'
+make[3]: Entering directory '/root/openzfs-qat-src-stage/module'
+make[3]: Leaving directory '/root/openzfs-qat-src-stage/module'
+make[2]: Leaving directory '/usr/src/linux-headers-7.0.0-3-pve'
+rm -f Module.symvers Module.markers
+find . -name '*.ur-safe' -type f -delete
+make[1]: Leaving directory '/root/openzfs-qat-src-stage/module'
+make[1]: Entering directory '/root/openzfs-qat-src-stage'
+rm -f  
+test -z "" || rm -f  
+rm -f           scripts/common.sh    include/zfs_gitrev.h
+rm -f  
+rm -f
+rm -rf .libs _libs
+rm -rf contrib/pam_zfs_key/.libs contrib/pam_zfs_key/_libs
+rm -rf etc/systemd/system-generators/.libs etc/systemd/system-generators/_libs
+rm -rf lib/libefi/.libs lib/libefi/_libs
+rm -rf lib/libnvpair/.libs lib/libnvpair/_libs
+rm -rf lib/libspl/.libs lib/libspl/_libs
+rm -rf lib/libspl/os/freebsd/.libs lib/libspl/os/freebsd/_libs
+rm -rf lib/libspl/os/linux/.libs lib/libspl/os/linux/_libs
+rm -rf lib/libzdb/.libs lib/libzdb/_libs
+rm -rf lib/libzfs/.libs lib/libzfs/_libs
+rm -rf lib/libzfs/os/freebsd/.libs lib/libzfs/os/freebsd/_libs
+rm -rf lib/libzfs/os/linux/.libs lib/libzfs/os/linux/_libs
+rm -rf lib/libzfs_core/.libs lib/libzfs_core/_libs
+rm -rf lib/libzfs_core/os/freebsd/.libs lib/libzfs_core/os/freebsd/_libs
+rm -rf lib/libzfs_core/os/linux/.libs lib/libzfs_core/os/linux/_libs
+rm -rf lib/libzfsbootenv/.libs lib/libzfsbootenv/_libs
+rm -rf lib/libzpool/.libs lib/libzpool/_libs
+rm -rf lib/libzutil/.libs lib/libzutil/_libs
+rm -rf lib/libzutil/os/freebsd/.libs lib/libzutil/os/freebsd/_libs
+rm -rf lib/libzutil/os/linux/.libs lib/libzutil/os/linux/_libs
+rm -rf module/avl/.libs module/avl/_libs
+rm -rf module/icp/.libs module/icp/_libs
+rm -rf module/icp/algs/aes/.libs module/icp/algs/aes/_libs
+rm -rf module/icp/algs/blake3/.libs module/icp/algs/blake3/_libs
+rm -rf module/icp/algs/edonr/.libs module/icp/algs/edonr/_libs
+rm -rf module/icp/algs/modes/.libs module/icp/algs/modes/_libs
+rm -rf module/icp/algs/sha2/.libs module/icp/algs/sha2/_libs
+rm -rf module/icp/algs/skein/.libs module/icp/algs/skein/_libs
+rm -rf module/icp/api/.libs module/icp/api/_libs
+rm -rf module/icp/asm-aarch64/blake3/.libs module/icp/asm-aarch64/blake3/_libs
+rm -rf module/icp/asm-aarch64/sha2/.libs module/icp/asm-aarch64/sha2/_libs
+rm -rf module/icp/asm-arm/sha2/.libs module/icp/asm-arm/sha2/_libs
+rm -rf module/icp/asm-ppc64/blake3/.libs module/icp/asm-ppc64/blake3/_libs
+rm -rf module/icp/asm-ppc64/sha2/.libs module/icp/asm-ppc64/sha2/_libs
+rm -rf module/icp/asm-x86_64/aes/.libs module/icp/asm-x86_64/aes/_libs
+rm -rf module/icp/asm-x86_64/blake3/.libs module/icp/asm-x86_64/blake3/_libs
+rm -rf module/icp/asm-x86_64/modes/.libs module/icp/asm-x86_64/modes/_libs
+rm -rf module/icp/asm-x86_64/sha2/.libs module/icp/asm-x86_64/sha2/_libs
+rm -rf module/icp/core/.libs module/icp/core/_libs
+rm -rf module/icp/io/.libs module/icp/io/_libs
+rm -rf module/icp/spi/.libs module/icp/spi/_libs
+rm -rf module/lua/.libs module/lua/_libs
+rm -rf module/nvpair/.libs module/nvpair/_libs
+rm -rf module/os/freebsd/zfs/.libs module/os/freebsd/zfs/_libs
+rm -rf module/os/linux/zfs/.libs module/os/linux/zfs/_libs
+rm -rf module/zcommon/.libs module/zcommon/_libs
+rm -rf module/zfs/.libs module/zfs/_libs
+rm -rf module/zstd/.libs module/zstd/_libs
+rm -rf module/zstd/lib/common/.libs module/zstd/lib/common/_libs
+rm -rf module/zstd/lib/compress/.libs module/zstd/lib/compress/_libs
+rm -rf module/zstd/lib/decompress/.libs module/zstd/lib/decompress/_libs
+rm -rf tests/zfs-tests/cmd/.libs tests/zfs-tests/cmd/_libs
+rm -rf tests/zfs-tests/tests/functional/cp_files/.libs tests/zfs-tests/tests/functional/cp_files/_libs
+rm -rf tests/zfs-tests/tests/functional/hkdf/.libs tests/zfs-tests/tests/functional/hkdf/_libs
+rm -rf tests/zfs-tests/tests/functional/libzfs/.libs tests/zfs-tests/tests/functional/libzfs/_libs
+rm -rf tests/zfs-tests/tests/functional/tmpfile/.libs tests/zfs-tests/tests/functional/tmpfile/_libs
+rm -rf tests/zfs-tests/tests/functional/vdev_disk/.libs tests/zfs-tests/tests/functional/vdev_disk/_libs
+rm -rf udev/.libs udev/_libs
+rm -f -r tests/zfs-tests/bin/
+rm -f  
+test -z "" || rm -f  
+rm -f  
+rm -f
+rm -f  
+rm -f
+rm -f  
+test -z "" || rm -f  
+rm -f  
+test -z "" || rm -f  
+rm -f  
+test -z "" || rm -f  
+rm -f  
+test -z "" || rm -f  
+rm -f  
+test -z "" || rm -f  
+rm -f  
+test -z "" || rm -f  
+rm -f  
+test -z "" || rm -f  
+rm -f  
+test -z "" || rm -f  
+rm -f  
+test -z "" || rm -f  
+rm -f  
+test -z "" || rm -f  
+rm -f *.o
+rm -f cmd/*.o
+rm -f cmd/raidz_test/*.o
+rm -f cmd/zdb/*.o
+rm -f cmd/zed/*.o
+rm -f cmd/zed/agents/*.o
+rm -f cmd/zfs/*.o
+rm -f cmd/zinject/*.o
+rm -f cmd/zpool/*.o
+rm -f cmd/zpool/os/freebsd/*.o
+rm -f cmd/zpool/os/linux/*.o
+rm -f cmd/zpool_influxdb/*.o
+rm -f cmd/zstream/*.o
+rm -f contrib/pam_zfs_key/*.o
+rm -f contrib/pam_zfs_key/*.lo
+rm -f etc/systemd/system-generators/*.o
+rm -f lib/libefi/*.o
+rm -f lib/libefi/*.lo
+rm -f lib/libnvpair/*.o
+rm -f lib/libnvpair/*.lo
+rm -f lib/libspl/*.o
+rm -f lib/libspl/*.lo
+rm -f lib/libspl/os/freebsd/*.o
+rm -f lib/libspl/os/freebsd/*.lo
+rm -f lib/libspl/os/linux/*.o
+rm -f lib/libspl/os/linux/*.lo
+rm -f lib/libzdb/*.o
+rm -f lib/libzdb/*.lo
+rm -f lib/libzfs/*.o
+rm -f lib/libzfs/*.lo
+rm -f lib/libzfs/os/freebsd/*.o
+rm -f lib/libzfs/os/freebsd/*.lo
+rm -f lib/libzfs/os/linux/*.o
+rm -f lib/libzfs/os/linux/*.lo
+rm -f lib/libzfs_core/*.o
+rm -f lib/libzfs_core/*.lo
+rm -f lib/libzfs_core/os/freebsd/*.o
+rm -f lib/libzfs_core/os/freebsd/*.lo
+rm -f lib/libzfs_core/os/linux/*.o
+rm -f lib/libzfs_core/os/linux/*.lo
+rm -f lib/libzfsbootenv/*.o
+rm -f lib/libzfsbootenv/*.lo
+rm -f lib/libzpool/*.o
+rm -f lib/libzpool/*.lo
+rm -f lib/libzutil/*.o
+rm -f lib/libzutil/*.lo
+rm -f lib/libzutil/os/freebsd/*.o
+rm -f lib/libzutil/os/freebsd/*.lo
+rm -f lib/libzutil/os/linux/*.o
+rm -f lib/libzutil/os/linux/*.lo
+rm -f module/avl/*.o
+rm -f module/avl/*.lo
+rm -f module/icp/*.o
+rm -f module/icp/*.lo
+rm -f module/icp/algs/aes/*.o
+rm -f module/icp/algs/aes/*.lo
+rm -f module/icp/algs/blake3/*.o
+rm -f module/icp/algs/blake3/*.lo
+rm -f module/icp/algs/edonr/*.o
+rm -f module/icp/algs/edonr/*.lo
+rm -f module/icp/algs/modes/*.o
+rm -f module/icp/algs/modes/*.lo
+rm -f module/icp/algs/sha2/*.o
+rm -f module/icp/algs/sha2/*.lo
+rm -f module/icp/algs/skein/*.o
+rm -f module/icp/algs/skein/*.lo
+rm -f module/icp/api/*.o
+rm -f module/icp/api/*.lo
+rm -f module/icp/asm-aarch64/blake3/*.o
+rm -f module/icp/asm-aarch64/blake3/*.lo
+rm -f module/icp/asm-aarch64/sha2/*.o
+rm -f module/icp/asm-aarch64/sha2/*.lo
+rm -f module/icp/asm-arm/sha2/*.o
+rm -f module/icp/asm-arm/sha2/*.lo
+rm -f module/icp/asm-ppc64/blake3/*.o
+rm -f module/icp/asm-ppc64/blake3/*.lo
+rm -f module/icp/asm-ppc64/sha2/*.o
+rm -f module/icp/asm-ppc64/sha2/*.lo
+rm -f module/icp/asm-x86_64/aes/*.o
+rm -f module/icp/asm-x86_64/aes/*.lo
+rm -f module/icp/asm-x86_64/blake3/*.o
+rm -f module/icp/asm-x86_64/blake3/*.lo
+rm -f module/icp/asm-x86_64/modes/*.o
+rm -f module/icp/asm-x86_64/modes/*.lo
+rm -f module/icp/asm-x86_64/sha2/*.o
+rm -f module/icp/asm-x86_64/sha2/*.lo
+rm -f module/icp/core/*.o
+rm -f module/icp/core/*.lo
+rm -f module/icp/io/*.o
+rm -f module/icp/io/*.lo
+rm -f module/icp/spi/*.o
+rm -f module/icp/spi/*.lo
+rm -f module/lua/*.o
+rm -f module/lua/*.lo
+rm -f module/nvpair/*.o
+rm -f module/nvpair/*.lo
+rm -f module/os/freebsd/zfs/*.o
+rm -f module/os/freebsd/zfs/*.lo
+rm -f module/os/linux/zfs/*.o
+rm -f module/os/linux/zfs/*.lo
+rm -f module/zcommon/*.o
+rm -f module/zcommon/*.lo
+rm -f module/zfs/*.o
+rm -f module/zfs/*.lo
+rm -f module/zstd/*.o
+rm -f module/zstd/*.lo
+rm -f module/zstd/lib/common/*.o
+rm -f module/zstd/lib/common/*.lo
+rm -f module/zstd/lib/compress/*.o
+rm -f module/zstd/lib/compress/*.lo
+rm -f module/zstd/lib/decompress/*.o
+rm -f module/zstd/lib/decompress/*.lo
+rm -f tests/zfs-tests/cmd/*.o
+rm -f tests/zfs-tests/cmd/checksum/*.o
+rm -f tests/zfs-tests/cmd/file/*.o
+rm -f tests/zfs-tests/cmd/linux_dos_attributes/*.o
+rm -f tests/zfs-tests/tests/functional/cp_files/*.o
+rm -f tests/zfs-tests/tests/functional/hkdf/*.o
+rm -f tests/zfs-tests/tests/functional/libzfs/*.o
+rm -f tests/zfs-tests/tests/functional/tmpfile/*.o
+rm -f tests/zfs-tests/tests/functional/vdev_disk/*.o
+rm -f udev/*.o
+rm -f *.lo
+rm -f *.tab.c
+rm -f  contrib/debian/rules contrib/debian/changelog lib/libzfs/libzfs.pc lib/libzfs_core/libzfs_core.pc lib/libzfsbootenv/libzfsbootenv.pc module/Kbuild module/Makefile rpm/generic/zfs-dkms.spec rpm/generic/zfs-kmod.spec rpm/generic/zfs.spec rpm/redhat/zfs-dkms.spec rpm/redhat/zfs-kmod.spec rpm/redhat/zfs.spec zfs.release scripts/objtool-wrapper
+test . = "." || rm -f  
+rm -f  cmd/.deps/.dirstamp
+rm -f  cmd/.dirstamp
+rm -f  cmd/raidz_test/.deps/.dirstamp
+rm -f  cmd/raidz_test/.dirstamp
+rm -f  cmd/zdb/.deps/.dirstamp
+rm -f  cmd/zdb/.dirstamp
+rm -f  cmd/zed/.deps/.dirstamp
+rm -f  cmd/zed/.dirstamp
+rm -f  cmd/zed/agents/.deps/.dirstamp
+rm -f  cmd/zed/agents/.dirstamp
+rm -f  cmd/zfs/.deps/.dirstamp
+rm -f  cmd/zfs/.dirstamp
+rm -f  cmd/zinject/.deps/.dirstamp
+rm -f  cmd/zinject/.dirstamp
+rm -f  cmd/zpool/.deps/.dirstamp
+rm -f  cmd/zpool/.dirstamp
+rm -f  cmd/zpool/os/freebsd/.deps/.dirstamp
+rm -f  cmd/zpool/os/freebsd/.dirstamp
+rm -f  cmd/zpool/os/linux/.deps/.dirstamp
+rm -f  cmd/zpool/os/linux/.dirstamp
+rm -f  cmd/zpool_influxdb/.deps/.dirstamp
+rm -f  cmd/zpool_influxdb/.dirstamp
+rm -f  cmd/zstream/.deps/.dirstamp
+rm -f  cmd/zstream/.dirstamp
+rm -f  contrib/pam_zfs_key/.deps/.dirstamp
+rm -f  contrib/pam_zfs_key/.dirstamp
+rm -f  etc/systemd/system-generators/.deps/.dirstamp
+rm -f  etc/systemd/system-generators/.dirstamp
+rm -f  lib/libefi/.deps/.dirstamp
+rm -f  lib/libefi/.dirstamp
+rm -f  lib/libnvpair/.deps/.dirstamp
+rm -f  lib/libnvpair/.dirstamp
+rm -f  lib/libspl/.deps/.dirstamp
+rm -f  lib/libspl/.dirstamp
+rm -f  lib/libspl/os/freebsd/.deps/.dirstamp
+rm -f  lib/libspl/os/freebsd/.dirstamp
+rm -f  lib/libspl/os/linux/.deps/.dirstamp
+rm -f  lib/libspl/os/linux/.dirstamp
+rm -f  lib/libzdb/.deps/.dirstamp
+rm -f  lib/libzdb/.dirstamp
+rm -f  lib/libzfs/.deps/.dirstamp
+rm -f  lib/libzfs/.dirstamp
+rm -f  lib/libzfs/os/freebsd/.deps/.dirstamp
+rm -f  lib/libzfs/os/freebsd/.dirstamp
+rm -f  lib/libzfs/os/linux/.deps/.dirstamp
+rm -f  lib/libzfs/os/linux/.dirstamp
+rm -f  lib/libzfs_core/.deps/.dirstamp
+rm -f  lib/libzfs_core/.dirstamp
+rm -f  lib/libzfs_core/os/freebsd/.deps/.dirstamp
+rm -f  lib/libzfs_core/os/freebsd/.dirstamp
+rm -f  lib/libzfs_core/os/linux/.deps/.dirstamp
+rm -f  lib/libzfs_core/os/linux/.dirstamp
+rm -f  lib/libzfsbootenv/.deps/.dirstamp
+rm -f  lib/libzfsbootenv/.dirstamp
+rm -f  lib/libzpool/.deps/.dirstamp
+rm -f  lib/libzpool/.dirstamp
+rm -f  lib/libzutil/.deps/.dirstamp
+rm -f  lib/libzutil/.dirstamp
+rm -f  lib/libzutil/os/freebsd/.deps/.dirstamp
+rm -f  lib/libzutil/os/freebsd/.dirstamp
+rm -f  lib/libzutil/os/linux/.deps/.dirstamp
+rm -f  lib/libzutil/os/linux/.dirstamp
+rm -f  module/avl/.deps/.dirstamp
+rm -f  module/avl/.dirstamp
+rm -f  module/icp/.deps/.dirstamp
+rm -f  module/icp/.dirstamp
+rm -f  module/icp/algs/aes/.deps/.dirstamp
+rm -f  module/icp/algs/aes/.dirstamp
+rm -f  module/icp/algs/blake3/.deps/.dirstamp
+rm -f  module/icp/algs/blake3/.dirstamp
+rm -f  module/icp/algs/edonr/.deps/.dirstamp
+rm -f  module/icp/algs/edonr/.dirstamp
+rm -f  module/icp/algs/modes/.deps/.dirstamp
+rm -f  module/icp/algs/modes/.dirstamp
+rm -f  module/icp/algs/sha2/.deps/.dirstamp
+rm -f  module/icp/algs/sha2/.dirstamp
+rm -f  module/icp/algs/skein/.deps/.dirstamp
+rm -f  module/icp/algs/skein/.dirstamp
+rm -f  module/icp/api/.deps/.dirstamp
+rm -f  module/icp/api/.dirstamp
+rm -f  module/icp/asm-aarch64/blake3/.deps/.dirstamp
+rm -f  module/icp/asm-aarch64/blake3/.dirstamp
+rm -f  module/icp/asm-aarch64/sha2/.deps/.dirstamp
+rm -f  module/icp/asm-aarch64/sha2/.dirstamp
+rm -f  module/icp/asm-arm/sha2/.deps/.dirstamp
+rm -f  module/icp/asm-arm/sha2/.dirstamp
+rm -f  module/icp/asm-ppc64/blake3/.deps/.dirstamp
+rm -f  module/icp/asm-ppc64/blake3/.dirstamp
+rm -f  module/icp/asm-ppc64/sha2/.deps/.dirstamp
+rm -f  module/icp/asm-ppc64/sha2/.dirstamp
+rm -f  module/icp/asm-x86_64/aes/.deps/.dirstamp
+rm -f  module/icp/asm-x86_64/aes/.dirstamp
+rm -f  module/icp/asm-x86_64/blake3/.deps/.dirstamp
+rm -f  module/icp/asm-x86_64/blake3/.dirstamp
+rm -f  module/icp/asm-x86_64/modes/.deps/.dirstamp
+rm -f  module/icp/asm-x86_64/modes/.dirstamp
+rm -f  module/icp/asm-x86_64/sha2/.deps/.dirstamp
+rm -f  module/icp/asm-x86_64/sha2/.dirstamp
+rm -f  module/icp/core/.deps/.dirstamp
+rm -f  module/icp/core/.dirstamp
+rm -f  module/icp/io/.deps/.dirstamp
+rm -f  module/icp/io/.dirstamp
+rm -f  module/icp/spi/.deps/.dirstamp
+rm -f  module/icp/spi/.dirstamp
+rm -f  module/lua/.deps/.dirstamp
+rm -f  module/lua/.dirstamp
+rm -f  module/nvpair/.deps/.dirstamp
+rm -f  module/nvpair/.dirstamp
+rm -f  module/os/freebsd/zfs/.deps/.dirstamp
+rm -f  module/os/freebsd/zfs/.dirstamp
+rm -f  module/os/linux/zfs/.deps/.dirstamp
+rm -f  module/os/linux/zfs/.dirstamp
+rm -f  module/zcommon/.deps/.dirstamp
+rm -f  module/zcommon/.dirstamp
+rm -f  module/zfs/.deps/.dirstamp
+rm -f  module/zfs/.dirstamp
+rm -f  module/zstd/.deps/.dirstamp
+rm -f  module/zstd/.dirstamp
+rm -f  module/zstd/lib/common/.deps/.dirstamp
+rm -f  module/zstd/lib/common/.dirstamp
+rm -f  module/zstd/lib/compress/.deps/.dirstamp
+rm -f  module/zstd/lib/compress/.dirstamp
+rm -f  module/zstd/lib/decompress/.deps/.dirstamp
+rm -f  module/zstd/lib/decompress/.dirstamp
+rm -f  tests/zfs-tests/cmd/.deps/.dirstamp
+rm -f  tests/zfs-tests/cmd/.dirstamp
+rm -f  tests/zfs-tests/cmd/checksum/.deps/.dirstamp
+rm -f  tests/zfs-tests/cmd/checksum/.dirstamp
+rm -f  tests/zfs-tests/cmd/file/.deps/.dirstamp
+rm -f  tests/zfs-tests/cmd/file/.dirstamp
+rm -f  tests/zfs-tests/cmd/linux_dos_attributes/.deps/.dirstamp
+rm -f  tests/zfs-tests/cmd/linux_dos_attributes/.dirstamp
+rm -f  tests/zfs-tests/tests/functional/cp_files/.deps/.dirstamp
+rm -f  tests/zfs-tests/tests/functional/cp_files/.dirstamp
+rm -f  tests/zfs-tests/tests/functional/hkdf/.deps/.dirstamp
+rm -f  tests/zfs-tests/tests/functional/hkdf/.dirstamp
+rm -f  tests/zfs-tests/tests/functional/libzfs/.deps/.dirstamp
+rm -f  tests/zfs-tests/tests/functional/libzfs/.dirstamp
+rm -f  tests/zfs-tests/tests/functional/tmpfile/.deps/.dirstamp
+rm -f  tests/zfs-tests/tests/functional/tmpfile/.dirstamp
+rm -f  tests/zfs-tests/tests/functional/vdev_disk/.deps/.dirstamp
+rm -f  tests/zfs-tests/tests/functional/vdev_disk/.dirstamp
+rm -f  udev/.deps/.dirstamp
+rm -f  udev/.dirstamp
+rm -f zfs_config.h stamp-h1
+rm -f libtool config.lt
+rm -f -R autom4te*.cache build
+find . \( -name SCCS -o -name BitKeeper -o -name .svn -o -name CVS \
+	-o -name .pc -o -name .hg -o -name .git \) -prune -o \
+	\( -name '*.orig' -o -name '*.rej' -o -name '*~' \
+	-o -name '*.bak' -o -name '#*#' -o -name '.*.orig' \
+	-o -name '.*.rej' -o -size 0 -o -name '*%' -o -name '.*.cmd' \
+	-o -name 'core' -o -name 'Makefile' -o -name 'Module.symvers' \
+	-o -name '*.order' -o -name '*.markers' -o -name '*.gcda' \
+	-o -name '*.gcno' \) \
+	-type f -delete
+find: The -delete action automatically turns on -depth, but -prune does nothing when -depth is in effect.  If you want to carry on anyway, just explicitly use the -depth option.
+make[1]: [Makefile:14971: distclean-local] Error 1 (ignored)
+rm -f TAGS ID GTAGS GRTAGS GSYMS GPATH tags
+rm -f cscope.out cscope.in.out cscope.po.out cscope.files
+make[1]: Leaving directory '/root/openzfs-qat-src-stage'
+rm -f config.status config.cache config.log configure.lineno config.status.lineno
+rm -f cmd/.deps/mount_zfs.Po
+rm -f cmd/.deps/zfs_ids_to_path.Po
+rm -f cmd/.deps/zgenhostid.Po
+rm -f cmd/.deps/zhack-zhack.Po
+rm -f cmd/.deps/ztest-ztest.Po
+rm -f cmd/raidz_test/.deps/raidz_test-raidz_bench.Po
+rm -f cmd/raidz_test/.deps/raidz_test-raidz_test.Po
+rm -f cmd/zdb/.deps/zdb-zdb.Po
+rm -f cmd/zdb/.deps/zdb-zdb_il.Po
+rm -f cmd/zed/.deps/zed-zed.Po
+rm -f cmd/zed/.deps/zed-zed_conf.Po
+rm -f cmd/zed/.deps/zed-zed_disk_event.Po
+rm -f cmd/zed/.deps/zed-zed_event.Po
+rm -f cmd/zed/.deps/zed-zed_exec.Po
+rm -f cmd/zed/.deps/zed-zed_file.Po
+rm -f cmd/zed/.deps/zed-zed_log.Po
+rm -f cmd/zed/.deps/zed-zed_strings.Po
+rm -f cmd/zed/agents/.deps/zed-fmd_api.Po
+rm -f cmd/zed/agents/.deps/zed-fmd_serd.Po
+rm -f cmd/zed/agents/.deps/zed-zfs_agents.Po
+rm -f cmd/zed/agents/.deps/zed-zfs_diagnosis.Po
+rm -f cmd/zed/agents/.deps/zed-zfs_mod.Po
+rm -f cmd/zed/agents/.deps/zed-zfs_retire.Po
+rm -f cmd/zfs/.deps/zfs_iter.Po
+rm -f cmd/zfs/.deps/zfs_main.Po
+rm -f cmd/zfs/.deps/zfs_project.Po
+rm -f cmd/zinject/.deps/translate.Po
+rm -f cmd/zinject/.deps/zinject.Po
+rm -f cmd/zpool/.deps/zpool-zpool_iter.Po
+rm -f cmd/zpool/.deps/zpool-zpool_main.Po
+rm -f cmd/zpool/.deps/zpool-zpool_util.Po
+rm -f cmd/zpool/.deps/zpool-zpool_vdev.Po
+rm -f cmd/zpool/os/freebsd/.deps/zpool-zpool_vdev_os.Po
+rm -f cmd/zpool/os/linux/.deps/zpool-zpool_vdev_os.Po
+rm -f cmd/zpool_influxdb/.deps/zpool_influxdb.Po
+rm -f cmd/zstream/.deps/zstream-zstream.Po
+rm -f cmd/zstream/.deps/zstream-zstream_decompress.Po
+rm -f cmd/zstream/.deps/zstream-zstream_drop_record.Po
+rm -f cmd/zstream/.deps/zstream-zstream_dump.Po
+rm -f cmd/zstream/.deps/zstream-zstream_recompress.Po
+rm -f cmd/zstream/.deps/zstream-zstream_redup.Po
+rm -f cmd/zstream/.deps/zstream-zstream_token.Po
+rm -f cmd/zstream/.deps/zstream-zstream_util.Po
+rm -f contrib/pam_zfs_key/.deps/pam_zfs_key_la-pam_zfs_key.Plo
+rm -f etc/systemd/system-generators/.deps/zfs-mount-generator.Po
+rm -f lib/libefi/.deps/libefi_la-rdwr_efi.Plo
+rm -f lib/libnvpair/.deps/libnvpair_la-libnvpair.Plo
+rm -f lib/libnvpair/.deps/libnvpair_la-libnvpair_json.Plo
+rm -f lib/libnvpair/.deps/libnvpair_la-nvpair_alloc_system.Plo
+rm -f lib/libspl/.deps/libspl_assert_la-assert.Plo
+rm -f lib/libspl/.deps/libspl_assert_la-backtrace.Plo
+rm -f lib/libspl/.deps/libspl_la-atomic.Plo
+rm -f lib/libspl/.deps/libspl_la-condvar.Plo
+rm -f lib/libspl/.deps/libspl_la-cred.Plo
+rm -f lib/libspl/.deps/libspl_la-getexecname.Plo
+rm -f lib/libspl/.deps/libspl_la-kmem.Plo
+rm -f lib/libspl/.deps/libspl_la-kstat.Plo
+rm -f lib/libspl/.deps/libspl_la-libspl.Plo
+rm -f lib/libspl/.deps/libspl_la-list.Plo
+rm -f lib/libspl/.deps/libspl_la-mkdirp.Plo
+rm -f lib/libspl/.deps/libspl_la-mutex.Plo
+rm -f lib/libspl/.deps/libspl_la-page.Plo
+rm -f lib/libspl/.deps/libspl_la-procfs_list.Plo
+rm -f lib/libspl/.deps/libspl_la-random.Plo
+rm -f lib/libspl/.deps/libspl_la-rwlock.Plo
+rm -f lib/libspl/.deps/libspl_la-sid.Plo
+rm -f lib/libspl/.deps/libspl_la-strlcat.Plo
+rm -f lib/libspl/.deps/libspl_la-strlcpy.Plo
+rm -f lib/libspl/.deps/libspl_la-taskq.Plo
+rm -f lib/libspl/.deps/libspl_la-thread.Plo
+rm -f lib/libspl/.deps/libspl_la-timestamp.Plo
+rm -f lib/libspl/.deps/libspl_la-tunables.Plo
+rm -f lib/libspl/os/freebsd/.deps/libspl_la-getexecname.Plo
+rm -f lib/libspl/os/freebsd/.deps/libspl_la-getextmntent.Plo
+rm -f lib/libspl/os/freebsd/.deps/libspl_la-gethostid.Plo
+rm -f lib/libspl/os/freebsd/.deps/libspl_la-mnttab.Plo
+rm -f lib/libspl/os/freebsd/.deps/libspl_la-zone.Plo
+rm -f lib/libspl/os/linux/.deps/libspl_la-getexecname.Plo
+rm -f lib/libspl/os/linux/.deps/libspl_la-gethostid.Plo
+rm -f lib/libspl/os/linux/.deps/libspl_la-mnttab.Plo
+rm -f lib/libspl/os/linux/.deps/libspl_la-zone.Plo
+rm -f lib/libzdb/.deps/libzdb_la-libzdb.Plo
+rm -f lib/libzfs/.deps/libzfs_la-libzfs_changelist.Plo
+rm -f lib/libzfs/.deps/libzfs_la-libzfs_config.Plo
+rm -f lib/libzfs/.deps/libzfs_la-libzfs_crypto.Plo
+rm -f lib/libzfs/.deps/libzfs_la-libzfs_dataset.Plo
+rm -f lib/libzfs/.deps/libzfs_la-libzfs_diff.Plo
+rm -f lib/libzfs/.deps/libzfs_la-libzfs_import.Plo
+rm -f lib/libzfs/.deps/libzfs_la-libzfs_iter.Plo
+rm -f lib/libzfs/.deps/libzfs_la-libzfs_mnttab.Plo
+rm -f lib/libzfs/.deps/libzfs_la-libzfs_mount.Plo
+rm -f lib/libzfs/.deps/libzfs_la-libzfs_pool.Plo
+rm -f lib/libzfs/.deps/libzfs_la-libzfs_sendrecv.Plo
+rm -f lib/libzfs/.deps/libzfs_la-libzfs_share.Plo
+rm -f lib/libzfs/.deps/libzfs_la-libzfs_share_nfs.Plo
+rm -f lib/libzfs/.deps/libzfs_la-libzfs_status.Plo
+rm -f lib/libzfs/.deps/libzfs_la-libzfs_util.Plo
+rm -f lib/libzfs/os/freebsd/.deps/libzfs_la-libzfs_compat.Plo
+rm -f lib/libzfs/os/freebsd/.deps/libzfs_la-libzfs_share_nfs.Plo
+rm -f lib/libzfs/os/freebsd/.deps/libzfs_la-libzfs_share_smb.Plo
+rm -f lib/libzfs/os/freebsd/.deps/libzfs_la-libzfs_zmount.Plo
+rm -f lib/libzfs/os/linux/.deps/libzfs_la-libzfs_mount_os.Plo
+rm -f lib/libzfs/os/linux/.deps/libzfs_la-libzfs_pool_os.Plo
+rm -f lib/libzfs/os/linux/.deps/libzfs_la-libzfs_share_nfs.Plo
+rm -f lib/libzfs/os/linux/.deps/libzfs_la-libzfs_share_smb.Plo
+rm -f lib/libzfs/os/linux/.deps/libzfs_la-libzfs_util_os.Plo
+rm -f lib/libzfs_core/.deps/libzfs_core_la-libzfs_core.Plo
+rm -f lib/libzfs_core/os/freebsd/.deps/libzfs_core_la-libzfs_core_ioctl.Plo
+rm -f lib/libzfs_core/os/linux/.deps/libzfs_core_la-libzfs_core_ioctl.Plo
+rm -f lib/libzfsbootenv/.deps/libzfsbootenv_la-lzbe_device.Plo
+rm -f lib/libzfsbootenv/.deps/libzfsbootenv_la-lzbe_pair.Plo
+rm -f lib/libzfsbootenv/.deps/libzfsbootenv_la-lzbe_util.Plo
+rm -f lib/libzpool/.deps/libzpool_la-abd_os.Plo
+rm -f lib/libzpool/.deps/libzpool_la-arc_os.Plo
+rm -f lib/libzpool/.deps/libzpool_la-kernel.Plo
+rm -f lib/libzpool/.deps/libzpool_la-util.Plo
+rm -f lib/libzpool/.deps/libzpool_la-vdev_label_os.Plo
+rm -f lib/libzpool/.deps/libzpool_la-zfs_debug.Plo
+rm -f lib/libzpool/.deps/libzpool_la-zfs_file_os.Plo
+rm -f lib/libzpool/.deps/libzpool_la-zfs_racct.Plo
+rm -f lib/libzutil/.deps/libzutil_la-zutil_device_path.Plo
+rm -f lib/libzutil/.deps/libzutil_la-zutil_import.Plo
+rm -f lib/libzutil/.deps/libzutil_la-zutil_nicenum.Plo
+rm -f lib/libzutil/.deps/libzutil_la-zutil_pool.Plo
+rm -f lib/libzutil/os/freebsd/.deps/libzutil_la-zutil_device_path_os.Plo
+rm -f lib/libzutil/os/freebsd/.deps/libzutil_la-zutil_import_os.Plo
+rm -f lib/libzutil/os/linux/.deps/libzutil_la-zutil_device_path_os.Plo
+rm -f lib/libzutil/os/linux/.deps/libzutil_la-zutil_import_os.Plo
+rm -f lib/libzutil/os/linux/.deps/libzutil_la-zutil_setproctitle.Plo
+rm -f module/avl/.deps/libavl_la-avl.Plo
+rm -f module/icp/.deps/libicp_la-illumos-crypto.Plo
+rm -f module/icp/algs/aes/.deps/libicp_la-aes_impl.Plo
+rm -f module/icp/algs/aes/.deps/libicp_la-aes_impl_aesni.Plo
+rm -f module/icp/algs/aes/.deps/libicp_la-aes_impl_generic.Plo
+rm -f module/icp/algs/aes/.deps/libicp_la-aes_impl_x86-64.Plo
+rm -f module/icp/algs/aes/.deps/libicp_la-aes_modes.Plo
+rm -f module/icp/algs/blake3/.deps/libicp_la-blake3.Plo
+rm -f module/icp/algs/blake3/.deps/libicp_la-blake3_generic.Plo
+rm -f module/icp/algs/blake3/.deps/libicp_la-blake3_impl.Plo
+rm -f module/icp/algs/edonr/.deps/libicp_la-edonr.Plo
+rm -f module/icp/algs/modes/.deps/libicp_la-ccm.Plo
+rm -f module/icp/algs/modes/.deps/libicp_la-gcm.Plo
+rm -f module/icp/algs/modes/.deps/libicp_la-gcm_generic.Plo
+rm -f module/icp/algs/modes/.deps/libicp_la-gcm_pclmulqdq.Plo
+rm -f module/icp/algs/modes/.deps/libicp_la-modes.Plo
+rm -f module/icp/algs/sha2/.deps/libicp_la-sha256_impl.Plo
+rm -f module/icp/algs/sha2/.deps/libicp_la-sha2_generic.Plo
+rm -f module/icp/algs/sha2/.deps/libicp_la-sha512_impl.Plo
+rm -f module/icp/algs/skein/.deps/libicp_la-skein.Plo
+rm -f module/icp/algs/skein/.deps/libicp_la-skein_block.Plo
+rm -f module/icp/algs/skein/.deps/libicp_la-skein_iv.Plo
+rm -f module/icp/api/.deps/libicp_la-kcf_cipher.Plo
+rm -f module/icp/api/.deps/libicp_la-kcf_ctxops.Plo
+rm -f module/icp/api/.deps/libicp_la-kcf_mac.Plo
+rm -f module/icp/asm-aarch64/blake3/.deps/libicp_la-b3_aarch64_sse2.Plo
+rm -f module/icp/asm-aarch64/blake3/.deps/libicp_la-b3_aarch64_sse41.Plo
+rm -f module/icp/asm-aarch64/sha2/.deps/libicp_la-sha256-armv8.Plo
+rm -f module/icp/asm-aarch64/sha2/.deps/libicp_la-sha512-armv8.Plo
+rm -f module/icp/asm-arm/sha2/.deps/libicp_la-sha256-armv7.Plo
+rm -f module/icp/asm-arm/sha2/.deps/libicp_la-sha512-armv7.Plo
+rm -f module/icp/asm-ppc64/blake3/.deps/libicp_la-b3_ppc64le_sse2.Plo
+rm -f module/icp/asm-ppc64/blake3/.deps/libicp_la-b3_ppc64le_sse41.Plo
+rm -f module/icp/asm-ppc64/sha2/.deps/libicp_la-sha256-p8.Plo
+rm -f module/icp/asm-ppc64/sha2/.deps/libicp_la-sha256-ppc.Plo
+rm -f module/icp/asm-ppc64/sha2/.deps/libicp_la-sha512-p8.Plo
+rm -f module/icp/asm-ppc64/sha2/.deps/libicp_la-sha512-ppc.Plo
+rm -f module/icp/asm-x86_64/aes/.deps/libicp_la-aes_aesni.Plo
+rm -f module/icp/asm-x86_64/aes/.deps/libicp_la-aes_amd64.Plo
+rm -f module/icp/asm-x86_64/aes/.deps/libicp_la-aeskey.Plo
+rm -f module/icp/asm-x86_64/blake3/.deps/libicp_la-blake3_avx2.Plo
+rm -f module/icp/asm-x86_64/blake3/.deps/libicp_la-blake3_avx512.Plo
+rm -f module/icp/asm-x86_64/blake3/.deps/libicp_la-blake3_sse2.Plo
+rm -f module/icp/asm-x86_64/blake3/.deps/libicp_la-blake3_sse41.Plo
+rm -f module/icp/asm-x86_64/modes/.deps/libicp_la-aesni-gcm-avx2-vaes.Plo
+rm -f module/icp/asm-x86_64/modes/.deps/libicp_la-aesni-gcm-x86_64.Plo
+rm -f module/icp/asm-x86_64/modes/.deps/libicp_la-gcm_pclmulqdq.Plo
+rm -f module/icp/asm-x86_64/modes/.deps/libicp_la-ghash-x86_64.Plo
+rm -f module/icp/asm-x86_64/sha2/.deps/libicp_la-sha256-x86_64.Plo
+rm -f module/icp/asm-x86_64/sha2/.deps/libicp_la-sha512-x86_64.Plo
+rm -f module/icp/core/.deps/libicp_la-kcf_callprov.Plo
+rm -f module/icp/core/.deps/libicp_la-kcf_mech_tabs.Plo
+rm -f module/icp/core/.deps/libicp_la-kcf_prov_lib.Plo
+rm -f module/icp/core/.deps/libicp_la-kcf_prov_tabs.Plo
+rm -f module/icp/core/.deps/libicp_la-kcf_sched.Plo
+rm -f module/icp/io/.deps/libicp_la-aes.Plo
+rm -f module/icp/io/.deps/libicp_la-sha2_mod.Plo
+rm -f module/icp/spi/.deps/libicp_la-kcf_spi.Plo
+rm -f module/lua/.deps/libzpool_la-lapi.Plo
+rm -f module/lua/.deps/libzpool_la-lauxlib.Plo
+rm -f module/lua/.deps/libzpool_la-lbaselib.Plo
+rm -f module/lua/.deps/libzpool_la-lcode.Plo
+rm -f module/lua/.deps/libzpool_la-lcompat.Plo
+rm -f module/lua/.deps/libzpool_la-lcorolib.Plo
+rm -f module/lua/.deps/libzpool_la-lctype.Plo
+rm -f module/lua/.deps/libzpool_la-ldebug.Plo
+rm -f module/lua/.deps/libzpool_la-ldo.Plo
+rm -f module/lua/.deps/libzpool_la-lfunc.Plo
+rm -f module/lua/.deps/libzpool_la-lgc.Plo
+rm -f module/lua/.deps/libzpool_la-llex.Plo
+rm -f module/lua/.deps/libzpool_la-lmem.Plo
+rm -f module/lua/.deps/libzpool_la-lobject.Plo
+rm -f module/lua/.deps/libzpool_la-lopcodes.Plo
+rm -f module/lua/.deps/libzpool_la-lparser.Plo
+rm -f module/lua/.deps/libzpool_la-lstate.Plo
+rm -f module/lua/.deps/libzpool_la-lstring.Plo
+rm -f module/lua/.deps/libzpool_la-lstrlib.Plo
+rm -f module/lua/.deps/libzpool_la-ltable.Plo
+rm -f module/lua/.deps/libzpool_la-ltablib.Plo
+rm -f module/lua/.deps/libzpool_la-ltm.Plo
+rm -f module/lua/.deps/libzpool_la-lvm.Plo
+rm -f module/lua/.deps/libzpool_la-lzio.Plo
+rm -f module/nvpair/.deps/libnvpair_la-fnvpair.Plo
+rm -f module/nvpair/.deps/libnvpair_la-nvpair.Plo
+rm -f module/nvpair/.deps/libnvpair_la-nvpair_alloc_fixed.Plo
+rm -f module/os/freebsd/zfs/.deps/libzfs_core_la-zfs_ioctl_compat.Plo
+rm -f module/os/linux/zfs/.deps/libzpool_la-zio_crypt.Plo
+rm -f module/zcommon/.deps/libzfs_la-cityhash.Plo
+rm -f module/zcommon/.deps/libzfs_la-zfeature_common.Plo
+rm -f module/zcommon/.deps/libzfs_la-zfs_comutil.Plo
+rm -f module/zcommon/.deps/libzfs_la-zfs_deleg.Plo
+rm -f module/zcommon/.deps/libzfs_la-zfs_fletcher.Plo
+rm -f module/zcommon/.deps/libzfs_la-zfs_fletcher_aarch64_neon.Plo
+rm -f module/zcommon/.deps/libzfs_la-zfs_fletcher_avx512.Plo
+rm -f module/zcommon/.deps/libzfs_la-zfs_fletcher_intel.Plo
+rm -f module/zcommon/.deps/libzfs_la-zfs_fletcher_sse.Plo
+rm -f module/zcommon/.deps/libzfs_la-zfs_fletcher_superscalar.Plo
+rm -f module/zcommon/.deps/libzfs_la-zfs_fletcher_superscalar4.Plo
+rm -f module/zcommon/.deps/libzfs_la-zfs_namecheck.Plo
+rm -f module/zcommon/.deps/libzfs_la-zfs_prop.Plo
+rm -f module/zcommon/.deps/libzfs_la-zfs_valstr.Plo
+rm -f module/zcommon/.deps/libzfs_la-zpool_prop.Plo
+rm -f module/zcommon/.deps/libzfs_la-zprop_common.Plo
+rm -f module/zcommon/.deps/libzpool_la-cityhash.Plo
+rm -f module/zcommon/.deps/libzpool_la-simd_stat.Plo
+rm -f module/zcommon/.deps/libzpool_la-zfeature_common.Plo
+rm -f module/zcommon/.deps/libzpool_la-zfs_comutil.Plo
+rm -f module/zcommon/.deps/libzpool_la-zfs_deleg.Plo
+rm -f module/zcommon/.deps/libzpool_la-zfs_fletcher.Plo
+rm -f module/zcommon/.deps/libzpool_la-zfs_fletcher_aarch64_neon.Plo
+rm -f module/zcommon/.deps/libzpool_la-zfs_fletcher_avx512.Plo
+rm -f module/zcommon/.deps/libzpool_la-zfs_fletcher_intel.Plo
+rm -f module/zcommon/.deps/libzpool_la-zfs_fletcher_sse.Plo
+rm -f module/zcommon/.deps/libzpool_la-zfs_fletcher_superscalar.Plo
+rm -f module/zcommon/.deps/libzpool_la-zfs_fletcher_superscalar4.Plo
+rm -f module/zcommon/.deps/libzpool_la-zfs_namecheck.Plo
+rm -f module/zcommon/.deps/libzpool_la-zfs_prop.Plo
+rm -f module/zcommon/.deps/libzpool_la-zfs_valstr.Plo
+rm -f module/zcommon/.deps/libzpool_la-zpool_prop.Plo
+rm -f module/zcommon/.deps/libzpool_la-zprop_common.Plo
+rm -f module/zfs/.deps/libbtree_la-btree.Plo
+rm -f module/zfs/.deps/librange_tree_la-btree.Plo
+rm -f module/zfs/.deps/librange_tree_la-range_tree.Plo
+rm -f module/zfs/.deps/libzfs_la-btree.Plo
+rm -f module/zfs/.deps/libzfs_la-range_tree.Plo
+rm -f module/zfs/.deps/libzpool_la-abd.Plo
+rm -f module/zfs/.deps/libzpool_la-aggsum.Plo
+rm -f module/zfs/.deps/libzpool_la-arc.Plo
+rm -f module/zfs/.deps/libzpool_la-blake3_zfs.Plo
+rm -f module/zfs/.deps/libzpool_la-blkptr.Plo
+rm -f module/zfs/.deps/libzpool_la-bplist.Plo
+rm -f module/zfs/.deps/libzpool_la-bpobj.Plo
+rm -f module/zfs/.deps/libzpool_la-bptree.Plo
+rm -f module/zfs/.deps/libzpool_la-bqueue.Plo
+rm -f module/zfs/.deps/libzpool_la-brt.Plo
+rm -f module/zfs/.deps/libzpool_la-btree.Plo
+rm -f module/zfs/.deps/libzpool_la-dbuf.Plo
+rm -f module/zfs/.deps/libzpool_la-dbuf_stats.Plo
+rm -f module/zfs/.deps/libzpool_la-ddt.Plo
+rm -f module/zfs/.deps/libzpool_la-ddt_log.Plo
+rm -f module/zfs/.deps/libzpool_la-ddt_stats.Plo
+rm -f module/zfs/.deps/libzpool_la-ddt_zap.Plo
+rm -f module/zfs/.deps/libzpool_la-dmu.Plo
+rm -f module/zfs/.deps/libzpool_la-dmu_diff.Plo
+rm -f module/zfs/.deps/libzpool_la-dmu_direct.Plo
+rm -f module/zfs/.deps/libzpool_la-dmu_object.Plo
+rm -f module/zfs/.deps/libzpool_la-dmu_objset.Plo
+rm -f module/zfs/.deps/libzpool_la-dmu_recv.Plo
+rm -f module/zfs/.deps/libzpool_la-dmu_redact.Plo
+rm -f module/zfs/.deps/libzpool_la-dmu_send.Plo
+rm -f module/zfs/.deps/libzpool_la-dmu_traverse.Plo
+rm -f module/zfs/.deps/libzpool_la-dmu_tx.Plo
+rm -f module/zfs/.deps/libzpool_la-dmu_zfetch.Plo
+rm -f module/zfs/.deps/libzpool_la-dnode.Plo
+rm -f module/zfs/.deps/libzpool_la-dnode_sync.Plo
+rm -f module/zfs/.deps/libzpool_la-dsl_bookmark.Plo
+rm -f module/zfs/.deps/libzpool_la-dsl_crypt.Plo
+rm -f module/zfs/.deps/libzpool_la-dsl_dataset.Plo
+rm -f module/zfs/.deps/libzpool_la-dsl_deadlist.Plo
+rm -f module/zfs/.deps/libzpool_la-dsl_deleg.Plo
+rm -f module/zfs/.deps/libzpool_la-dsl_destroy.Plo
+rm -f module/zfs/.deps/libzpool_la-dsl_dir.Plo
+rm -f module/zfs/.deps/libzpool_la-dsl_pool.Plo
+rm -f module/zfs/.deps/libzpool_la-dsl_prop.Plo
+rm -f module/zfs/.deps/libzpool_la-dsl_scan.Plo
+rm -f module/zfs/.deps/libzpool_la-dsl_synctask.Plo
+rm -f module/zfs/.deps/libzpool_la-dsl_userhold.Plo
+rm -f module/zfs/.deps/libzpool_la-edonr_zfs.Plo
+rm -f module/zfs/.deps/libzpool_la-fm.Plo
+rm -f module/zfs/.deps/libzpool_la-gzip.Plo
+rm -f module/zfs/.deps/libzpool_la-hkdf.Plo
+rm -f module/zfs/.deps/libzpool_la-lz4.Plo
+rm -f module/zfs/.deps/libzpool_la-lz4_zfs.Plo
+rm -f module/zfs/.deps/libzpool_la-lzjb.Plo
+rm -f module/zfs/.deps/libzpool_la-metaslab.Plo
+rm -f module/zfs/.deps/libzpool_la-mmp.Plo
+rm -f module/zfs/.deps/libzpool_la-multilist.Plo
+rm -f module/zfs/.deps/libzpool_la-objlist.Plo
+rm -f module/zfs/.deps/libzpool_la-pathname.Plo
+rm -f module/zfs/.deps/libzpool_la-range_tree.Plo
+rm -f module/zfs/.deps/libzpool_la-refcount.Plo
+rm -f module/zfs/.deps/libzpool_la-rrwlock.Plo
+rm -f module/zfs/.deps/libzpool_la-sa.Plo
+rm -f module/zfs/.deps/libzpool_la-sha2_zfs.Plo
+rm -f module/zfs/.deps/libzpool_la-skein_zfs.Plo
+rm -f module/zfs/.deps/libzpool_la-spa.Plo
+rm -f module/zfs/.deps/libzpool_la-spa_checkpoint.Plo
+rm -f module/zfs/.deps/libzpool_la-spa_config.Plo
+rm -f module/zfs/.deps/libzpool_la-spa_errlog.Plo
+rm -f module/zfs/.deps/libzpool_la-spa_history.Plo
+rm -f module/zfs/.deps/libzpool_la-spa_log_spacemap.Plo
+rm -f module/zfs/.deps/libzpool_la-spa_misc.Plo
+rm -f module/zfs/.deps/libzpool_la-spa_stats.Plo
+rm -f module/zfs/.deps/libzpool_la-space_map.Plo
+rm -f module/zfs/.deps/libzpool_la-space_reftree.Plo
+rm -f module/zfs/.deps/libzpool_la-txg.Plo
+rm -f module/zfs/.deps/libzpool_la-u8_textprep.Plo
+rm -f module/zfs/.deps/libzpool_la-uberblock.Plo
+rm -f module/zfs/.deps/libzpool_la-unique.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_draid.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_draid_rand.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_file.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_indirect.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_indirect_births.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_indirect_mapping.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_initialize.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_label.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_mirror.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_missing.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_queue.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_raidz.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_raidz_math.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_raidz_math_aarch64_neon.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_raidz_math_aarch64_neonx2.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_raidz_math_avx2.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_raidz_math_avx512bw.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_raidz_math_avx512f.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_raidz_math_powerpc_altivec.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_raidz_math_scalar.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_raidz_math_sse2.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_raidz_math_ssse3.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_rebuild.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_removal.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_root.Plo
+rm -f module/zfs/.deps/libzpool_la-vdev_trim.Plo
+rm -f module/zfs/.deps/libzpool_la-zap.Plo
+rm -f module/zfs/.deps/libzpool_la-zap_leaf.Plo
+rm -f module/zfs/.deps/libzpool_la-zap_micro.Plo
+rm -f module/zfs/.deps/libzpool_la-zcp.Plo
+rm -f module/zfs/.deps/libzpool_la-zcp_get.Plo
+rm -f module/zfs/.deps/libzpool_la-zcp_global.Plo
+rm -f module/zfs/.deps/libzpool_la-zcp_iter.Plo
+rm -f module/zfs/.deps/libzpool_la-zcp_set.Plo
+rm -f module/zfs/.deps/libzpool_la-zcp_synctask.Plo
+rm -f module/zfs/.deps/libzpool_la-zfeature.Plo
+rm -f module/zfs/.deps/libzpool_la-zfs_byteswap.Plo
+rm -f module/zfs/.deps/libzpool_la-zfs_chksum.Plo
+rm -f module/zfs/.deps/libzpool_la-zfs_crrd.Plo
+rm -f module/zfs/.deps/libzpool_la-zfs_debug_common.Plo
+rm -f module/zfs/.deps/libzpool_la-zfs_fm.Plo
+rm -f module/zfs/.deps/libzpool_la-zfs_fuid.Plo
+rm -f module/zfs/.deps/libzpool_la-zfs_impl.Plo
+rm -f module/zfs/.deps/libzpool_la-zfs_ratelimit.Plo
+rm -f module/zfs/.deps/libzpool_la-zfs_rlock.Plo
+rm -f module/zfs/.deps/libzpool_la-zfs_sa.Plo
+rm -f module/zfs/.deps/libzpool_la-zfs_znode.Plo
+rm -f module/zfs/.deps/libzpool_la-zil.Plo
+rm -f module/zfs/.deps/libzpool_la-zio.Plo
+rm -f module/zfs/.deps/libzpool_la-zio_checksum.Plo
+rm -f module/zfs/.deps/libzpool_la-zio_compress.Plo
+rm -f module/zfs/.deps/libzpool_la-zio_inject.Plo
+rm -f module/zfs/.deps/libzpool_la-zle.Plo
+rm -f module/zfs/.deps/libzpool_la-zrlock.Plo
+rm -f module/zfs/.deps/libzpool_la-zthr.Plo
+rm -f module/zstd/.deps/libzstd_la-zfs_zstd.Plo
+rm -f module/zstd/lib/common/.deps/libzstd_la-entropy_common.Plo
+rm -f module/zstd/lib/common/.deps/libzstd_la-error_private.Plo
+rm -f module/zstd/lib/common/.deps/libzstd_la-fse_decompress.Plo
+rm -f module/zstd/lib/common/.deps/libzstd_la-pool.Plo
+rm -f module/zstd/lib/common/.deps/libzstd_la-zstd_common.Plo
+rm -f module/zstd/lib/compress/.deps/libzstd_la-fse_compress.Plo
+rm -f module/zstd/lib/compress/.deps/libzstd_la-hist.Plo
+rm -f module/zstd/lib/compress/.deps/libzstd_la-huf_compress.Plo
+rm -f module/zstd/lib/compress/.deps/libzstd_la-zstd_compress.Plo
+rm -f module/zstd/lib/compress/.deps/libzstd_la-zstd_compress_literals.Plo
+rm -f module/zstd/lib/compress/.deps/libzstd_la-zstd_compress_sequences.Plo
+rm -f module/zstd/lib/compress/.deps/libzstd_la-zstd_compress_superblock.Plo
+rm -f module/zstd/lib/compress/.deps/libzstd_la-zstd_double_fast.Plo
+rm -f module/zstd/lib/compress/.deps/libzstd_la-zstd_fast.Plo
+rm -f module/zstd/lib/compress/.deps/libzstd_la-zstd_lazy.Plo
+rm -f module/zstd/lib/compress/.deps/libzstd_la-zstd_ldm.Plo
+rm -f module/zstd/lib/compress/.deps/libzstd_la-zstd_opt.Plo
+rm -f module/zstd/lib/compress/.deps/libzstd_la-zstd_preSplit.Plo
+rm -f module/zstd/lib/decompress/.deps/libzstd_la-huf_decompress.Plo
+rm -f module/zstd/lib/decompress/.deps/libzstd_la-huf_decompress_amd64.Plo
+rm -f module/zstd/lib/decompress/.deps/libzstd_la-zstd_ddict.Plo
+rm -f module/zstd/lib/decompress/.deps/libzstd_la-zstd_decompress.Plo
+rm -f module/zstd/lib/decompress/.deps/libzstd_la-zstd_decompress_block.Plo
+rm -f tests/zfs-tests/cmd/.deps/badsend.Po
+rm -f tests/zfs-tests/cmd/.deps/btree_test-btree_test.Po
+rm -f tests/zfs-tests/cmd/.deps/chg_usr_exec.Po
+rm -f tests/zfs-tests/cmd/.deps/clone_after_trunc.Po
+rm -f tests/zfs-tests/cmd/.deps/clone_mmap_cached.Po
+rm -f tests/zfs-tests/cmd/.deps/clone_mmap_write.Po
+rm -f tests/zfs-tests/cmd/.deps/clonefile.Po
+rm -f tests/zfs-tests/cmd/.deps/cp_files.Po
+rm -f tests/zfs-tests/cmd/.deps/crypto_test.Po
+rm -f tests/zfs-tests/cmd/.deps/ctime.Po
+rm -f tests/zfs-tests/cmd/.deps/devname2devid-devname2devid.Po
+rm -f tests/zfs-tests/cmd/.deps/dir_rd_update.Po
+rm -f tests/zfs-tests/cmd/.deps/dosmode_readonly_write.Po
+rm -f tests/zfs-tests/cmd/.deps/draid-draid.Po
+rm -f tests/zfs-tests/cmd/.deps/ereports.Po
+rm -f tests/zfs-tests/cmd/.deps/get_diff.Po
+rm -f tests/zfs-tests/cmd/.deps/getversion.Po
+rm -f tests/zfs-tests/cmd/.deps/idmap_util.Po
+rm -f tests/zfs-tests/cmd/.deps/libzfs_input_check.Po
+rm -f tests/zfs-tests/cmd/.deps/libzfs_mnttab_cache_check.Po
+rm -f tests/zfs-tests/cmd/.deps/manipulate_user_buffer.Po
+rm -f tests/zfs-tests/cmd/.deps/mkbusy.Po
+rm -f tests/zfs-tests/cmd/.deps/mkfile.Po
+rm -f tests/zfs-tests/cmd/.deps/mkfiles.Po
+rm -f tests/zfs-tests/cmd/.deps/mktree.Po
+rm -f tests/zfs-tests/cmd/.deps/mmap_exec.Po
+rm -f tests/zfs-tests/cmd/.deps/mmap_ftruncate.Po
+rm -f tests/zfs-tests/cmd/.deps/mmap_libaio-mmap_libaio.Po
+rm -f tests/zfs-tests/cmd/.deps/mmap_seek.Po
+rm -f tests/zfs-tests/cmd/.deps/mmap_sync.Po
+rm -f tests/zfs-tests/cmd/.deps/mmap_write_sync.Po
+rm -f tests/zfs-tests/cmd/.deps/mmapwrite.Po
+rm -f tests/zfs-tests/cmd/.deps/nvlist_to_lua.Po
+rm -f tests/zfs-tests/cmd/.deps/readmmap.Po
+rm -f tests/zfs-tests/cmd/.deps/rename_dir.Po
+rm -f tests/zfs-tests/cmd/.deps/renameat2.Po
+rm -f tests/zfs-tests/cmd/.deps/rm_lnkcnt_zero_file.Po
+rm -f tests/zfs-tests/cmd/.deps/send_doall.Po
+rm -f tests/zfs-tests/cmd/.deps/setlease.Po
+rm -f tests/zfs-tests/cmd/.deps/statx.Po
+rm -f tests/zfs-tests/cmd/.deps/stride_dd.Po
+rm -f tests/zfs-tests/cmd/.deps/suid_write_to_file.Po
+rm -f tests/zfs-tests/cmd/.deps/threadsappend.Po
+rm -f tests/zfs-tests/cmd/.deps/truncate_test.Po
+rm -f tests/zfs-tests/cmd/.deps/user_ns_exec.Po
+rm -f tests/zfs-tests/cmd/.deps/xattrtest.Po
+rm -f tests/zfs-tests/cmd/.deps/zed_fd_spill-zedlet.Po
+rm -f tests/zfs-tests/cmd/.deps/zfs_diff-socket.Po
+rm -f tests/zfs-tests/cmd/checksum/.deps/blake3_test.Po
+rm -f tests/zfs-tests/cmd/checksum/.deps/edonr_test.Po
+rm -f tests/zfs-tests/cmd/checksum/.deps/sha2_test.Po
+rm -f tests/zfs-tests/cmd/checksum/.deps/skein_test.Po
+rm -f tests/zfs-tests/cmd/file/.deps/file_append.Po
+rm -f tests/zfs-tests/cmd/file/.deps/file_check.Po
+rm -f tests/zfs-tests/cmd/file/.deps/file_fadvise.Po
+rm -f tests/zfs-tests/cmd/file/.deps/file_trunc.Po
+rm -f tests/zfs-tests/cmd/file/.deps/file_write.Po
+rm -f tests/zfs-tests/cmd/file/.deps/largest_file.Po
+rm -f tests/zfs-tests/cmd/file/.deps/randfree_file.Po
+rm -f tests/zfs-tests/cmd/file/.deps/randwritecomp.Po
+rm -f tests/zfs-tests/cmd/linux_dos_attributes/.deps/read_dos_attributes.Po
+rm -f tests/zfs-tests/cmd/linux_dos_attributes/.deps/write_dos_attributes.Po
+rm -f tests/zfs-tests/tests/functional/cp_files/.deps/seekflood.Po
+rm -f tests/zfs-tests/tests/functional/hkdf/.deps/hkdf_test.Po
+rm -f tests/zfs-tests/tests/functional/libzfs/.deps/many_fds.Po
+rm -f tests/zfs-tests/tests/functional/tmpfile/.deps/tmpfile_001_pos.Po
+rm -f tests/zfs-tests/tests/functional/tmpfile/.deps/tmpfile_002_pos.Po
+rm -f tests/zfs-tests/tests/functional/tmpfile/.deps/tmpfile_003_pos.Po
+rm -f tests/zfs-tests/tests/functional/tmpfile/.deps/tmpfile_stat_mode.Po
+rm -f tests/zfs-tests/tests/functional/tmpfile/.deps/tmpfile_test.Po
+rm -f tests/zfs-tests/tests/functional/vdev_disk/.deps/page_alignment.Po
+rm -f udev/.deps/zvol_id.Po
+rm -f Makefile

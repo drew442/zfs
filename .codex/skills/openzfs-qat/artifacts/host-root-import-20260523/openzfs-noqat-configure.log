@@ -1,0 +1,423 @@
+checking for gawk... gawk
+checking metadata... META file
+checking build system type... x86_64-pc-linux-gnu
+checking host system type... x86_64-pc-linux-gnu
+checking target system type... x86_64-pc-linux-gnu
+checking whether to enable maintainer-specific portions of Makefiles... no
+checking whether make supports nested variables... yes
+checking for a BSD-compatible install... /usr/bin/install -c
+checking whether sleep supports fractional seconds... yes
+checking filesystem timestamp resolution... 0.01
+checking whether build environment is sane... yes
+checking for a race-free mkdir -p... /usr/bin/mkdir -p
+checking whether make sets $(MAKE)... yes
+checking xargs -n works... yes
+checking how to create a pax tar archive... gnutar
+checking how to print strings... printf
+checking whether make supports the include directive... yes (GNU style)
+checking for gcc... gcc
+checking whether the C compiler works... yes
+checking for C compiler default output file name... a.out
+checking for suffix of executables... 
+checking whether we are cross compiling... no
+checking for suffix of object files... o
+checking whether the compiler supports GNU C... yes
+checking whether gcc accepts -g... yes
+checking for gcc option to enable C11 features... none needed
+checking whether gcc understands -c and -o together... yes
+checking dependency style of gcc... none
+checking for a sed that does not truncate output... /usr/bin/sed
+checking for grep that handles long lines and -e... /usr/bin/grep
+checking for egrep... /usr/bin/grep -E
+checking for fgrep... /usr/bin/grep -F
+checking for ld used by gcc... /usr/bin/ld
+checking if the linker (/usr/bin/ld) is GNU ld... yes
+checking for BSD- or MS-compatible name lister (nm)... /usr/bin/nm -B
+checking the name lister (/usr/bin/nm -B) interface... BSD nm
+checking whether ln -s works... yes
+checking the maximum length of command line arguments... 1572864
+checking how to convert x86_64-pc-linux-gnu file names to x86_64-pc-linux-gnu format... func_convert_file_noop
+checking how to convert x86_64-pc-linux-gnu file names to toolchain format... func_convert_file_noop
+checking for /usr/bin/ld option to reload object files... -r
+checking for file... file
+checking for objdump... objdump
+checking how to recognize dependent libraries... pass_all
+checking for dlltool... no
+checking how to associate runtime and link libraries... printf %s\n
+checking for ranlib... ranlib
+checking for ar... ar
+checking for archiver @FILE support... @
+checking for strip... strip
+checking command to parse /usr/bin/nm -B output from gcc object... ok
+checking for sysroot... no
+checking for a working dd... /usr/bin/dd
+checking how to truncate binary pipes... /usr/bin/dd bs=4096 count=1
+checking for mt... mt
+checking if mt is a manifest tool... no
+checking for stdio.h... yes
+checking for stdlib.h... yes
+checking for string.h... yes
+checking for inttypes.h... yes
+checking for stdint.h... yes
+checking for strings.h... yes
+checking for sys/stat.h... yes
+checking for sys/types.h... yes
+checking for unistd.h... yes
+checking for dlfcn.h... yes
+checking for objdir... .libs
+checking if gcc supports -fno-rtti -fno-exceptions... no
+checking for gcc option to produce PIC... -fPIC -DPIC
+checking if gcc PIC flag -fPIC -DPIC works... yes
+checking if gcc static flag -static works... yes
+checking if gcc supports -c -o file.o... yes
+checking if gcc supports -c -o file.o... (cached) yes
+checking whether the gcc linker (/usr/bin/ld -m elf_x86_64) supports shared libraries... yes
+checking whether -lc should be explicitly linked in... no
+checking dynamic linker characteristics... GNU/Linux ld.so
+checking how to hardcode library paths into programs... immediate
+checking whether stripping libraries is possible... yes
+checking if libtool supports shared libraries... yes
+checking whether to build shared libraries... yes
+checking whether to build static libraries... yes
+checking for gcc... (cached) gcc
+checking whether the compiler supports GNU C... (cached) yes
+checking whether gcc accepts -g... (cached) yes
+checking for gcc option to enable C11 features... (cached) none needed
+checking whether gcc understands -c and -o together... (cached) yes
+checking dependency style of gcc... (cached) none
+checking whether ln -s works... yes
+checking for pkg-config... /usr/bin/pkg-config
+checking pkg-config is at least version 0.9.0... yes
+checking dependency style of gcc... none
+checking whether to build with code coverage support... no
+checking how to create a pax tar archive... (cached) gnutar
+checking zfs author... OpenZFS
+checking zfs license... CDDL
+checking whether NLS is requested... yes
+checking for msgfmt... /usr/bin/msgfmt
+checking for gmsgfmt... /usr/bin/msgfmt
+checking for xgettext... /usr/bin/xgettext
+checking for msgmerge... /usr/bin/msgmerge
+checking for ld... /usr/bin/ld -m elf_x86_64
+checking if the linker (/usr/bin/ld -m elf_x86_64) is GNU ld... yes
+checking for shared library run path origin... done
+checking 32-bit host C ABI... no
+checking for the common suffixes of directories in the library search path... lib,lib
+checking zfs config... kernel
+checking the number of available CPUs... 64
+checking whether gcc supports -Wno-clobbered... yes
+checking whether gcc supports -Winfinite-recursion... yes
+checking whether gcc supports -Winfinite-recursion... yes
+checking whether gcc supports -Wno-atomic-alignment... yes
+checking whether gcc supports -Wimplicit-fallthrough... yes
+checking whether gcc supports -Wframe-larger-than=<size>... yes
+checking whether gcc supports -Wno-format-truncation... yes
+checking whether gcc supports -Wno-format-zero-length... yes
+checking whether gcc supports -Wno-format-zero-length... yes
+checking whether gcc supports -Wformat-overflow... yes
+checking whether gcc supports -fno-omit-frame-pointer... yes
+checking whether gcc supports -fno-ipa-sra... yes
+checking whether gcc supports -fno-ipa-sra... yes
+checking whether to build with -fsanitize=address support... no
+checking whether to build with -fsanitize=undefined support... no
+checking whether host toolchain supports SSE2... yes
+checking whether host toolchain supports SSSE3... yes
+checking whether host toolchain supports SSE4_1... yes
+checking whether host toolchain supports AVX... yes
+checking whether host toolchain supports AVX2... yes
+checking whether host toolchain supports AVX512F... yes
+checking whether host toolchain supports AVX512BW... yes
+checking whether host toolchain supports AVX512VL... yes
+checking whether host toolchain supports AES... yes
+checking whether host toolchain supports PCLMULQDQ... yes
+checking whether host toolchain supports MOVBE... yes
+checking whether host toolchain supports VAES... yes
+checking whether host toolchain supports VPCLMULQDQ... yes
+checking whether host toolchain supports SHA512EXT... yes
+checking whether host toolchain supports XSAVE... yes
+checking whether host toolchain supports XSAVEOPT... yes
+checking whether host toolchain supports XSAVES... yes
+checking for system type (linux-gnu)... Linux
+checking for conflicting environment variables... done
+checking for python3... python3
+checking for python version... 3.13
+checking for python platform... linux
+checking for GNU default python prefix... ${prefix}
+checking for GNU default python exec_prefix... ${exec_prefix}
+checking for python script directory (pythondir)... ${PYTHON_PREFIX}/lib/python3.13/site-packages
+checking for python extension module directory (pyexecdir)... ${PYTHON_EXEC_PREFIX}/lib/python3.13/site-packages
+configure: Disabling pyzfs for kernel/srpm config
+checking whether to enable pyzfs: ... no
+checking for sed --in-place... --in-place
+checking for cppcheck... no
+checking for shellcheck... no
+checking for checkbashisms... no
+checking for parallel... yes
+checking kernel source and build directories... done
+checking kernel source directory... /lib/modules/7.0.0-3-pve/build
+checking kernel build directory... /lib/modules/7.0.0-3-pve/build
+checking kernel source version... 7.0.0-3-pve
+checking for kernel config option compatibility... done
+checking whether CONFIG_MODULES is defined... yes
+checking whether CONFIG_BLOCK is defined... yes
+checking whether mutex_lock() is GPL-only... no
+checking whether CONFIG_TRIM_UNUSED_KSYM is disabled... yes
+checking whether CONFIG_ZLIB_DEFLATE is defined... yes
+checking whether CONFIG_ZLIB_INFLATE is defined... yes
+checking kernel file name for module symbols... Module.symvers
+checking whether fpu headers are available... asm/fpu/api.h
+checking whether objtool header is available... linux/objtool.h
+checking whether /dev/zfs minor is available... 249
+checking whether DECLARE_EVENT_CLASS() is available... no
+checking for available kernel interfaces... done
+checking whether kernel toolchain supports SSE2... yes
+checking whether kernel toolchain supports SSSE3... yes
+checking whether kernel toolchain supports SSE4_1... yes
+checking whether kernel toolchain supports AVX... yes
+checking whether kernel toolchain supports AVX2... yes
+checking whether kernel toolchain supports AVX512F... yes
+checking whether kernel toolchain supports AVX512BW... yes
+checking whether kernel toolchain supports AVX512VL... yes
+checking whether kernel toolchain supports AES... yes
+checking whether kernel toolchain supports PCLMULQDQ... yes
+checking whether kernel toolchain supports MOVBE... yes
+checking whether kernel toolchain supports VAES... yes
+checking whether kernel toolchain supports VPCLMULQDQ... yes
+checking whether kernel toolchain supports SHA512EXT... yes
+checking whether kernel toolchain supports XSAVE... yes
+checking whether kernel toolchain supports XSAVEOPT... yes
+checking whether kernel toolchain supports XSAVES... yes
+checking whether kernel defines intptr_t... yes
+checking whether access_ok() has 'type' parameter... no
+checking whether compile-time stack validation (objtool) is available... yes
+checking whether STACK_FRAME_NON_STANDARD is defined... yes
+checking whether STACK_FRAME_NON_STANDARD asm macro is defined... yes
+checking whether CONFIG_OBJTOOL_WERROR is defined... no
+checking whether pde_data() is lowercase... yes
+checking whether generic_fadvise() is available... yes
+checking whether header linux/sched/rt.h exists... yes
+checking whether usleep_range() is available... yes
+checking whether __vmalloc(ptr, flags, pageflags) is available... no
+checking whether timestamp_truncate() exists... yes
+checking whether inode_get_ctime() exists... yes
+checking whether inode_set_ctime_to_ts() exists... yes
+checking whether inode_get_atime() exists... yes
+checking whether inode_set_atime_to_ts() exists... yes
+checking whether inode_get_mtime() exists... yes
+checking whether inode_set_mtime_to_ts() exists... yes
+checking whether proc_ops structure exists... yes
+checking whether bops->check_events() exists... yes
+checking whether bops->release() is void and takes 2 args... no
+checking whether bops->release() is void and takes 1 arg... yes
+checking whether bops->revalidate_disk() exists... no
+checking whether bops->getgeo() takes gendisk as first arg... yes
+checking whether bio_set_op_attrs is available... no
+checking whether bio_set_dev() is GPL-only... yes
+checking whether bio_set_dev() is a macro... no
+checking whether current->bio_list exists... yes
+checking whether blkg_tryget() is available... no
+checking whether bio->bi_bdev->bd_disk exists... yes
+checking whether block_device_operations->submit_bio() returns void... yes
+checking whether bio_alloc() wants 4 args... yes
+checking whether blkdev_get_by_path() exists and takes 3 args... no
+checking whether blkdev_get_by_path() exists and takes 4 args... no
+checking whether bdev_open_by_path() exists... no
+checking whether bdev_file_open_by_path() exists... yes
+checking whether blkdev_put() exists... no
+checking whether blkdev_put() accepts void* as arg 2... no
+checking whether bdev_release() exists... no
+checking whether blkdev_reread_part() exists... no
+checking whether invalidate_bdev() exists... yes
+checking whether lookup_bdev() wants dev_t arg... yes
+checking whether bdev_logical_block_size() is available... yes
+checking whether bdev_physical_block_size() is available... yes
+checking whether check_disk_change() exists... no
+checking whether bdev_check_media_change() exists... no
+checking whether bdev_whole() is available... yes
+checking whether bdev_nr_bytes() is available... yes
+checking whether bdevname() exists... no
+checking whether blkdev_get_by_path() handles ERESTARTSYS... no
+checking whether blkdev_issue_discard() is available... yes
+checking whether blkdev_issue_discard(flags) is available... no
+checking whether __blkdev_issue_discard() is available... no
+checking whether __blkdev_issue_discard(flags) is available... no
+checking whether blkdev_issue_secure_erase() is available... yes
+checking whether bdev_kobj() exists... yes
+checking whether part_to_dev() exists... no
+checking whether disk_check_media_change() exists... yes
+checking whether BLK_STS_RESV_CONFLICT is defined... yes
+checking whether blk_mode_t is defined... yes
+checking whether struct blk_plug is available... yes
+checking whether blk_queue bdi is dynamic... no
+checking whether backing_dev_info is available through queue gendisk... yes
+checking whether blk_queue_update_readahead() exists... no
+checking whether disk_update_readahead() exists... no
+checking whether bdev_max_discard_sectors() is available... yes
+checking whether bdev_max_secure_erase_sectors() is available... yes
+checking whether blk_queue_max_hw_sectors() is available... no
+checking whether blk_queue_max_segments() is available... no
+checking whether blk_queue_rot() is available... yes
+checking whether block multiqueue hardware context is cached in struct request... yes
+checking whether GENHD_FL_EXT_DEVT flag is available... no
+checking whether GENHD_FL_NO_PART flag is available... yes
+checking whether revalidate_disk_size() is available... no
+checking whether revalidate_disk() is available... no
+checking whether get_disk_ro() is available... yes
+checking whether ql->discard_granularity is available... yes
+checking whether inode_owner_or_capable() exists... no
+checking whether inode_owner_or_capable() takes user_ns... no
+checking whether inode_owner_or_capable() takes mnt_idmap... yes
+checking whether super_block uses const struct xattr_handler... yes
+checking whether xattr_handler->get() wants dentry and inode and flags... no
+checking whether xattr_handler->set() wants dentry, inode, and mnt_idmap... yes
+checking whether posix_acl_equiv_mode() wants umode_t... yes
+checking whether posix_acl_to_xattr() allocates its result... yes
+checking whether iops->get_acl() exists... yes
+checking whether iops->set_acl() with 4 args exists... yes
+checking whether iops->setattr() takes mnt_idmap... yes
+checking whether iops->getattr() takes mnt_idmap... yes
+checking whether inode_state_read_once() exists... yes
+checking whether sops->show_options() wants dentry... yes
+checking whether super_block has s_shrink... no
+checking whether super_block has s_shrink pointer... yes
+checking whether new var-arg register_shrinker() exists... no
+checking whether shrinker_register() exists... yes
+checking whether iops->mkdir() returns struct dentry*... yes
+checking whether iops->lookup() passes flags... yes
+checking whether iops->create() takes struct mnt_idmap*... yes
+checking whether iops->permission() takes struct mnt_idmap*... yes
+checking whether i_op->tmpfile() exists... yes
+checking whether dops->d_automount() exists... yes
+checking whether dops->d_revalidate() takes 4 args... yes
+checking whether eops->commit_metadata() exists... yes
+checking whether setattr_prepare() is available and accepts struct mnt_idmap*... yes
+checking whether insert_inode_locked() is available... yes
+checking whether d_obtain_alias() is available... yes
+checking whether d_set_d_op() is available... no
+checking whether set_default_d_op() is available... yes
+checking whether dentry aliases are in d_u member... yes
+checking whether truncate_setsize() is available... yes
+checking whether security_inode_init_security wants callback... yes
+checking whether fs_context exists... yes
+checking whether SB_DYING is defined... yes
+checking whether set_nlink() is available... yes
+checking whether sget() wants 5 args... yes
+checking whether filemap_dirty_folio exists... yes
+checking whether read_folio exists... yes
+checking whether migrate_folio exists... yes
+checking whether migratepage exists... no
+checking whether vfs_fsync() wants 2 args... yes
+checking whether aops->readpages exists... no
+checking whether aops->writepage exists... no
+checking whether __set_page_dirty_nobuffers exists... no
+checking whether fault_in_iov_iter_readable() is available... yes
+checking whether iov_iter_type() is available... yes
+checking whether iov_iter_get_pages2() is available... yes
+checking whether iter_is_ubuf() is available... yes
+checking whether iter_iov() is available... yes
+checking whether generic_copy_file_range() is available... no
+checking whether splice_copy_file_range() is available... yes
+checking whether fops->remap_file_range() is available... yes
+checking whether fops->clone_file_range() is available... no
+checking whether fops->dedupe_file_range() is available... no
+checking whether kmap_atomic wants 1 args... yes
+checking whether kmap_local_page exists... yes
+checking whether follow_down_one() is available... yes
+checking whether submit_bio is member of struct block_device_operations... yes
+checking whether blk_alloc_disk() exists... no
+checking whether blk_alloc_disk() exists and takes 2 args... yes
+checking whether struct queue_limits has a features field... yes
+checking whether blk_cleanup_disk() exists... no
+checking whether 6.3+ bdev_*_io_acct() are available... yes
+checking whether kernel fpu is available... internal
+checking whether kernel defines fmode_t... yes
+checking whether kuid_t/kgid_t is available... yes
+checking whether i_(uid|gid)_(read|write) exist... yes
+checking whether iops->rename() takes struct mnt_idmap*... yes
+checking whether totalram_pages() exists... yes
+checking whether totalhigh_pages() exists... yes
+checking whether is inside percpu_ref.data... yes
+checking whether generic_fillattr requires struct mnt_idmap* and request_mask... yes
+checking whether iops->mknod() takes struct mnt_idmap*... yes
+checking whether iops->symlink() takes struct mnt_idmap*... yes
+checking whether bio_max_segs() exists... yes
+checking whether kernel_siginfo_t tyepedef exists... yes
+checking whether struct kobj_type.default_groups exists... yes
+checking whether standalone <linux/stdarg.h> exists... yes
+checking whether strlcpy() exists... no
+checking whether folio_wait_bit() exists... yes
+checking whether readahead_page() exists... no
+checking whether add_disk() returns int... yes
+checking whether kthread_complete_and_exit() is available... yes
+checking whether dequeue_signal() takes 4 arguments... no
+checking whether 3-arg dequeue_signal() takes a type argument... yes
+checking whether ZERO_PAGE() is GPL-only... no
+checking whether APIs for idmapped mount are present... yes
+checking whether idmapped mounts have a user namespace... yes
+checking whether iattr->ia_vfsuid and iattr->ia_vfsgid exist... yes
+checking whether int (*writepage_t)() takes struct folio*... no
+checking whether write_cache_pages() is available... no
+checking whether struct reclaim_state has reclaimed field... yes
+checking whether register_sysctl_table exists... no
+checking whether register_sysctl_sz exists... yes
+checking whether proc_handler ctl_table arg is const... yes
+checking whether copy_splice_read() exists... yes
+checking whether fsync_bdev() exists... checking whether sync_blockdev() exists... yes
+checking whether PG_error flag is available... no
+checking whether 'flags' in 'struct page' is a struct... yes
+checking whether page_size() is available... yes
+checking whether page_mapping() is available... no
+checking whether __assign_str() has one arg... no
+checking whether file->f_version exists... no
+checking whether pin_user_pages_unlocked() is available... yes
+checking whether timer_delete_sync() is available... yes
+checking whether super_block has s_wb_err... yes
+checking whether sops->free_inode() exists... yes
+checking whether ns_type is accessible through ns_common... yes
+checking whether inode_generic_drop() exists... yes
+checking whether kasan_enabled() is GPL-only... no
+checking for standalone filelock header... yes
+checking os distribution... debian
+checking default package type... deb
+checking default init directory... ${prefix}/etc/init.d
+checking default shell... /bin/sh
+checking default nfs server init script... nfs-kernel-server
+checking default init config directory... /etc/default
+checking whether initramfs-tools is available... yes
+checking default bash completion directory... /usr/share/bash-completion/completions
+checking whether rpm is available... yes (4.20.1)
+checking whether rpmbuild is available... yes (4.20.1)
+checking whether spec files are available... yes (rpm/generic/*.spec.in)
+checking whether dpkg is available... yes (1.22.22)
+checking whether dpkg-buildpackage is available... yes (1.22.22.)
+checking whether alien is available... yes (8.95.8)
+checking whether assertion support will be enabled... no
+checking whether debuginfo support will be forced... no
+checking whether basic kmem accounting is enabled... no
+checking whether detailed kmem tracking is enabled... no
+checking whether FreeBSD kernel INVARIANTS checks are enabled... no
+checking whether objtool error on warning behavior is enabled... no
+checking that generated files are newer than configure... done
+configure: creating ./config.status
+config.status: creating contrib/debian/rules
+config.status: creating contrib/debian/changelog
+config.status: creating Makefile
+config.status: creating include/Makefile
+config.status: creating lib/libzfs/libzfs.pc
+config.status: creating lib/libzfs_core/libzfs_core.pc
+config.status: creating lib/libzfsbootenv/libzfsbootenv.pc
+config.status: creating module/Kbuild
+config.status: creating module/Makefile
+config.status: creating rpm/generic/zfs-dkms.spec
+config.status: creating rpm/generic/zfs-kmod.spec
+config.status: creating rpm/generic/zfs.spec
+config.status: creating rpm/redhat/zfs-dkms.spec
+config.status: creating rpm/redhat/zfs-kmod.spec
+config.status: creating rpm/redhat/zfs.spec
+config.status: creating tests/zfs-tests/tests/Makefile
+config.status: creating zfs.release
+config.status: creating scripts/objtool-wrapper
+config.status: creating zfs_config.h
+config.status: executing depfiles commands
+config.status: executing libtool commands
+config.status: executing po-directories commands

@@ -1,0 +1,123 @@
++ chmod +x /root/zfs/contrib/qat/QAT.L.4.28.0-00004/scripts/install-dkms.sh /root/zfs/contrib/qat/QAT.L.4.28.0-00004/scripts/dkms-build.sh
++ sh -n /root/zfs/contrib/qat/QAT.L.4.28.0-00004/scripts/install-dkms.sh
++ sh -n /root/zfs/contrib/qat/QAT.L.4.28.0-00004/scripts/dkms-build.sh
++ ls -ld /lib/modules/7.0.0-3-pve/build
+lrwxrwxrwx 1 root root 34 Apr 22 08:56 /lib/modules/7.0.0-3-pve/build -> /usr/src/linux-headers-7.0.0-3-pve
++ dkms remove -m qat -v 4.28.0-00004 --all
+Deleting module qat/4.28.0-00004 completely from the DKMS tree.
++ rm -rf /usr/src/qat-4.28.0-00004
++ mkdir -p /usr/src/qat-4.28.0-00004
++ cd /root/zfs/contrib/qat/QAT.L.4.28.0-00004
++ tar --exclude=.git --exclude=build --exclude=./Makefile --exclude=config.log --exclude=config.status --exclude=openzfs '--exclude=*.ko' '--exclude=*.o' -cf - .
++ tar -C /usr/src/qat-4.28.0-00004 -xf -
++ cd /usr/src/qat-4.28.0-00004
++ grep -n enable-param-check scripts/dkms-build.sh
+34:	*--enable-param-check*)
+37:		configure_flags="$configure_flags --enable-param-check=$configure_param_check"
++ sed -n 1,8p dkms.conf
+PACKAGE_NAME="qat"
+PACKAGE_VERSION="4.28.0-00004"
+AUTOINSTALL="yes"
+
+MAKE[0]="./scripts/dkms-build.sh ${kernel_source_dir} ${kernelver}"
+CLEAN="test ! -f Makefile || make clean"
+
+BUILT_MODULE_NAME[0]="intel_qat"
++ dkms add -m qat -v 4.28.0-00004
+Creating symlink /var/lib/dkms/qat/4.28.0-00004/source -> /usr/src/qat-4.28.0-00004
++ dkms build --force -m qat -v 4.28.0-00004 -k 7.0.0-3-pve
+Sign command: /lib/modules/7.0.0-3-pve/build/scripts/sign-file
+Signing key: /var/lib/dkms/mok.key
+Public certificate (MOK): /var/lib/dkms/mok.pub
+
+Building module(s)........................................................................ done.
+Signing module /var/lib/dkms/qat/4.28.0-00004/build/build/intel_qat.ko
+Signing module /var/lib/dkms/qat/4.28.0-00004/build/build/qat_api.ko
+Signing module /var/lib/dkms/qat/4.28.0-00004/build/build/usdm_drv.ko
+Signing module /var/lib/dkms/qat/4.28.0-00004/build/build/qat_dh895xcc.ko
+Signing module /var/lib/dkms/qat/4.28.0-00004/build/build/qat_c62x.ko
+Signing module /var/lib/dkms/qat/4.28.0-00004/build/build/qat_dh895xccvf.ko
+Signing module /var/lib/dkms/qat/4.28.0-00004/build/build/qat_c62xvf.ko
++ dkms install --force -m qat -v 4.28.0-00004 -k 7.0.0-3-pve
+Found pre-existing /lib/modules/7.0.0-3-pve/kernel/drivers/crypto/intel/qat/qat_common/intel_qat.ko, archiving for uninstallation
+Installing /lib/modules/7.0.0-3-pve/updates/dkms/intel_qat.ko
+Found pre-existing /lib/modules/7.0.0-3-pve/kernel/drivers/qat_api.ko, archiving for uninstallation
+Installing /lib/modules/7.0.0-3-pve/updates/dkms/qat_api.ko
+Found pre-existing /lib/modules/7.0.0-3-pve/kernel/drivers/usdm_drv.ko, archiving for uninstallation
+Installing /lib/modules/7.0.0-3-pve/updates/dkms/usdm_drv.ko
+Found pre-existing /lib/modules/7.0.0-3-pve/kernel/drivers/crypto/intel/qat/qat_dh895xcc/qat_dh895xcc.ko, archiving for uninstallation
+Installing /lib/modules/7.0.0-3-pve/updates/dkms/qat_dh895xcc.ko
+Found pre-existing /lib/modules/7.0.0-3-pve/kernel/drivers/crypto/intel/qat/qat_c62x/qat_c62x.ko, archiving for uninstallation
+Installing /lib/modules/7.0.0-3-pve/updates/dkms/qat_c62x.ko
+Found pre-existing /lib/modules/7.0.0-3-pve/kernel/drivers/crypto/intel/qat/qat_dh895xccvf/qat_dh895xccvf.ko, archiving for uninstallation
+Installing /lib/modules/7.0.0-3-pve/updates/dkms/qat_dh895xccvf.ko
+Found pre-existing /lib/modules/7.0.0-3-pve/kernel/drivers/crypto/intel/qat/qat_c62xvf/qat_c62xvf.ko, archiving for uninstallation
+Installing /lib/modules/7.0.0-3-pve/updates/dkms/qat_c62xvf.ko
+Running depmod..... done.
++ depmod -a 7.0.0-3-pve
++ for module in intel_qat qat_api usdm_drv qat_dh895xcc qat_c62x qat_dh895xccvf qat_c62xvf
++ modinfo -k 7.0.0-3-pve -n intel_qat
+/lib/modules/7.0.0-3-pve/updates/dkms/intel_qat.ko
++ for module in intel_qat qat_api usdm_drv qat_dh895xcc qat_c62x qat_dh895xccvf qat_c62xvf
++ modinfo -k 7.0.0-3-pve -n qat_api
+/lib/modules/7.0.0-3-pve/updates/dkms/qat_api.ko
++ for module in intel_qat qat_api usdm_drv qat_dh895xcc qat_c62x qat_dh895xccvf qat_c62xvf
++ modinfo -k 7.0.0-3-pve -n usdm_drv
+/lib/modules/7.0.0-3-pve/updates/dkms/usdm_drv.ko
++ for module in intel_qat qat_api usdm_drv qat_dh895xcc qat_c62x qat_dh895xccvf qat_c62xvf
++ modinfo -k 7.0.0-3-pve -n qat_dh895xcc
+/lib/modules/7.0.0-3-pve/updates/dkms/qat_dh895xcc.ko
++ for module in intel_qat qat_api usdm_drv qat_dh895xcc qat_c62x qat_dh895xccvf qat_c62xvf
++ modinfo -k 7.0.0-3-pve -n qat_c62x
+/lib/modules/7.0.0-3-pve/updates/dkms/qat_c62x.ko
++ for module in intel_qat qat_api usdm_drv qat_dh895xcc qat_c62x qat_dh895xccvf qat_c62xvf
++ modinfo -k 7.0.0-3-pve -n qat_dh895xccvf
+/lib/modules/7.0.0-3-pve/updates/dkms/qat_dh895xccvf.ko
++ for module in intel_qat qat_api usdm_drv qat_dh895xcc qat_c62x qat_dh895xccvf qat_c62xvf
++ modinfo -k 7.0.0-3-pve -n qat_c62xvf
+/lib/modules/7.0.0-3-pve/updates/dkms/qat_c62xvf.ko
++ dkms remove -m zfs -v 2.4.99 -k 7.0.0-3-pve
+Module zfs/2.4.99 for kernel 7.0.0-3-pve (x86_64):
+Before uninstall, this module version was ACTIVE on this kernel.
+Deleting /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko
+Restoring archived original module /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko
+Deleting /lib/modules/7.0.0-3-pve/updates/dkms/spl.ko
+Restoring archived original module /lib/modules/7.0.0-3-pve/updates/dkms/spl.ko
+Running depmod... done.
+
+Deleting module zfs/2.4.99 completely from the DKMS tree.
++ ICP_ROOT=/usr/src/qat-4.28.0-00004
++ dkms build --force -m zfs -v 2.4.99 -k 7.0.0-3-pve
+Creating symlink /var/lib/dkms/zfs/2.4.99/source -> /usr/src/zfs-2.4.99
+
+Sign command: /lib/modules/7.0.0-3-pve/build/scripts/sign-file
+Signing key: /var/lib/dkms/mok.key
+Public certificate (MOK): /var/lib/dkms/mok.pub
+
+Running the pre_build script............... done.
+Building module(s)............ done.
+Signing module /var/lib/dkms/zfs/2.4.99/build/module/zfs.ko
+Signing module /var/lib/dkms/zfs/2.4.99/build/module/spl.ko
+Running the post_build script... done.
++ dkms install --force -m zfs -v 2.4.99 -k 7.0.0-3-pve
+Found pre-existing /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko, archiving for uninstallation
+Installing /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko
+Found pre-existing /lib/modules/7.0.0-3-pve/updates/dkms/spl.ko, archiving for uninstallation
+Installing /lib/modules/7.0.0-3-pve/updates/dkms/spl.ko
+Running depmod... done.
++ depmod -a 7.0.0-3-pve
++ modinfo -k 7.0.0-3-pve -n zfs
+/lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko
++ modinfo -k 7.0.0-3-pve -F srcversion zfs
+38C562CCF5F59E6889FDE50
++ update-initramfs -u -k 7.0.0-3-pve
+update-initramfs: Generating /boot/initrd.img-7.0.0-3-pve
+Running hook script 'zz-proxmox-boot'..
+Re-executing '/etc/kernel/postinst.d/zz-proxmox-boot' in new private mount namespace..
+Copying and configuring kernels on /dev/disk/by-uuid/EECF-2083
+	Copying kernel and creating boot-entry for 6.17.13-6-pve
+	Copying kernel and creating boot-entry for 7.0.0-3-pve
++ dkms status
++ egrep 'qat|zfs'
+qat/4.28.0-00004, 7.0.0-3-pve, x86_64: installed (Original modules exist)
+zfs/2.4.99, 7.0.0-3-pve, x86_64: installed (Original modules exist)
