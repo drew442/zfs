@@ -1,0 +1,5 @@
+Found pre-existing /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko, archiving for uninstallation
+Installing /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko
+Found pre-existing /lib/modules/7.0.0-3-pve/updates/dkms/spl.ko, archiving for uninstallation
+Installing /lib/modules/7.0.0-3-pve/updates/dkms/spl.ko
+Running depmod... done.

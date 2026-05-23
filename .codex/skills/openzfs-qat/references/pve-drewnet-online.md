@@ -143,6 +143,12 @@ compression disable parameter after qat.service completes initializes the QAT
 DC path without reloading ZFS.
 ```
 
+Do not add `After=qat.service` drop-ins to `zfs-import-cache.service` or
+`zfs-mount.service`. The QAT unit shipped by the 4.28 package has
+`After=local-fs.target`; making ZFS import or mount wait for QAT creates a
+systemd ordering cycle. The supported boot path is to let ZFS load normally,
+start `qat.service` later, then run `zfs-qat-reenable.service`.
+
 `/etc/default/qat` contains:
 
 ```text
@@ -289,11 +295,12 @@ as ZFS-path observability, not as a replacement for `adf_ctl status`.
 
 Observation: `adf_ctl` and the kernel can report the device up while ZFS QAT kstats remain at zero. Do not infer from driver state alone that ZFS has processed QAT-accelerated I/O.
 
-Boot ordering caveat observed on 2026-05-13: systemd may delete the
-`qat.service` start job to break a ZFS import ordering cycle. In that state
-`adf_ctl status` can still report `qat_dev0` as up, but ZFS QAT compression may
-not be initialized and benchmark runs will show `comp_requests=0`. If this
-happens, start QAT explicitly and re-enable ZFS QAT compression:
+Boot ordering caveat observed on 2026-05-13 and again on 2026-05-23 with stale
+ZFS service drop-ins: systemd may delete the `qat.service` start job to break a
+ZFS import ordering cycle. In that state `adf_ctl status` can still report QAT
+devices as up, but ZFS QAT compression may not be initialized and benchmark runs
+will show `comp_requests=0` or `dc_instances=0`. If this happens, start QAT
+explicitly and re-enable ZFS QAT compression:
 
 ```bash
 systemctl start qat
@@ -302,6 +309,8 @@ echo 0 > /sys/module/zfs/parameters/zfs_qat_compress_disable
 ```
 
 Then confirm a QAT-mode benchmark moves `/proc/spl/kstat/zfs/qat` counters.
+Remove stale `/etc/systemd/system/zfs-import-cache.service.d/qat.conf` and
+`/etc/systemd/system/zfs-mount.service.d/qat.conf` drop-ins if present.
 
 Relevant commands:
 

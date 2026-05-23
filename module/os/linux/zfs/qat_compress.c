@@ -85,6 +85,12 @@ typedef enum qat_dc_callback_type {
 	QAT_DC_CALLBACK_ASYNC = 2,
 } qat_dc_callback_type_t;
 
+typedef enum qat_dc_async_cap_mode {
+	QAT_DC_CAP_BALANCED = 0,
+	QAT_DC_CAP_THROUGHPUT = 1,
+	QAT_DC_CAP_OFFLOAD = 2,
+} qat_dc_async_cap_mode_t;
+
 typedef struct qat_dc_sync_req qat_dc_sync_req_t;
 
 typedef struct qat_dc_callback_ctx {
@@ -675,10 +681,13 @@ qat_dc_async_valid_cap_policy(const char *value)
 }
 
 static boolean_t
-qat_dc_async_recordsize_cap(int src_len, int *cap, boolean_t throughput)
+qat_dc_async_recordsize_cap(int src_len, int *cap,
+    qat_dc_async_cap_mode_t mode)
 {
 	uint_t cap_instances;
 	int per_inst_cap;
+	boolean_t offload = (mode == QAT_DC_CAP_OFFLOAD);
+	boolean_t throughput = (mode == QAT_DC_CAP_THROUGHPUT);
 
 	if (src_len < 128 * 1024)
 		return (B_FALSE);
@@ -693,6 +702,8 @@ qat_dc_async_recordsize_cap(int src_len, int *cap, boolean_t throughput)
 	cap_instances = MIN(num_inst, 6);
 	if (throughput && src_len >= 1024 * 1024)
 		cap_instances = num_inst;
+	if (offload && src_len >= 512 * 1024)
+		cap_instances = num_inst;
 
 	if (cap_instances == 0)
 		return (B_FALSE);
@@ -702,7 +713,7 @@ qat_dc_async_recordsize_cap(int src_len, int *cap, boolean_t throughput)
 	} else if (src_len == 256 * 1024) {
 		per_inst_cap = 32;
 	} else if (src_len >= 512 * 1024) {
-		per_inst_cap = 16;
+		per_inst_cap = offload ? 32 : 16;
 	} else {
 		return (B_TRUE);
 	}
@@ -711,12 +722,18 @@ qat_dc_async_recordsize_cap(int src_len, int *cap, boolean_t throughput)
 	return (B_TRUE);
 }
 
-static boolean_t
-qat_dc_profile_throughput_cap(void)
+static qat_dc_async_cap_mode_t
+qat_dc_profile_cap_mode(void)
 {
-	return ((strcmp(zfs_qat_dc_profile, "throughput") == 0 ||
-	    strcmp(zfs_qat_dc_profile, "offload") == 0) &&
-	    zfs_qat_dc_profile_recordsize >= 1024 * 1024);
+	if (strcmp(zfs_qat_dc_profile, "offload") == 0 &&
+	    zfs_qat_dc_profile_recordsize >= 512 * 1024)
+		return (QAT_DC_CAP_OFFLOAD);
+
+	if (strcmp(zfs_qat_dc_profile, "throughput") == 0 &&
+	    zfs_qat_dc_profile_recordsize >= 1024 * 1024)
+		return (QAT_DC_CAP_THROUGHPUT);
+
+	return (QAT_DC_CAP_BALANCED);
 }
 
 static boolean_t
@@ -726,14 +743,16 @@ qat_dc_async_effective_cap(int src_len, int *cap)
 
 	if (strcmp(zfs_qat_dc_async_cap_policy, "profile") == 0) {
 		return (qat_dc_async_recordsize_cap(src_len, cap,
-		    qat_dc_profile_throughput_cap()));
+		    qat_dc_profile_cap_mode()));
 	}
 
 	if (strcmp(zfs_qat_dc_async_cap_policy, "recordsize") == 0)
-		return (qat_dc_async_recordsize_cap(src_len, cap, B_FALSE));
+		return (qat_dc_async_recordsize_cap(src_len, cap,
+		    QAT_DC_CAP_BALANCED));
 
 	if (strcmp(zfs_qat_dc_async_cap_policy, "throughput") == 0)
-		return (qat_dc_async_recordsize_cap(src_len, cap, B_TRUE));
+		return (qat_dc_async_recordsize_cap(src_len, cap,
+		    QAT_DC_CAP_THROUGHPUT));
 
 	return (B_TRUE);
 }
