@@ -114,13 +114,17 @@ latency tradeoffs rather than broad throughput wins.
    - Because this host is single-socket EPYC with sub-socket NUMA, use this as
      hygiene only; defer conclusions to a true multi-socket host.
 
-5. Evaluate parameter checking as an explicit QAT-driver experiment. This is the
-   next recommended target after the 2026-05-22 platform/service baseline.
+5. Evaluate parameter checking as an explicit QAT-driver experiment. Completed
+   on 2026-05-23.
    - Goal: reduce IA cycles in the access layer.
    - Only test if QAT 4.28 CE exposes the documented `ICP_PARAM_CHECK` or build
      option for this driver path.
    - Treat this as an experiment requiring correctness smoke tests, not an
      automatic deployment recommendation.
+   - Result: disabling parameter checking was correct in a smoke test but did
+     not improve elapsed time in the `1M` throughput benchmark. Do not pursue as
+     a performance default. See
+     `references/qat-param-check-experiment-20260523.md`.
 
 6. Confirm memory allocation and alignment behavior.
    - Goal: determine whether 64-byte alignment guidance is violated enough to
@@ -169,19 +173,19 @@ work.
 
 ## Recommended Next Action
 
-Run a controlled QAT driver parameter-checking experiment on
-`pve.drewnet.online` before changing more ZFS code:
+Run a controlled QAT completion-mode experiment on `pve.drewnet.online` before
+changing more ZFS code:
 
 ```text
-1. Rebuild the QAT DKMS package with ICP_PARAM_CHECK=n.
-2. Reinstall/reload QAT and verify both dh895xcc devices are up.
-3. Rebuild/reload ZFS if needed to keep ICP_ROOT and ZFS DKMS in lock-step.
-4. Run a correctness smoke test with QAT compression enabled.
-5. Repeat the current comparison benchmark:
+1. Change only [KERNEL_QAT] DC completion mode in /etc/dh895xcc_dev*.conf.
+2. Keep ServicesEnabled=cy;dc and six DC instances per card.
+3. Reboot or restart QAT only after saving a rollback copy of both config files.
+4. Verify both dh895xcc devices are up and ZFS sees 12 DC instances.
+5. Run a correctness smoke test with QAT compression enabled.
+6. Repeat the current comparison benchmark:
    target=1M, profile=throughput, record=1M, JOBS=4 and JOBS=8.
-6. Restore or keep the QAT build option only after comparing elapsed latency,
-   throughput, CPU seconds per GiB, compression ratio, QAT byte share, and QAT
-   driver timing counters.
+7. Compare elapsed latency, throughput, CPU seconds per GiB, compression ratio,
+   QAT byte share, and QAT driver timing counters.
 ```
 
 If QAT-side tuning does not improve the repeat candidate, the next ZFS-side
