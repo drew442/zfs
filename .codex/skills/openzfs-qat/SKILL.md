@@ -47,7 +47,8 @@ Use this skill for QAT-specific work in this fork. It is meant for design review
 30. For the random-data HDD/NVMe min-buffer check, use `references/qat-minbuf-random-media-recordorder-20260524.md`.
 31. For the compressibility/media matrix, use `references/qat-compressibility-media-matrix-20260524.md`.
 32. For expected-ratio profile validation, use `references/qat-expected-ratio-validation-20260524.md`.
-33. Confirm which layer the task touches before editing:
+33. For exact page-count and scratch page-array request-overhead reduction, use `references/qat-page-count-overhead-20260524.md`.
+34. Confirm which layer the task touches before editing:
    - Build integration and static configuration
    - Runtime tunables and initialization
    - Compression, checksum, or encryption call sites
