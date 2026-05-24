@@ -221,7 +221,13 @@ Workstream F: optimization bias controls:
   this is a repeatable policy split rather than benchmark noise. Initial paired
   HDD/NVMe testing on 2026-05-23 showed `1M` winning elapsed time on HDD at
   jobs `4` and `8` while losing on NVMe, so the premise is plausible but still
-  needs confirmation with other source data and less-compressible input.
+  needs confirmation with other source data and less-compressible input. A
+  2026-05-24 random-data follow-up did not repeat the `1M` HDD win at higher
+  concurrency when compression ratio stayed at `1.00x`, so storage-media bias
+  should only be considered with explicit compression-ratio or byte-reduction
+  evidence. Random incompressible data supports admission/fallback and
+  compressibility-profile decisions, not a standalone rotational/flash default
+  split.
 - Do not assume every QAT tuning knob cleanly maps to one bias. `zfs_qat_cpa_dc_level` directly affects QAT compression effort, but larger record eligibility, allocation reuse, and software fallback thresholds may affect throughput and latency without improving ratio.
 - Initial implementation should keep explicit low-level parameters available for controlled benchmarking. Bias parameters can later set coherent defaults for those lower-level knobs once measurements prove the policies.
 

@@ -44,7 +44,8 @@ Use this skill for QAT-specific work in this fork. It is meant for design review
 27. For the NVMe-backed validation of the min-buffer policy and benchmark run-order update, use `references/qat-minbuf-nvme-policy-20260523.md`.
 28. For the paired `RUN_ORDER=record` NVMe min-buffer validation, use `references/qat-minbuf-nvme-recordorder-20260523.md`.
 29. For the paired HDD media comparison of the min-buffer policy, use `references/qat-minbuf-hdd-recordorder-20260523.md`.
-30. Confirm which layer the task touches before editing:
+30. For the random-data HDD/NVMe min-buffer check, use `references/qat-minbuf-random-media-recordorder-20260524.md`.
+31. Confirm which layer the task touches before editing:
    - Build integration and static configuration
    - Runtime tunables and initialization
    - Compression, checksum, or encryption call sites

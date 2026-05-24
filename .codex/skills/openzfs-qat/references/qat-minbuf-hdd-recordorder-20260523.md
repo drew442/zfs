@@ -116,8 +116,9 @@ jobs `4` and `8` while also roughly halving active CPU seconds per GiB.
 ## Next Target
 
 Keep `512K` as the current candidate for the throughput profile's minimum QAT
-request size and large-record target. Before adding explicit `rotational` or
-`flash` profile inputs, test whether the same HDD/NVMe split holds across other
-source data and at least one less-compressible workload. If the split repeats,
-make storage-media bias a profile input rather than a manual low-level tuning
-requirement.
+request size and large-record target. The follow-up random-data run on
+2026-05-24 did not repeat the `1M` HDD win at higher concurrency when
+compression ratio stayed at `1.00x`; see
+`qat-minbuf-random-media-recordorder-20260524.md`. Treat this HDD result as
+evidence for a possible media-plus-compression-ratio interaction, not as enough
+evidence for a standalone `rotational` or `flash` profile input.
