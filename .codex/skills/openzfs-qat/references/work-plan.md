@@ -227,7 +227,11 @@ Workstream F: optimization bias controls:
   should only be considered with explicit compression-ratio or byte-reduction
   evidence. Random incompressible data supports admission/fallback and
   compressibility-profile decisions, not a standalone rotational/flash default
-  split.
+  split. A 2026-05-24 mixed random/zero follow-up produced `1.96x` compression
+  and still lost elapsed time on HDD at every tested `512K`/`1M` row, while
+  winning on NVMe at jobs `4` and `8`. This makes expected compression ratio a
+  first-class profile input; storage-media class should be a modifier rather
+  than the primary selector.
 - Do not assume every QAT tuning knob cleanly maps to one bias. `zfs_qat_cpa_dc_level` directly affects QAT compression effort, but larger record eligibility, allocation reuse, and software fallback thresholds may affect throughput and latency without improving ratio.
 - Initial implementation should keep explicit low-level parameters available for controlled benchmarking. Bias parameters can later set coherent defaults for those lower-level knobs once measurements prove the policies.
 

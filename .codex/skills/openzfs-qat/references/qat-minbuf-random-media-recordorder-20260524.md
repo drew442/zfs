@@ -107,7 +107,7 @@ hybrid software fallback.
 
 Keep the current `512K` throughput-profile minimum as the safest broad default
 candidate. Do not promote a storage-media profile flag from this run alone.
-Next useful profile work is to add a compressibility/ratio dimension to the
-evaluation matrix: compare highly compressible, moderately compressible, and
-incompressible sources on both media before deciding whether rotational/flash
-policy should change record-size or compression-effort defaults.
+The 2026-05-24 mixed random/zero run added the moderate-compressibility point;
+see `qat-compressibility-media-matrix-20260524.md`. That result reinforces that
+storage media should be a modifier only after expected compression ratio is
+known or operator-supplied.
