@@ -66,6 +66,9 @@ typedef struct qat_dc_buffer_slot {
 	Cpa32U coalesced_dst_size;
 	void *scratch;
 	Cpa32U scratch_size;
+	struct page **scratch_pages;
+	Cpa32U scratch_pages_count;
+	size_t scratch_pages_size;
 } qat_dc_buffer_slot_t;
 
 typedef struct qat_dc_buffer_pool {
@@ -167,6 +170,7 @@ struct qat_dc_async {
 	void *coalesced_src;
 	void *coalesced_dst;
 	boolean_t add_from_slot;
+	boolean_t scratch_pages_from_slot;
 	hrtime_t submit_end;
 	volatile uint32_t armed;
 	boolean_t active;
@@ -1733,6 +1737,40 @@ qat_dc_buffer_slot_scratch(qat_dc_buffer_slot_t *slot, Cpa32U add_len)
 	return (slot->scratch);
 }
 
+static struct page **
+qat_dc_buffer_slot_scratch_pages(qat_dc_buffer_slot_t *slot,
+    Cpa32U num_add_buf)
+{
+	struct page **scratch_pages;
+	size_t scratch_pages_size;
+	hrtime_t start;
+	hrtime_t end;
+
+	if (slot == NULL || num_add_buf == 0)
+		return (NULL);
+
+	if (slot->scratch_pages != NULL &&
+	    slot->scratch_pages_count >= num_add_buf)
+		return (slot->scratch_pages);
+
+	scratch_pages_size = num_add_buf * sizeof (*scratch_pages);
+	scratch_pages = kmem_alloc(scratch_pages_size, KM_SLEEP);
+	if (scratch_pages == NULL)
+		return (NULL);
+
+	if (slot->scratch_pages != NULL) {
+		start = gethrtime();
+		kmem_free(slot->scratch_pages, slot->scratch_pages_size);
+		end = gethrtime();
+		QAT_STAT_ADD_TIME(dc_compress_page_array_free_ns, start, end);
+	}
+
+	slot->scratch_pages = scratch_pages;
+	slot->scratch_pages_count = num_add_buf;
+	slot->scratch_pages_size = scratch_pages_size;
+	return (slot->scratch_pages);
+}
+
 static void
 qat_dc_buffer_pool_clean(Cpa16U inst)
 {
@@ -1748,6 +1786,9 @@ qat_dc_buffer_pool_clean(Cpa16U inst)
 		QAT_PHYS_CONTIG_FREE(slot->coalesced_dst);
 		if (slot->scratch != NULL)
 			zio_data_buf_free(slot->scratch, slot->scratch_size);
+		if (slot->scratch_pages != NULL)
+			kmem_free(slot->scratch_pages,
+			    slot->scratch_pages_size);
 	}
 
 	memset(pool, 0, sizeof (*pool));
@@ -2110,14 +2151,10 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	boolean_t request_timed_out = B_FALSE;
 	boolean_t retain_qat_resources = B_FALSE;
 	boolean_t sync_compress_submitted = B_FALSE;
+	boolean_t scratch_pages_from_slot = B_FALSE;
 	qat_dc_buffer_shape_t buffer_shape = { 0 };
 	uint64_t retained_bytes = 0;
 
-	/*
-	 * We increment num_src_buf and num_dst_buf by 2 to allow
-	 * us to handle non page-aligned buffer addresses and buffers
-	 * whose sizes are not divisible by PAGE_SIZE.
-	 */
 	dst_quarantine_requested = (dir == QAT_COMPRESS &&
 	    qat_dc_effective_quarantine_dst());
 	src_coalesced = (dir == QAT_COMPRESS &&
@@ -2214,8 +2251,8 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	    &qat_stats.dc_compress_page_array_stack_dst,
 	    &qat_stats.dc_compress_page_array_heap_dst);
 	qat_dc_record_page_array_path(dir == QAT_COMPRESS &&
-	    add_len > 0 && !dst_coalesced,
-	    num_add_buf > QAT_DC_STACK_MAX_PAGES,
+	    add_len > 0 && !dst_coalesced &&
+	    num_add_buf <= QAT_DC_STACK_MAX_PAGES, B_FALSE,
 	    &qat_stats.dc_compress_page_array_stack_scratch,
 	    &qat_stats.dc_compress_page_array_heap_scratch);
 
@@ -2247,6 +2284,16 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		scratch_pages_size = num_add_buf * sizeof (*scratch_pages);
 		if (num_add_buf <= QAT_DC_STACK_MAX_PAGES) {
 			scratch_pages = scratch_pages_stack;
+		} else if (buffer_slot != NULL) {
+			phase_start = gethrtime();
+			scratch_pages = qat_dc_buffer_slot_scratch_pages(
+			    buffer_slot, num_add_buf);
+			phase_end = gethrtime();
+			if (dir == QAT_COMPRESS)
+				QAT_STAT_ADD_TIME(
+				    dc_compress_page_array_alloc_ns,
+				    phase_start, phase_end);
+			scratch_pages_from_slot = (scratch_pages != NULL);
 		} else {
 			phase_start = gethrtime();
 			scratch_pages = kmem_alloc(scratch_pages_size, KM_SLEEP);
@@ -2258,6 +2305,11 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		}
 		if (scratch_pages == NULL)
 			goto fail;
+		if (dir == QAT_COMPRESS && scratch_pages_from_slot)
+			QAT_STAT_BUMP(dc_compress_page_array_slot_scratch);
+		else if (dir == QAT_COMPRESS &&
+		    num_add_buf > QAT_DC_STACK_MAX_PAGES)
+			QAT_STAT_BUMP(dc_compress_page_array_heap_scratch);
 	}
 
 	if (buffer_slot != NULL) {
@@ -2628,7 +2680,8 @@ fail:
 		}
 	}
 
-	if (scratch_pages != NULL && scratch_pages != scratch_pages_stack) {
+	if (scratch_pages != NULL && scratch_pages != scratch_pages_stack &&
+	    !scratch_pages_from_slot) {
 		if (dir == QAT_COMPRESS)
 			free_start = gethrtime();
 		kmem_free(scratch_pages, scratch_pages_size);
@@ -2828,7 +2881,8 @@ qat_dc_async_cleanup(qat_dc_async_t *req)
 	}
 
 	if (req->scratch_pages != NULL &&
-	    req->scratch_pages != req->scratch_pages_stack) {
+	    req->scratch_pages != req->scratch_pages_stack &&
+	    !req->scratch_pages_from_slot) {
 		free_start = gethrtime();
 		kmem_free(req->scratch_pages, req->scratch_pages_size);
 		free_end = gethrtime();
@@ -3006,8 +3060,8 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	    num_dst_buf > QAT_DC_STACK_MAX_PAGES,
 	    &qat_stats.dc_compress_page_array_stack_dst,
 	    &qat_stats.dc_compress_page_array_heap_dst);
-	qat_dc_record_page_array_path(req->add_len > 0 && !dst_coalesced,
-	    num_add_buf > QAT_DC_STACK_MAX_PAGES,
+	qat_dc_record_page_array_path(req->add_len > 0 && !dst_coalesced &&
+	    num_add_buf <= QAT_DC_STACK_MAX_PAGES, B_FALSE,
 	    &qat_stats.dc_compress_page_array_stack_scratch,
 	    &qat_stats.dc_compress_page_array_heap_scratch);
 
@@ -3031,6 +3085,10 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	}
 	if (num_add_buf > 0 && num_add_buf <= QAT_DC_STACK_MAX_PAGES) {
 		req->scratch_pages = req->scratch_pages_stack;
+	} else if (num_add_buf > 0 && req->buffer_slot != NULL) {
+		req->scratch_pages = qat_dc_buffer_slot_scratch_pages(
+		    req->buffer_slot, num_add_buf);
+		req->scratch_pages_from_slot = (req->scratch_pages != NULL);
 	} else if (num_add_buf > 0) {
 		req->scratch_pages_size =
 		    num_add_buf * sizeof (*req->scratch_pages);
@@ -3043,6 +3101,13 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	if (req->in_pages == NULL || req->out_pages == NULL ||
 	    (num_add_buf > 0 && req->scratch_pages == NULL))
 		goto fail;
+	if (req->add_len > 0 && !dst_coalesced) {
+		if (req->scratch_pages_from_slot) {
+			QAT_STAT_BUMP(dc_compress_page_array_slot_scratch);
+		} else if (num_add_buf > QAT_DC_STACK_MAX_PAGES) {
+			QAT_STAT_BUMP(dc_compress_page_array_heap_scratch);
+		}
+	}
 
 	if (req->buffer_slot != NULL) {
 		buffer_meta_src = req->buffer_slot->buffer_meta_src;

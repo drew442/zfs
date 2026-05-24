@@ -73,6 +73,7 @@ qat_stats_t qat_stats = {
 	{ "dc_compress_page_array_heap_dst",	KSTAT_DATA_UINT64 },
 	{ "dc_compress_page_array_stack_scratch", KSTAT_DATA_UINT64 },
 	{ "dc_compress_page_array_heap_scratch", KSTAT_DATA_UINT64 },
+	{ "dc_compress_page_array_slot_scratch", KSTAT_DATA_UINT64 },
 	{ "dc_compress_page_array_alloc_ns",	KSTAT_DATA_UINT64 },
 	{ "dc_compress_page_array_free_ns",	KSTAT_DATA_UINT64 },
 	{ "dc_compress_buffer_list_alloc_ns",	KSTAT_DATA_UINT64 },
