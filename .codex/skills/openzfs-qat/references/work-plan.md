@@ -242,32 +242,30 @@ record size instead of inferring one automatically. The default target should be
 `131072`, matching OpenZFS's default `128K` dataset recordsize. See
 `phase-4-profile-plan.md`.
 
-Next profile work:
+Profile implementation status:
 
-- Add `zfs_qat_dc_profile=balanced` and
-  `zfs_qat_dc_ratio_profile=balanced`.
-- Add `zfs_qat_dc_profile_recordsize=131072`, accepting `128K`, `256K`, `512K`,
-  and `1M`.
-- Convert profile-owned tunables to default to `profile`, while still accepting
-  concrete manual values for per-tunable override.
-- Compute effective settings for async cap policy, large-record eligibility,
-  decompression policy, and eventually compression level/Huffman type from the
-  active profile when the relevant tunable is set to `profile`.
-- Initial implementation starts with `zfs_qat_dc_async_cap_policy=profile`
-  only. It does not automatically enable async QAT because `zfs_qat_dc_async`
-  remains disabled by default.
-- The second implementation adds `zfs_qat_dc_max_buf_size=profile`, so the
-  effective large-record eligibility window follows
-  `zfs_qat_dc_profile_recordsize` unless the operator supplies a concrete
-  per-tunable override.
-- The third implementation adds `zfs_qat_cpa_dc_level=profile`, so the
-  compression-effort level follows `zfs_qat_dc_ratio_profile` unless the
-  operator supplies a concrete per-tunable override.
-- The fourth implementation converts the remaining planned profile-owned
-  tunables: Huffman type, decompression policy, async enablement/retry/cap
-  values, and source/destination coalescing toggles. Balanced defaults preserve
-  conservative behavior; throughput/offload profiles may enable async, and the
-  performance ratio profile may select static Huffman.
+- `zfs_qat_dc_profile=balanced`,
+  `zfs_qat_dc_ratio_profile=balanced`, and
+  `zfs_qat_dc_profile_recordsize=131072` are implemented as validated profile
+  inputs.
+- `zfs_qat_dc_expected_ratio=unknown|low|medium|high` is implemented as the
+  first compressibility-profile input. `unknown` preserves the previous
+  behavior. `low`, `medium`, and `high` only affect tunables that remain set to
+  `profile`.
+- Profile-owned tunables can default to `profile` while still accepting concrete
+  manual values for per-tunable override.
+- Effective settings for async cap policy, large-record eligibility,
+  decompression policy, compression level, Huffman type, async enablement/retry
+  values, and source/destination coalescing are computed from the active
+  profile when the relevant tunable is set to `profile`.
+- `zfs_qat_dc_expected_ratio=medium` caps profile-managed maximum request size
+  at `512K` and keeps profile-managed async cap behavior at balanced
+  `recordsize`, reflecting the moderate-compressibility benchmark where `1M`
+  records did not justify their elapsed-time cost.
+- `zfs_qat_dc_expected_ratio=low` with balanced ratio profile selects static
+  Huffman and raises the profile-managed minimum request size to `512K`.
+- `zfs_qat_dc_expected_ratio=high` with balanced ratio profile selects QAT
+  compression level 4.
 - Apply session-global settings such as QAT compression level and Huffman type
   only before QAT DC initialization, and reject profile changes that would
   require changing active QAT DC sessions.

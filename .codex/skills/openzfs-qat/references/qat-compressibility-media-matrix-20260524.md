@@ -130,7 +130,17 @@ is at least:
 storage media class + expected compression ratio + target record size + concurrency
 ```
 
-The next profile shape should treat compressibility or expected ratio as a
-first-class input. A storage-media profile may still be useful, but only as a
-modifier after the ratio policy decides whether larger records or higher
-compression effort are likely to pay off.
+The first implementation of this signal is
+`zfs_qat_dc_expected_ratio=unknown|low|medium|high`. `unknown` preserves the
+previous profile behavior. Explicit values are host-level hints that only affect
+profile-managed tunables:
+
+- `low` treats QAT as primarily a CPU-offload path for poorly-compressible data.
+- `medium` avoids the measured moderate-compressibility `1M` elapsed-time
+  regression by capping profile-managed QAT records at `512K`.
+- `high` allows higher compression effort when the balanced ratio profile is
+  otherwise selected.
+
+A storage-media profile may still be useful later, but only as a modifier after
+the expected-ratio policy decides whether larger records or higher compression
+effort are likely to pay off.

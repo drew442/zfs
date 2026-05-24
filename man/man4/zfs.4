@@ -2135,6 +2135,12 @@ uses level
 .Sy 4
 and other ratio profiles use level
 .Sy 1 .
+When
+.Sy zfs_qat_dc_ratio_profile Ns = Ns Sy balanced
+and
+.Sy zfs_qat_dc_expected_ratio Ns = Ns Sy high ,
+profile-managed level selection also uses level
+.Sy 4 .
 Concrete values manually override the profile-managed value.
 This is a global QAT data-compression session setting, not a per-dataset
 setting.
@@ -2147,6 +2153,11 @@ The default is
 When profile-managed,
 .Sy zfs_qat_dc_ratio_profile Ns = Ns Sy performance
 uses static Huffman trees and other ratio profiles use dynamic Huffman trees.
+When
+.Sy zfs_qat_dc_ratio_profile Ns = Ns Sy balanced
+and
+.Sy zfs_qat_dc_expected_ratio Ns = Ns Sy low ,
+profile-managed Huffman selection also uses static Huffman trees.
 Concrete values manually override the profile-managed value.
 .Sy dynamic
 uses full dynamic Huffman trees, which may improve compression ratio but
@@ -2164,7 +2175,11 @@ The default is
 .Sy profile ,
 which uses
 .Sy zfs_qat_dc_profile_recordsize
-as the effective maximum.
+as the effective maximum, except that
+.Sy zfs_qat_dc_expected_ratio Ns = Ns Sy medium
+caps the profile-managed maximum at
+.Sy 524288
+to avoid the measured moderate-compressibility 1 MiB elapsed-time regression.
 Experimental values
 .Sy 131072 ,
 .Sy 262144 ,
@@ -2247,7 +2262,11 @@ uses
 .Sy zfs_qat_dc_profile
 and
 .Sy zfs_qat_dc_profile_recordsize
-to select the effective cap policy.
+to select the effective cap policy. The expected-ratio hint
+.Sy zfs_qat_dc_expected_ratio Ns = Ns Sy medium
+keeps profile-managed cap behavior at balanced
+.Sy recordsize
+policy.
 .Sy fixed
 uses
 .Sy zfs_qat_dc_async_max_inflight
@@ -2302,6 +2321,27 @@ prefers compression-ratio-preserving choices, accepting latency only when
 explicitly selected.
 The default is
 .Sy balanced .
+.
+.It Sy zfs_qat_dc_expected_ratio Ns = Ns Sy unknown Ns | Ns Sy low Ns | Ns Sy medium Ns | Ns Sy high Pq charp
+Operator-supplied expected compression-ratio class for host-level QAT profile
+decisions.
+The default is
+.Sy unknown ,
+which preserves the existing conservative profile behavior.
+.Sy low
+is intended for incompressible or barely-compressible data where QAT is mainly
+a CPU-offload choice.
+.Sy medium
+is intended for data that compresses materially but not enough to prove that
+larger records reduce device work enough to offset QAT request cost; current
+profile-managed policy treats this as a reason to cap the QAT maximum request
+size at 512 KiB.
+.Sy high
+is intended for data where reduced write volume is expected to dominate request
+overhead; current profile-managed policy may select higher QAT compression
+effort when
+.Sy zfs_qat_dc_ratio_profile Ns = Ns Sy balanced .
+This is a host-level hint, not a per-dataset property.
 .
 .It Sy zfs_qat_dc_max_instances Ns = Ns Sy 48 Pq int
 Maximum number of QAT data-compression instances to use.

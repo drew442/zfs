@@ -252,6 +252,7 @@ static int zfs_qat_dc_watchdog_interval_ms_value = 250;
 char *zfs_qat_dc_profile = "balanced";
 int zfs_qat_dc_profile_recordsize = 128 * 1024;
 char *zfs_qat_dc_ratio_profile = "balanced";
+char *zfs_qat_dc_expected_ratio = "unknown";
 static uint32_t qat_dc_runtime_failed;
 static uint64_t qat_dc_total_inflight;
 static uint64_t qat_dc_inflight_start_ns;
@@ -293,9 +294,13 @@ qat_dc_valid_level(int level)
 }
 
 static int
-qat_dc_profile_level(const char *ratio_profile)
+qat_dc_profile_level(const char *ratio_profile, const char *expected_ratio)
 {
 	if (strcmp(ratio_profile, "ratio") == 0)
+		return (4);
+
+	if (strcmp(ratio_profile, "balanced") == 0 &&
+	    strcmp(expected_ratio, "high") == 0)
 		return (4);
 
 	return (1);
@@ -305,7 +310,8 @@ static int
 qat_dc_effective_level(void)
 {
 	if (strcmp(zfs_qat_cpa_dc_level, "profile") == 0)
-		return (qat_dc_profile_level(zfs_qat_dc_ratio_profile));
+		return (qat_dc_profile_level(zfs_qat_dc_ratio_profile,
+		    zfs_qat_dc_expected_ratio));
 
 	return (zfs_qat_cpa_dc_level_value);
 }
@@ -366,10 +372,15 @@ qat_dc_valid_min_buf_size(int min_buf_size)
 }
 
 static int
-qat_dc_profile_min_buf_size(const char *dc_profile)
+qat_dc_profile_min_buf_size(const char *dc_profile, const char *expected_ratio)
 {
 	if (strcmp(dc_profile, "latency") == 0 ||
 	    strcmp(dc_profile, "throughput") == 0)
+		return (512 * 1024);
+
+	if (strcmp(dc_profile, "balanced") == 0 &&
+	    (strcmp(expected_ratio, "low") == 0 ||
+	    strcmp(expected_ratio, "medium") == 0))
 		return (512 * 1024);
 
 	return (QAT_DC_MIN_BUF_SIZE);
@@ -379,16 +390,27 @@ static int
 qat_dc_effective_min_buf_size(void)
 {
 	if (strcmp(zfs_qat_dc_min_buf_size, "profile") == 0)
-		return (qat_dc_profile_min_buf_size(zfs_qat_dc_profile));
+		return (qat_dc_profile_min_buf_size(zfs_qat_dc_profile,
+		    zfs_qat_dc_expected_ratio));
 
 	return (zfs_qat_dc_min_buf_size_value);
+}
+
+static int
+qat_dc_profile_max_buf_size(const char *expected_ratio, int profile_recordsize)
+{
+	if (strcmp(expected_ratio, "medium") == 0)
+		return (MIN(profile_recordsize, 512 * 1024));
+
+	return (profile_recordsize);
 }
 
 static int
 qat_dc_effective_max_buf_size(void)
 {
 	if (strcmp(zfs_qat_dc_max_buf_size, "profile") == 0)
-		return (zfs_qat_dc_profile_recordsize);
+		return (qat_dc_profile_max_buf_size(zfs_qat_dc_expected_ratio,
+		    zfs_qat_dc_profile_recordsize));
 
 	return (zfs_qat_dc_max_buf_size_value);
 }
@@ -417,6 +439,19 @@ qat_dc_ratio_profile(const char *value)
 	    strcmp(value, "ratio\n") == 0);
 }
 
+static boolean_t
+qat_dc_expected_ratio(const char *value)
+{
+	return (strcmp(value, "unknown") == 0 ||
+	    strcmp(value, "unknown\n") == 0 ||
+	    strcmp(value, "low") == 0 ||
+	    strcmp(value, "low\n") == 0 ||
+	    strcmp(value, "medium") == 0 ||
+	    strcmp(value, "medium\n") == 0 ||
+	    strcmp(value, "high") == 0 ||
+	    strcmp(value, "high\n") == 0);
+}
+
 static int
 qat_dc_profile_decompress_disable(const char *dc_profile)
 {
@@ -437,9 +472,13 @@ qat_dc_effective_decompress_disable(void)
 }
 
 static const char *
-qat_dc_profile_hufftype(const char *ratio_profile)
+qat_dc_profile_hufftype(const char *ratio_profile, const char *expected_ratio)
 {
 	if (strcmp(ratio_profile, "performance") == 0)
+		return ("static");
+
+	if (strcmp(ratio_profile, "balanced") == 0 &&
+	    strcmp(expected_ratio, "low") == 0)
 		return ("static");
 
 	return ("dynamic");
@@ -449,7 +488,8 @@ static const char *
 qat_dc_effective_hufftype(void)
 {
 	if (strcmp(zfs_qat_cpa_dc_hufftype, "profile") == 0)
-		return (qat_dc_profile_hufftype(zfs_qat_dc_ratio_profile));
+		return (qat_dc_profile_hufftype(zfs_qat_dc_ratio_profile,
+		    zfs_qat_dc_expected_ratio));
 
 	return (zfs_qat_cpa_dc_hufftype_value);
 }
@@ -767,6 +807,9 @@ qat_dc_async_recordsize_cap(int src_len, int *cap,
 static qat_dc_async_cap_mode_t
 qat_dc_profile_cap_mode(void)
 {
+	if (strcmp(zfs_qat_dc_expected_ratio, "medium") == 0)
+		return (QAT_DC_CAP_BALANCED);
+
 	if (strcmp(zfs_qat_dc_profile, "offload") == 0 &&
 	    zfs_qat_dc_profile_recordsize >= 512 * 1024)
 		return (QAT_DC_CAP_OFFLOAD);
@@ -3453,7 +3496,8 @@ param_set_qat_cpa_dc_level(const char *val, zfs_kernel_param_t *kp)
 	if (qat_dc_param_profile(val)) {
 		if (qat_dc_init_done &&
 		    qat_dc_effective_level() !=
-		    qat_dc_profile_level(zfs_qat_dc_ratio_profile)) {
+		    qat_dc_profile_level(zfs_qat_dc_ratio_profile,
+		    zfs_qat_dc_expected_ratio)) {
 			return (-EBUSY);
 		}
 
@@ -3522,7 +3566,8 @@ param_set_qat_cpa_dc_hufftype(const char *val, zfs_kernel_param_t *kp)
 
 	if (qat_dc_param_profile(val)) {
 		if (!qat_dc_hufftype(qat_dc_profile_hufftype(
-		    zfs_qat_dc_ratio_profile), &huff_type)) {
+		    zfs_qat_dc_ratio_profile, zfs_qat_dc_expected_ratio),
+		    &huff_type)) {
 			return (-EINVAL);
 		}
 
@@ -3605,7 +3650,8 @@ param_set_qat_dc_max_buf_size(const char *val, zfs_kernel_param_t *kp)
 	if (qat_dc_param_profile(val)) {
 		if (qat_dc_init_done &&
 		    qat_dc_effective_max_buf_size() !=
-		    zfs_qat_dc_profile_recordsize) {
+		    qat_dc_profile_max_buf_size(zfs_qat_dc_expected_ratio,
+		    zfs_qat_dc_profile_recordsize)) {
 			return (-EBUSY);
 		}
 
@@ -4129,13 +4175,15 @@ param_set_qat_dc_ratio_profile(const char *val, zfs_kernel_param_t *kp)
 
 	if (qat_dc_init_done &&
 	    strcmp(zfs_qat_cpa_dc_level, "profile") == 0 &&
-	    qat_dc_profile_level(new_value) != qat_dc_effective_level()) {
+	    qat_dc_profile_level(new_value, zfs_qat_dc_expected_ratio) !=
+	    qat_dc_effective_level()) {
 		return (-EBUSY);
 	}
 
 	if (qat_dc_init_done &&
 	    strcmp(zfs_qat_cpa_dc_hufftype, "profile") == 0 &&
-	    strcmp(qat_dc_profile_hufftype(new_value),
+	    strcmp(qat_dc_profile_hufftype(new_value,
+	    zfs_qat_dc_expected_ratio),
 	    qat_dc_effective_hufftype()) != 0) {
 		return (-EBUSY);
 	}
@@ -4163,11 +4211,56 @@ param_set_qat_dc_profile_recordsize(const char *val, zfs_kernel_param_t *kp)
 
 	if (qat_dc_init_done &&
 	    strcmp(zfs_qat_dc_max_buf_size, "profile") == 0 &&
-	    *pvalue != old_value) {
+	    qat_dc_profile_max_buf_size(zfs_qat_dc_expected_ratio,
+	    *pvalue) != qat_dc_profile_max_buf_size(
+	    zfs_qat_dc_expected_ratio, old_value)) {
 		*pvalue = old_value;
 		return (-EBUSY);
 	}
 
+	return (0);
+}
+
+static int
+param_set_qat_dc_expected_ratio(const char *val, zfs_kernel_param_t *kp)
+{
+	const char *new_value;
+	char **pvalue = kp->arg;
+
+	if (!qat_dc_expected_ratio(val))
+		return (-EINVAL);
+
+	if (strncmp(val, "low", 3) == 0)
+		new_value = "low";
+	else if (strncmp(val, "medium", 6) == 0)
+		new_value = "medium";
+	else if (strncmp(val, "high", 4) == 0)
+		new_value = "high";
+	else
+		new_value = "unknown";
+
+	if (qat_dc_init_done &&
+	    strcmp(zfs_qat_cpa_dc_level, "profile") == 0 &&
+	    qat_dc_profile_level(zfs_qat_dc_ratio_profile, new_value) !=
+	    qat_dc_effective_level()) {
+		return (-EBUSY);
+	}
+
+	if (qat_dc_init_done &&
+	    strcmp(zfs_qat_cpa_dc_hufftype, "profile") == 0 &&
+	    strcmp(qat_dc_profile_hufftype(zfs_qat_dc_ratio_profile,
+	    new_value), qat_dc_effective_hufftype()) != 0) {
+		return (-EBUSY);
+	}
+
+	if (qat_dc_init_done &&
+	    strcmp(zfs_qat_dc_max_buf_size, "profile") == 0 &&
+	    qat_dc_profile_max_buf_size(new_value,
+	    zfs_qat_dc_profile_recordsize) != qat_dc_effective_max_buf_size()) {
+		return (-EBUSY);
+	}
+
+	*pvalue = (char *)new_value;
 	return (0);
 }
 
@@ -4316,5 +4409,11 @@ module_param_call(zfs_qat_dc_ratio_profile, param_set_qat_dc_ratio_profile,
     param_get_charp, &zfs_qat_dc_ratio_profile, 0644);
 MODULE_PARM_DESC(zfs_qat_dc_ratio_profile,
     "QAT compression ratio profile: balanced, performance, or ratio");
+
+module_param_call(zfs_qat_dc_expected_ratio,
+    param_set_qat_dc_expected_ratio, param_get_charp,
+    &zfs_qat_dc_expected_ratio, 0644);
+MODULE_PARM_DESC(zfs_qat_dc_expected_ratio,
+    "Expected compression ratio class: unknown, low, medium, or high");
 
 #endif

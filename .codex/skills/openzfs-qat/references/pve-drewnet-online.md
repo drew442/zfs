@@ -360,6 +360,14 @@ version: 2.4.99-1
 depends: spl,qat_api
 ```
 
+Loaded module after the expected-ratio profile install pass on 2026-05-24:
+
+```text
+filename: /lib/modules/7.0.0-3-pve/updates/dkms/zfs.ko
+srcversion: 5A79D5E03CBE74E0BFCD1AE
+parm: zfs_qat_dc_expected_ratio:Expected compression ratio class: unknown, low, medium, or high
+```
+
 DKMS source/config evidence:
 
 ```text
@@ -373,13 +381,13 @@ Operator note: `/usr/src/zfs-2.4.99/` may contain experimental patches from earl
 The DKMS config defaults `ICP_ROOT` to:
 
 ```text
-/root/QAT/QAT.L.4.28.0-00004
+/usr/src/qat-4.28.0-00004
 ```
 
 The DKMS build log shows configure ran with:
 
 ```text
---with-qat=/root/QAT/QAT.L.4.28.0-00004
+--with-qat=/usr/src/qat-4.28.0-00004
 ```
 
 The built `zfs_config.h` contains:
@@ -407,6 +415,7 @@ zfs_qat_checksum_disable=1
 zfs_qat_compress_disable=0
 zfs_qat_decompress_disable=0
 zfs_qat_cpa_dc_level=profile
+zfs_qat_dc_expected_ratio=unknown
 zfs_qat_dc_max_buf_size=profile
 zfs_qat_dc_max_instances=48
 zfs_qat_encrypt_disable=1

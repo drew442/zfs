@@ -40,6 +40,7 @@ Initial profile parameters:
 zfs_qat_dc_profile=balanced|latency|throughput|offload
 zfs_qat_dc_profile_recordsize=131072|262144|524288|1048576
 zfs_qat_dc_ratio_profile=balanced|performance|ratio
+zfs_qat_dc_expected_ratio=unknown|low|medium|high
 ```
 
 Semantics:
@@ -56,6 +57,15 @@ Semantics:
   static Huffman only when the operator accepts ratio tradeoff.
 - `ratio`: ratio profile that prefers dynamic Huffman and higher compression
   effort, accepting latency only when explicitly selected.
+- `unknown`: expected-ratio profile input that preserves the pre-existing
+  profile behavior.
+- `low`: expected-ratio profile input for incompressible or barely-compressible
+  data where QAT is mainly a CPU-offload choice.
+- `medium`: expected-ratio profile input for data that compresses materially,
+  but not enough to assume larger QAT records reduce device work enough to
+  offset request overhead.
+- `high`: expected-ratio profile input for data where reduced write volume is
+  expected to dominate QAT request overhead.
 - `zfs_qat_dc_profile_recordsize=131072` is the default because OpenZFS
   defaults the dataset `recordsize` property to `128K`
   (`SPA_OLD_MAXBLOCKSIZE`).
@@ -93,7 +103,7 @@ Use this order:
 
 1. For profile-managed tunables set to `profile`, compute the value from
    `zfs_qat_dc_profile`, `zfs_qat_dc_profile_recordsize`, and
-   `zfs_qat_dc_ratio_profile`.
+   `zfs_qat_dc_ratio_profile`, modified by `zfs_qat_dc_expected_ratio`.
 2. For profile-managed tunables set to a concrete value, use the concrete
    manual value for that tunable only.
 3. For deployment/manual tunables, always use the configured value.
@@ -112,6 +122,10 @@ reports `profile` when profile control is active.
 
 ```text
 knob                                  scope          profile handling
+zfs_qat_dc_profile                   global input   balanced|latency|throughput|offload
+zfs_qat_dc_profile_recordsize        global input   131072|262144|524288|1048576
+zfs_qat_dc_ratio_profile             global input   balanced|performance|ratio
+zfs_qat_dc_expected_ratio            global input   unknown|low|medium|high
 zfs_qat_dc_async                     global         profile|0|1
 zfs_qat_dc_async_cap_policy          per request    profile|fixed|recordsize|throughput
 zfs_qat_dc_async_max_inflight        global cap     profile|integer
@@ -152,6 +166,17 @@ Notes:
 - `profile*` means the cap policy uses `throughput` only for
   `throughput/offload` profiles with a target record size of `1M`; otherwise it
   uses balanced `recordsize` behavior.
+- `zfs_qat_dc_expected_ratio=low` with `zfs_qat_dc_ratio_profile=balanced`
+  selects static Huffman and raises the profile-managed minimum buffer size to
+  `512K`.
+- `zfs_qat_dc_expected_ratio=medium` raises the profile-managed minimum buffer
+  size to `512K`, caps profile-managed maximum buffer size at `512K`, and keeps
+  profile-managed async cap behavior at balanced `recordsize` rather than
+  throughput/offload.
+- `zfs_qat_dc_expected_ratio=high` with `zfs_qat_dc_ratio_profile=balanced`
+  selects QAT compression level 4.
+- Explicit non-`profile` values for managed tunables still override the
+  expected-ratio mapping for that tunable only.
 - Coalescing is technically profile-eligible, but current repeat data does not
   justify enabling it automatically.
 - Compression level and Huffman type are profile-managed session settings.
@@ -183,17 +208,22 @@ Initial implementation status:
 
 - `zfs_qat_dc_profile`, `zfs_qat_dc_profile_recordsize`, and
   `zfs_qat_dc_ratio_profile` exist as validated module parameters.
+- `zfs_qat_dc_expected_ratio` exists as a validated module parameter with
+  values `unknown`, `low`, `medium`, and `high`; `unknown` preserves the prior
+  behavior.
 - `zfs_qat_dc_async_cap_policy` accepts `profile`, `fixed`, `recordsize`, and
   `throughput`, and defaults to `profile`.
 - `zfs_qat_dc_max_buf_size` accepts `profile` or a concrete size and defaults
   to `profile`; its effective value is the profile target record size unless
-  the operator supplies a concrete manual override.
+  the operator supplies a concrete manual override. The expected-ratio
+  `medium` profile caps this effective value at `512K`.
 - `zfs_qat_cpa_dc_level` accepts `profile` or a concrete level and defaults to
   `profile`; its effective value is level `1` for `balanced` and
-  `performance` ratio profiles, and level `4` for the `ratio` profile.
+  `performance` ratio profiles, level `4` for the `ratio` profile, and level
+  `4` for `balanced` plus expected-ratio `high`.
 - `zfs_qat_cpa_dc_hufftype` accepts `profile`, `dynamic`, or `static`, and
   defaults to `profile`; its effective value is `static` only for the
-  `performance` ratio profile.
+  `performance` ratio profile or for `balanced` plus expected-ratio `low`.
 - `zfs_qat_decompress_disable`, `zfs_qat_dc_async`,
   `zfs_qat_dc_async_max_inflight`, `zfs_qat_dc_async_submit_retries`,
   `zfs_qat_dc_async_retry_us`, `zfs_qat_dc_coalesce_src`, and
@@ -203,7 +233,8 @@ Initial implementation status:
 - Current profile action is intentionally narrow:
   `throughput` or `offload` with target record size `1M` uses the measured
   `throughput` cap behavior; all other profile combinations use balanced
-  `recordsize` behavior.
+  `recordsize` behavior. Expected-ratio `medium` also forces balanced
+  `recordsize` cap behavior.
 - `zfs_qat_dc_async=profile` keeps async disabled for `balanced` and `latency`
   profiles, and enables async for `throughput` and `offload`.
 - `zfs_qat_dc_coalesce_src=profile` and `zfs_qat_dc_coalesce_dst=profile`
@@ -237,3 +268,5 @@ fallback rules. The target does not force every record size through QAT.
   until a broader repeat confirms the ratio tradeoff.
 - Whether profile state should be exported only through module parameters or
   also through QAT kstats for easier benchmark interpretation.
+- Whether `low`, `medium`, and `high` should be renamed or supplemented with
+  numeric expected-ratio ranges after more real-world source classes are tested.
