@@ -1247,6 +1247,7 @@ run_one() {
 	    "$QAT_DC_EFFECTIVE_ASYNC_MAX_INFLIGHT" "$QAT_DC_ASYNC_CAP_POLICY"
 	    "$QAT_DC_PROFILE" "$QAT_DC_PROFILE_RECORDSIZE"
 	    "$QAT_DC_RATIO_PROFILE"
+	    "$QAT_DC_EXPECTED_RATIO"
 	    "$decompress_disable" "$decompress_disable_effective"
 	    "$QAT_KERNEL_CY_INSTANCES"
 	    "$QAT_KERNEL_DC_INSTANCES" "$ZFS_SRCVERSION"
@@ -1327,9 +1328,6 @@ QAT_DC_RATIO_PROFILE="$(read_param zfs_qat_dc_ratio_profile)"
 QAT_DC_EXPECTED_RATIO="$(read_param zfs_qat_dc_expected_ratio)"
 if [[ "$QAT_DC_LEVEL" == "profile" ]]; then
 	if [[ "$QAT_DC_RATIO_PROFILE" == "ratio" ]]; then
-		QAT_DC_EFFECTIVE_LEVEL="4"
-	elif [[ "$QAT_DC_RATIO_PROFILE" == "balanced" &&
-	    "$QAT_DC_EXPECTED_RATIO" == "high" ]]; then
 		QAT_DC_EFFECTIVE_LEVEL="4"
 	else
 		QAT_DC_EFFECTIVE_LEVEL="1"

@@ -2135,12 +2135,6 @@ uses level
 .Sy 4
 and other ratio profiles use level
 .Sy 1 .
-When
-.Sy zfs_qat_dc_ratio_profile Ns = Ns Sy balanced
-and
-.Sy zfs_qat_dc_expected_ratio Ns = Ns Sy high ,
-profile-managed level selection also uses level
-.Sy 4 .
 Concrete values manually override the profile-managed value.
 This is a global QAT data-compression session setting, not a per-dataset
 setting.
@@ -2338,9 +2332,12 @@ profile-managed policy treats this as a reason to cap the QAT maximum request
 size at 512 KiB.
 .Sy high
 is intended for data where reduced write volume is expected to dominate request
-overhead; current profile-managed policy may select higher QAT compression
-effort when
-.Sy zfs_qat_dc_ratio_profile Ns = Ns Sy balanced .
+overhead, but current profile-managed policy does not automatically raise QAT
+compression effort for this hint because validation showed elapsed-time
+regressions from doing so.
+Use
+.Sy zfs_qat_dc_ratio_profile Ns = Ns Sy ratio
+when level 4 compression effort is explicitly desired.
 This is a host-level hint, not a per-dataset property.
 .
 .It Sy zfs_qat_dc_max_instances Ns = Ns Sy 48 Pq int

@@ -173,8 +173,10 @@ Notes:
   size to `512K`, caps profile-managed maximum buffer size at `512K`, and keeps
   profile-managed async cap behavior at balanced `recordsize` rather than
   throughput/offload.
-- `zfs_qat_dc_expected_ratio=high` with `zfs_qat_dc_ratio_profile=balanced`
-  selects QAT compression level 4.
+- `zfs_qat_dc_expected_ratio=high` currently preserves balanced compression
+  effort. A validation pass showed that automatically selecting QAT level 4
+  regressed elapsed time broadly; operators should use
+  `zfs_qat_dc_ratio_profile=ratio` when level 4 is explicitly desired.
 - Explicit non-`profile` values for managed tunables still override the
   expected-ratio mapping for that tunable only.
 - Coalescing is technically profile-eligible, but current repeat data does not
@@ -219,8 +221,7 @@ Initial implementation status:
   `medium` profile caps this effective value at `512K`.
 - `zfs_qat_cpa_dc_level` accepts `profile` or a concrete level and defaults to
   `profile`; its effective value is level `1` for `balanced` and
-  `performance` ratio profiles, level `4` for the `ratio` profile, and level
-  `4` for `balanced` plus expected-ratio `high`.
+  `performance` ratio profiles, and level `4` for the `ratio` profile.
 - `zfs_qat_cpa_dc_hufftype` accepts `profile`, `dynamic`, or `static`, and
   defaults to `profile`; its effective value is `static` only for the
   `performance` ratio profile or for `balanced` plus expected-ratio `low`.

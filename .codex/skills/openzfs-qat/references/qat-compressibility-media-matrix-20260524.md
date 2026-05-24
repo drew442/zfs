@@ -138,8 +138,8 @@ profile-managed tunables:
 - `low` treats QAT as primarily a CPU-offload path for poorly-compressible data.
 - `medium` avoids the measured moderate-compressibility `1M` elapsed-time
   regression by capping profile-managed QAT records at `512K`.
-- `high` allows higher compression effort when the balanced ratio profile is
-  otherwise selected.
+- `high` remains a first-class hint, but does not automatically raise QAT
+  compression effort after validation showed level 4 regressed elapsed time.
 
 A storage-media profile may still be useful later, but only as a modifier after
 the expected-ratio policy decides whether larger records or higher compression

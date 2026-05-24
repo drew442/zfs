@@ -296,11 +296,9 @@ qat_dc_valid_level(int level)
 static int
 qat_dc_profile_level(const char *ratio_profile, const char *expected_ratio)
 {
-	if (strcmp(ratio_profile, "ratio") == 0)
-		return (4);
+	(void) expected_ratio;
 
-	if (strcmp(ratio_profile, "balanced") == 0 &&
-	    strcmp(expected_ratio, "high") == 0)
+	if (strcmp(ratio_profile, "ratio") == 0)
 		return (4);
 
 	return (1);

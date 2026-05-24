@@ -264,8 +264,9 @@ Profile implementation status:
   records did not justify their elapsed-time cost.
 - `zfs_qat_dc_expected_ratio=low` with balanced ratio profile selects static
   Huffman and raises the profile-managed minimum request size to `512K`.
-- `zfs_qat_dc_expected_ratio=high` with balanced ratio profile selects QAT
-  compression level 4.
+- `zfs_qat_dc_expected_ratio=high` preserves balanced compression effort. The
+  first validation pass rejected automatically selecting QAT level 4 for this
+  hint because it broadly regressed elapsed time.
 - Apply session-global settings such as QAT compression level and Huffman type
   only before QAT DC initialization, and reject profile changes that would
   require changing active QAT DC sessions.
