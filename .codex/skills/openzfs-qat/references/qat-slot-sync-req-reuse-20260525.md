@@ -74,6 +74,19 @@ Benchmark profile:
 
 The copied CSVs have a consistent 251-column width.
 
+## Metric Correction
+
+The first version of this note reported `qat_byte_share_pct` values above 100%.
+That was not a valid byte share. The raw CSVs were produced by the older
+benchmark harness, where `qat_byte_share_pct` was the uncapped
+`comp_in_delta / source_bytes` ratio.
+
+The underlying counters are still useful: `comp_in_delta` can slightly exceed
+the exact copied file bytes because the QAT counter tracks ZFS compression input
+at record/block granularity. For this summary, `qat_byte_share_pct` is capped at
+100%, and the uncapped diagnostic value is shown separately as
+`qat_input_to_source_pct`.
+
 ## Results
 
 The benchmark intentionally disables async so the synchronous path is exercised. All QAT rows show `zfs_qat_dc_effective_async=0`, zero async submits, and matching sync submit/completion counts.
@@ -96,12 +109,12 @@ Request allocation/free timing:
 
 Throughput and CPU:
 
-| record | jobs | elapsed ms | write MiB/s | CPU s/GiB | QAT byte share |
-|---|---:|---:|---:|---:|---:|
-| 512K | 4 | 844.567 | 864.687 | 3.301 | 100.010% |
-| 512K | 8 | 989.623 | 1475.217 | 4.024 | 100.260% |
-| 1M | 4 | 854.079 | 854.667 | 3.637 | 100.280% |
-| 1M | 8 | 969.484 | 1505.877 | 3.897 | 100.760% |
+| record | jobs | elapsed ms | write MiB/s | CPU s/GiB | QAT byte share | QAT input/source |
+|---|---:|---:|---:|---:|---:|---:|
+| 512K | 4 | 844.567 | 864.687 | 3.301 | 100.000% | 100.010% |
+| 512K | 8 | 989.623 | 1475.217 | 4.024 | 100.000% | 100.260% |
+| 1M | 4 | 854.079 | 854.667 | 3.637 | 100.000% | 100.280% |
+| 1M | 8 | 969.484 | 1505.877 | 3.897 | 100.000% | 100.760% |
 
 ## Interpretation
 
@@ -114,7 +127,8 @@ This is a successful structural request-overhead reduction for the synchronous p
 The elapsed-time result should not be compared directly with the prior async throughput matrix:
 
 - This benchmark intentionally disables async.
-- QAT byte share is near 100%, while prior async throughput profiles allowed fallback under pressure.
+- QAT byte share is 100% in the corrected bounded metric, while prior async
+  throughput profiles allowed fallback under pressure.
 - QAT wait/service time still dominates the local request-object cost.
 
 ## Next Target

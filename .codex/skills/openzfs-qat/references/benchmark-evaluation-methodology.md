@@ -64,7 +64,8 @@ Use this scorecard when evaluating whether a code change improved QAT itself.
 Required metrics:
 
 - QAT input bytes completed.
-- QAT byte share, preferably `comp_in_delta / source_bytes`.
+- QAT byte share, preferably bounded `comp_in_delta / source_bytes`, with the
+  uncapped input/source ratio retained separately when granularity matters.
 - QAT completion share, `dc_compress_async_completions_delta /
   dc_compress_async_submits_delta`.
 - QAT setup, submit, wait, cleanup, and combined service nanoseconds per MiB.
@@ -108,7 +109,13 @@ New `qat-phase4-benchmark.sh` runs append these derived fields:
 - `cpu_active_pct`: user plus system CPU percentage during the benchmark window.
 - `cpu_active_s_per_gib`: active CPU seconds per GiB of source data.
 - `cpu_system_s_per_gib`: system CPU seconds per GiB of source data.
-- `qat_byte_share_pct`: QAT compression input bytes divided by source bytes.
+- `qat_byte_share_pct`: bounded QAT compression byte share, computed from QAT
+  compression input bytes divided by source bytes and capped at 100%. This is
+  the primary offload-share field.
+- `qat_input_to_source_pct`: uncapped QAT compression input bytes divided by
+  source bytes. This is a diagnostic ratio, not a share; it can exceed 100%
+  when ZFS submits record/block-granular compression input that is larger than
+  the exact source file byte count.
 - `qat_completion_share_pct`: async completions divided by async submits.
 - `qat_fallback_share_pct`: async fallbacks divided by async submits.
 - `qat_cap_skip_share_pct`: async cap skips divided by async submits.
@@ -163,7 +170,8 @@ workloads.
 - Treat `qat_share` or `qat_completion_share_pct` as an admission/completion
   metric, not a pure hardware-utilization metric.
 - Prefer `qat_byte_share_pct` over request share when deciding how much work QAT
-  actually performed.
+  actually performed. Use `qat_input_to_source_pct` to diagnose granularity and
+  accounting effects, not as a bounded offload share.
 - Prefer `zfs_qat_dc_instances` over card count when interpreting cap policy.
   Card count is deployment context; active DC instances are what the ZFS QAT
   path can actually submit to.
