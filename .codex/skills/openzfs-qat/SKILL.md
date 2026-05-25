@@ -54,7 +54,8 @@ Use this skill for QAT-specific work in this fork. It is meant for design review
 37. For buffer-slot async request reuse, use `references/qat-async-req-slot-reuse-20260525.md`.
 38. For async request prepare stack-clear reduction, use `references/qat-async-req-prepare-skip-stacks-20260525.md`.
 39. For profile-gated detailed shape stats, use `references/qat-shape-stats-gating-20260525.md`.
-40. Confirm which layer the task touches before editing:
+40. For cached page address-space lookup during QAT buffer-list construction, use `references/qat-page-lookup-cache-20260525.md`.
+41. Confirm which layer the task touches before editing:
    - Build integration and static configuration
    - Runtime tunables and initialization
    - Compression, checksum, or encryption call sites

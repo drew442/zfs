@@ -374,6 +374,15 @@ qat_mem_to_page(void *addr)
 	return (vmalloc_to_page(addr));
 }
 
+static inline struct page *
+qat_mem_to_page_cached(void *addr, boolean_t is_vmalloc)
+{
+	if (is_vmalloc)
+		return (vmalloc_to_page(addr));
+
+	return (virt_to_page(addr));
+}
+
 CpaStatus qat_mem_alloc_contig(void **pp_mem_addr, Cpa32U size_bytes);
 void qat_mem_free_contig(void **pp_mem_addr);
 #define	QAT_PHYS_CONTIG_ALLOC(pp_mem_addr, size_bytes)	\

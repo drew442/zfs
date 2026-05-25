@@ -2294,6 +2294,9 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	boolean_t out_pages_from_slot = B_FALSE;
 	boolean_t scratch_pages_from_slot = B_FALSE;
 	boolean_t sync_req_from_slot = B_FALSE;
+	boolean_t src_vmalloc = B_FALSE;
+	boolean_t dst_vmalloc = B_FALSE;
+	boolean_t add_vmalloc = B_FALSE;
 	qat_dc_buffer_shape_t buffer_shape = { 0 };
 	boolean_t shape_stats = (dir == QAT_COMPRESS &&
 	    qat_dc_effective_shape_stats());
@@ -2490,6 +2493,13 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 			QAT_STAT_BUMP(dc_compress_page_array_heap_scratch);
 	}
 
+	if (!src_coalesced)
+		src_vmalloc = is_vmalloc_addr(src);
+	if (!dst_coalesced)
+		dst_vmalloc = is_vmalloc_addr(dst);
+	if (add_len > 0 && !dst_coalesced)
+		add_vmalloc = is_vmalloc_addr(add);
+
 	if (buffer_slot != NULL) {
 		buffer_meta_src = buffer_slot->buffer_meta_src;
 		buffer_meta_dst = buffer_slot->buffer_meta_dst;
@@ -2551,7 +2561,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		page_num = 0;
 		while (bytes_left > 0) {
 			page_off = ((long)data & ~PAGE_MASK);
-			page = qat_mem_to_page(data);
+			page = qat_mem_to_page_cached(data, src_vmalloc);
 			in_pages[page_num] = page;
 			flat_buf_src->pData = kmap(page) + page_off;
 			flat_buf_src->dataLenInBytes =
@@ -2595,7 +2605,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		page_num = 0;
 		while (bytes_left > 0) {
 			page_off = ((long)data & ~PAGE_MASK);
-			page = qat_mem_to_page(data);
+			page = qat_mem_to_page_cached(data, dst_vmalloc);
 			flat_buf_dst->pData = kmap(page) + page_off;
 			out_pages[page_num] = page;
 			flat_buf_dst->dataLenInBytes =
@@ -2623,7 +2633,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		page_num = 0;
 		while (bytes_left > 0) {
 			page_off = ((long)data & ~PAGE_MASK);
-			page = qat_mem_to_page(data);
+			page = qat_mem_to_page_cached(data, add_vmalloc);
 			flat_buf_dst->pData = kmap(page) + page_off;
 			scratch_pages[page_num] = page;
 			flat_buf_dst->dataLenInBytes =
@@ -3167,6 +3177,9 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	boolean_t dst_coalesced = B_FALSE;
 	boolean_t dst_coalesce_requested;
 	boolean_t req_from_slot = B_FALSE;
+	boolean_t src_vmalloc = B_FALSE;
+	boolean_t dst_vmalloc = B_FALSE;
+	boolean_t add_vmalloc = B_FALSE;
 	qat_dc_buffer_shape_t buffer_shape = { 0 };
 	boolean_t shape_stats = qat_dc_effective_shape_stats();
 
@@ -3358,6 +3371,13 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 		}
 	}
 
+	if (!src_coalesced)
+		src_vmalloc = is_vmalloc_addr(req->src);
+	if (!dst_coalesced)
+		dst_vmalloc = is_vmalloc_addr(req->dst);
+	if (req->add_len > 0 && !dst_coalesced)
+		add_vmalloc = is_vmalloc_addr(req->add);
+
 	if (req->buffer_slot != NULL) {
 		buffer_meta_src = req->buffer_slot->buffer_meta_src;
 		buffer_meta_dst = req->buffer_slot->buffer_meta_dst;
@@ -3417,7 +3437,7 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 		page_num = 0;
 		while (bytes_left > 0) {
 			page_off = ((long)data & ~PAGE_MASK);
-			page = qat_mem_to_page(data);
+			page = qat_mem_to_page_cached(data, src_vmalloc);
 			req->in_pages[page_num] = page;
 			flat_buf_src->pData = kmap(page) + page_off;
 			flat_buf_src->dataLenInBytes =
@@ -3464,7 +3484,7 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 		page_num = 0;
 		while (bytes_left > 0) {
 			page_off = ((long)data & ~PAGE_MASK);
-			page = qat_mem_to_page(data);
+			page = qat_mem_to_page_cached(data, dst_vmalloc);
 			req->out_pages[page_num] = page;
 			flat_buf_dst->pData = kmap(page) + page_off;
 			flat_buf_dst->dataLenInBytes =
@@ -3491,7 +3511,7 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 		page_num = 0;
 		while (bytes_left > 0) {
 			page_off = ((long)data & ~PAGE_MASK);
-			page = qat_mem_to_page(data);
+			page = qat_mem_to_page_cached(data, add_vmalloc);
 			req->scratch_pages[page_num] = page;
 			flat_buf_dst->pData = kmap(page) + page_off;
 			flat_buf_dst->dataLenInBytes =
