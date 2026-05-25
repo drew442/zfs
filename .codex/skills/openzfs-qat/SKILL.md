@@ -49,7 +49,8 @@ Use this skill for QAT-specific work in this fork. It is meant for design review
 32. For expected-ratio profile validation, use `references/qat-expected-ratio-validation-20260524.md`.
 33. For exact page-count and scratch page-array request-overhead reduction, use `references/qat-page-count-overhead-20260524.md`.
 34. For buffer-slot scratch page-array reuse, use `references/qat-slot-scratch-reuse-20260524.md`.
-35. Confirm which layer the task touches before editing:
+35. For buffer-slot source/destination page-array reuse, use `references/qat-slot-page-array-reuse-20260525.md`.
+36. Confirm which layer the task touches before editing:
    - Build integration and static configuration
    - Runtime tunables and initialization
    - Compression, checksum, or encryption call sites

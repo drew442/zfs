@@ -152,8 +152,10 @@ typedef struct qat_stats {
 	kstat_named_t dc_compress_sync_fallbacks;
 	kstat_named_t dc_compress_page_array_stack_src;
 	kstat_named_t dc_compress_page_array_heap_src;
+	kstat_named_t dc_compress_page_array_slot_src;
 	kstat_named_t dc_compress_page_array_stack_dst;
 	kstat_named_t dc_compress_page_array_heap_dst;
+	kstat_named_t dc_compress_page_array_slot_dst;
 	kstat_named_t dc_compress_page_array_stack_scratch;
 	kstat_named_t dc_compress_page_array_heap_scratch;
 	kstat_named_t dc_compress_page_array_slot_scratch;
