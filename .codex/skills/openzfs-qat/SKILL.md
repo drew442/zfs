@@ -51,7 +51,8 @@ Use this skill for QAT-specific work in this fork. It is meant for design review
 34. For buffer-slot scratch page-array reuse, use `references/qat-slot-scratch-reuse-20260524.md`.
 35. For buffer-slot source/destination page-array reuse, use `references/qat-slot-page-array-reuse-20260525.md`.
 36. For buffer-slot sync request reuse, use `references/qat-slot-sync-req-reuse-20260525.md`.
-37. Confirm which layer the task touches before editing:
+37. For buffer-slot async request reuse, use `references/qat-async-req-slot-reuse-20260525.md`.
+38. Confirm which layer the task touches before editing:
    - Build integration and static configuration
    - Runtime tunables and initialization
    - Compression, checksum, or encryption call sites

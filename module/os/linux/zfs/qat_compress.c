@@ -65,6 +65,7 @@ typedef struct qat_dc_buffer_slot {
 	CpaBufferList *buf_list_src;
 	CpaBufferList *buf_list_dst;
 	qat_dc_sync_req_t *sync_req;
+	qat_dc_async_t *async_req;
 	void *coalesced_dst;
 	Cpa32U coalesced_dst_size;
 	void *scratch;
@@ -178,6 +179,7 @@ struct qat_dc_async {
 	void *coalesced_src;
 	void *coalesced_dst;
 	boolean_t add_from_slot;
+	boolean_t from_slot;
 	boolean_t in_pages_from_slot;
 	boolean_t out_pages_from_slot;
 	boolean_t scratch_pages_from_slot;
@@ -983,6 +985,38 @@ qat_dc_buffer_slot_sync_req(qat_dc_buffer_slot_t *slot)
 }
 
 static void
+qat_dc_async_req_prepare(qat_dc_async_t *req, boolean_t from_slot)
+{
+	memset(req, 0, sizeof (*req));
+	req->dc_results.checksum = 1;
+	req->submit_status = CPA_STATUS_FAIL;
+	INIT_LIST_HEAD(&req->active_node);
+	req->callback_ctx.magic = QAT_DC_CALLBACK_MAGIC;
+	req->callback_ctx.type = QAT_DC_CALLBACK_ASYNC;
+	req->callback_ctx.u.async = req;
+	req->from_slot = from_slot;
+}
+
+static qat_dc_async_t *
+qat_dc_buffer_slot_async_req(qat_dc_buffer_slot_t *slot)
+{
+	qat_dc_async_t *req;
+
+	if (slot == NULL)
+		return (NULL);
+
+	if (slot->async_req == NULL) {
+		req = kmem_alloc(sizeof (*req), KM_SLEEP);
+		if (req == NULL)
+			return (NULL);
+		slot->async_req = req;
+	}
+
+	qat_dc_async_req_prepare(slot->async_req, B_TRUE);
+	return (slot->async_req);
+}
+
+static void
 qat_dc_sync_req_unretain(qat_dc_sync_req_t *req, boolean_t bump_release)
 {
 	unsigned long flags;
@@ -1017,23 +1051,31 @@ qat_dc_sync_req_unretain(qat_dc_sync_req_t *req, boolean_t bump_release)
 static void
 qat_dc_sync_req_free_retained(qat_dc_sync_req_t *req)
 {
+	qat_dc_buffer_slot_t *slot;
+	Cpa16U inst = 0;
+	boolean_t from_slot;
+
 	if (req == NULL)
 		return;
 
 	qat_dc_sync_req_unretain(req, B_TRUE);
+	slot = req->buffer_slot;
+	inst = req->inst;
+	from_slot = req->from_slot;
 
-	if (req->buffer_slot != NULL) {
-		qat_dc_buffer_pool_release(req->inst, req->buffer_slot);
+	if (slot != NULL) {
+		QAT_PHYS_CONTIG_FREE(req->coalesced_src);
+		qat_dc_buffer_pool_release(inst, slot);
 	} else {
 		QAT_PHYS_CONTIG_FREE(req->buffer_meta_src);
 		QAT_PHYS_CONTIG_FREE(req->buffer_meta_dst);
 		QAT_PHYS_CONTIG_FREE(req->buf_list_src);
 		QAT_PHYS_CONTIG_FREE(req->buf_list_dst);
 		QAT_PHYS_CONTIG_FREE(req->coalesced_dst);
+		QAT_PHYS_CONTIG_FREE(req->coalesced_src);
 	}
 
-	QAT_PHYS_CONTIG_FREE(req->coalesced_src);
-	if (!req->from_slot)
+	if (!from_slot)
 		kmem_free(req, sizeof (*req));
 }
 
@@ -1850,6 +1892,8 @@ qat_dc_buffer_pool_clean(Cpa16U inst)
 		QAT_PHYS_CONTIG_FREE(slot->buf_list_dst);
 		if (slot->sync_req != NULL)
 			kmem_free(slot->sync_req, sizeof (*slot->sync_req));
+		if (slot->async_req != NULL)
+			kmem_free(slot->async_req, sizeof (*slot->async_req));
 		QAT_PHYS_CONTIG_FREE(slot->coalesced_dst);
 		if (slot->scratch != NULL)
 			zio_data_buf_free(slot->scratch, slot->scratch_size);
@@ -2951,13 +2995,20 @@ qat_dc_async_inflight_exit(void)
 static void
 qat_dc_async_cleanup(qat_dc_async_t *req)
 {
+	qat_dc_buffer_slot_t *slot;
 	hrtime_t start;
 	hrtime_t end;
 	hrtime_t free_start;
 	hrtime_t free_end;
+	Cpa16U inst;
+	boolean_t from_slot;
 
 	if (req == NULL)
 		return;
+
+	slot = req->buffer_slot;
+	inst = req->inst;
+	from_slot = req->from_slot;
 
 	start = gethrtime();
 
@@ -2970,9 +3021,7 @@ qat_dc_async_cleanup(qat_dc_async_t *req)
 	for (Cpa32U page_num = 0; page_num < req->add_pages; page_num++)
 		kunmap(req->scratch_pages[page_num]);
 
-	if (req->buffer_slot != NULL) {
-		qat_dc_buffer_pool_release(req->inst, req->buffer_slot);
-	} else {
+	if (slot == NULL) {
 		free_start = gethrtime();
 		QAT_PHYS_CONTIG_FREE(req->buffer_meta_src);
 		QAT_PHYS_CONTIG_FREE(req->buffer_meta_dst);
@@ -3038,10 +3087,16 @@ qat_dc_async_cleanup(qat_dc_async_t *req)
 	end = gethrtime();
 	QAT_STAT_ADD_TIME(dc_compress_cleanup_ns, start, end);
 
-	free_start = gethrtime();
-	kmem_free(req, sizeof (*req));
-	free_end = gethrtime();
-	QAT_STAT_ADD_TIME(dc_compress_req_free_ns, free_start, free_end);
+	if (slot != NULL)
+		qat_dc_buffer_pool_release(inst, slot);
+
+	if (!from_slot) {
+		free_start = gethrtime();
+		kmem_free(req, sizeof (*req));
+		free_end = gethrtime();
+		QAT_STAT_ADD_TIME(dc_compress_req_free_ns, free_start,
+		    free_end);
+	}
 }
 
 qat_dc_async_t *
@@ -3049,6 +3104,7 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
     void (*resume)(void *), void *resume_arg)
 {
 	qat_dc_async_t *req = NULL;
+	qat_dc_buffer_slot_t *buffer_slot = NULL;
 	CpaInstanceHandle dc_inst_handle;
 	CpaDcSessionHandle session_handle;
 	CpaFlatBuffer *flat_buf_src = NULL;
@@ -3065,9 +3121,15 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	Cpa32U bytes_left;
 	Cpa32U page_off = 0;
 	Cpa32U page_num = 0;
+	Cpa16U inst = 0;
 	CpaStatus status = CPA_STATUS_FAIL;
+	char *req_src = src;
+	char *req_dst = dst;
 	char *data;
 	struct page *page;
+	void *coalesced_src = NULL;
+	void *coalesced_dst = NULL;
+	size_t add_len;
 	hrtime_t op_start = gethrtime();
 	hrtime_t phase_start;
 	hrtime_t phase_end;
@@ -3077,6 +3139,7 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	boolean_t src_coalesced;
 	boolean_t dst_coalesced = B_FALSE;
 	boolean_t dst_coalesce_requested;
+	boolean_t req_from_slot = B_FALSE;
 	qat_dc_buffer_shape_t buffer_shape = { 0 };
 
 	if (!qat_dc_compress_async_enabled() ||
@@ -3093,69 +3156,84 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	}
 	async_inflight = B_TRUE;
 
-	phase_start = gethrtime();
-	req = kmem_zalloc(sizeof (*req), KM_SLEEP);
-	phase_end = gethrtime();
-	QAT_STAT_ADD_TIME(dc_compress_req_alloc_ns, phase_start, phase_end);
+	add_len = qat_dc_compress_scratch_len(src_len, dst_len);
+	src_coalesced = qat_dc_try_coalesce_src(&req_src, src_len,
+	    &coalesced_src, B_FALSE);
+	dst_coalesce_requested = qat_dc_effective_coalesce_dst();
+
+	num_src_buf = src_coalesced ? 1 :
+	    qat_dc_page_count(req_src, src_len);
+	num_dst_buf = dst_coalesce_requested ? 1 :
+	    qat_dc_page_count(req_dst, dst_len);
+	num_add_buf = dst_coalesce_requested ? 0 :
+	    qat_dc_worst_page_count(add_len);
+
+	if (num_src_buf > QAT_DC_ABS_MAX_PAGES ||
+	    num_dst_buf > QAT_DC_ABS_MAX_PAGES ||
+	    num_add_buf > QAT_DC_ABS_MAX_PAGES)
+		goto fail_pre_req;
+
+	inst = (Cpa32U)atomic_inc_32_nv(&inst_num) % num_inst;
+	dc_inst_handle = dc_inst_handles[inst];
+	session_handle = session_handles[inst];
+
+	buffer_slot = qat_dc_buffer_pool_acquire(inst, num_src_buf,
+	    num_dst_buf + num_add_buf);
+
+	if (dst_coalesce_requested) {
+		dst_coalesced = qat_dc_try_coalesce_dst(&req_dst, dst_len,
+		    add_len, buffer_slot, &coalesced_dst);
+		if (dst_coalesced) {
+			coalesced_dst_len = (Cpa32U)(dst_len + add_len);
+		} else {
+			if (buffer_slot != NULL) {
+				qat_dc_buffer_pool_release(inst, buffer_slot);
+				buffer_slot = NULL;
+			}
+
+			num_dst_buf = qat_dc_page_count(req_dst, dst_len);
+			num_add_buf = qat_dc_worst_page_count(add_len);
+			if (num_dst_buf > QAT_DC_ABS_MAX_PAGES ||
+			    num_add_buf > QAT_DC_ABS_MAX_PAGES)
+				goto fail_pre_req;
+
+			buffer_slot = qat_dc_buffer_pool_acquire(inst,
+			    num_src_buf, num_dst_buf + num_add_buf);
+		}
+	}
+
+	if (buffer_slot != NULL) {
+		phase_start = gethrtime();
+		req = qat_dc_buffer_slot_async_req(buffer_slot);
+		phase_end = gethrtime();
+		QAT_STAT_ADD_TIME(dc_compress_req_alloc_ns, phase_start,
+		    phase_end);
+		req_from_slot = (req != NULL);
+	} else {
+		phase_start = gethrtime();
+		req = kmem_alloc(sizeof (*req), KM_SLEEP);
+		phase_end = gethrtime();
+		QAT_STAT_ADD_TIME(dc_compress_req_alloc_ns, phase_start,
+		    phase_end);
+		if (req != NULL)
+			qat_dc_async_req_prepare(req, B_FALSE);
+	}
 	if (req == NULL)
-		goto fail;
-	req->src = src;
-	req->dst = dst;
+		goto fail_pre_req;
+	if (req_from_slot)
+		QAT_STAT_BUMP(dc_compress_req_slot);
+	req->src = req_src;
+	req->dst = req_dst;
 	req->orig_dst = dst;
 	req->src_len = src_len;
 	req->dst_len = dst_len;
 	req->resume = resume;
 	req->resume_arg = resume_arg;
-	req->dc_results.checksum = 1;
-	req->submit_status = CPA_STATUS_FAIL;
-	INIT_LIST_HEAD(&req->active_node);
-
-	req->add_len = qat_dc_compress_scratch_len(src_len, dst_len);
-	src_coalesced = qat_dc_try_coalesce_src(&req->src, req->src_len,
-	    &req->coalesced_src, B_FALSE);
-	dst_coalesce_requested = qat_dc_effective_coalesce_dst();
-
-	num_src_buf = src_coalesced ? 1 :
-	    qat_dc_page_count(req->src, src_len);
-	num_dst_buf = dst_coalesce_requested ? 1 :
-	    qat_dc_page_count(req->dst, dst_len);
-	num_add_buf = dst_coalesce_requested ? 0 :
-	    qat_dc_worst_page_count(req->add_len);
-
-	if (num_src_buf > QAT_DC_ABS_MAX_PAGES ||
-	    num_dst_buf > QAT_DC_ABS_MAX_PAGES ||
-	    num_add_buf > QAT_DC_ABS_MAX_PAGES)
-		goto fail;
-
-	req->inst = (Cpa32U)atomic_inc_32_nv(&inst_num) % num_inst;
-	dc_inst_handle = dc_inst_handles[req->inst];
-	session_handle = session_handles[req->inst];
-
-	req->buffer_slot = qat_dc_buffer_pool_acquire(req->inst, num_src_buf,
-	    num_dst_buf + num_add_buf);
-
-	if (dst_coalesce_requested) {
-		dst_coalesced = qat_dc_try_coalesce_dst(&req->dst, dst_len,
-		    req->add_len, req->buffer_slot, &req->coalesced_dst);
-		if (dst_coalesced) {
-			coalesced_dst_len = (Cpa32U)(dst_len + req->add_len);
-		} else {
-			if (req->buffer_slot != NULL) {
-				qat_dc_buffer_pool_release(req->inst,
-				    req->buffer_slot);
-				req->buffer_slot = NULL;
-			}
-
-			num_dst_buf = qat_dc_page_count(req->dst, dst_len);
-			num_add_buf = qat_dc_worst_page_count(req->add_len);
-			if (num_dst_buf > QAT_DC_ABS_MAX_PAGES ||
-			    num_add_buf > QAT_DC_ABS_MAX_PAGES)
-				goto fail;
-
-			req->buffer_slot = qat_dc_buffer_pool_acquire(
-			    req->inst, num_src_buf, num_dst_buf + num_add_buf);
-		}
-	}
+	req->add_len = add_len;
+	req->inst = inst;
+	req->buffer_slot = buffer_slot;
+	req->coalesced_src = coalesced_src;
+	req->coalesced_dst = coalesced_dst;
 
 	if (req->add_len > 0 && !dst_coalesced) {
 		phase_start = gethrtime();
@@ -3452,6 +3530,19 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	req->submit_status = status;
 	req->submit_end = phase_end;
 	return (req);
+
+fail_pre_req:
+	if (async_inflight)
+		qat_dc_async_inflight_exit();
+	if (buffer_slot != NULL)
+		qat_dc_buffer_pool_release(inst, buffer_slot);
+	QAT_PHYS_CONTIG_FREE(coalesced_src);
+	if (buffer_slot == NULL)
+		QAT_PHYS_CONTIG_FREE(coalesced_dst);
+	QAT_STAT_BUMP(dc_compress_async_submit_fails);
+	QAT_STAT_BUMP(dc_compress_async_fallbacks);
+	qat_dc_async_record_submit_fail(status);
+	return (NULL);
 
 fail:
 	if (async_inflight)

@@ -1,0 +1,3 @@
+recordsize,jobs,elapsed_ms,write_bw_mib_s,cpu_s_per_gib,qat_byte_share_pct,fallback_share_pct,async_submits_delta,async_completions_delta,req_slot_delta,req_alloc_ns_per_req,req_free_ns_per_req,dc_fails_delta,sha_ok,note
+128K,4,792.271,921.31,8.251,72.16,27.84,5840,4214,2599,1412.401,263.626,0,yes,async QAT path exercised with slot-owned request objects on buffer-slot hits
+1M,4,723.637,1008.69,11.402,0.00,na,0,0,0,na,na,0,yes,control row fell back to software because max_buf_size remained 128K after init
