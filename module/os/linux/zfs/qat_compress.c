@@ -57,11 +57,14 @@
 #define	ZLIB_FOOT_SZ		4
 #define	QAT_DC_CALLBACK_MAGIC	0x51444342
 
+typedef struct qat_dc_sync_req qat_dc_sync_req_t;
+
 typedef struct qat_dc_buffer_slot {
 	Cpa8U *buffer_meta_src;
 	Cpa8U *buffer_meta_dst;
 	CpaBufferList *buf_list_src;
 	CpaBufferList *buf_list_dst;
+	qat_dc_sync_req_t *sync_req;
 	void *coalesced_dst;
 	Cpa32U coalesced_dst_size;
 	void *scratch;
@@ -100,8 +103,6 @@ typedef enum qat_dc_async_cap_mode {
 	QAT_DC_CAP_OFFLOAD = 2,
 } qat_dc_async_cap_mode_t;
 
-typedef struct qat_dc_sync_req qat_dc_sync_req_t;
-
 typedef struct qat_dc_callback_ctx {
 	uint32_t magic;
 	qat_dc_callback_type_t type;
@@ -124,6 +125,7 @@ struct qat_dc_sync_req {
 	volatile uint32_t state;
 	boolean_t recoverable_timeout;
 	boolean_t retained;
+	boolean_t from_slot;
 	CpaStatus callback_status;
 	CpaDcRqResults dc_results;
 	hrtime_t wait_start;
@@ -950,6 +952,37 @@ static void qat_dc_runtime_disable(const char *reason, uint64_t inflight,
     uint64_t stall_ms);
 
 static void
+qat_dc_sync_req_prepare(qat_dc_sync_req_t *req, boolean_t from_slot)
+{
+	memset(req, 0, sizeof (*req));
+	init_completion(&req->complete);
+	INIT_LIST_HEAD(&req->retained_node);
+	req->callback_ctx.magic = QAT_DC_CALLBACK_MAGIC;
+	req->callback_ctx.type = QAT_DC_CALLBACK_SYNC;
+	req->callback_ctx.u.sync = req;
+	req->from_slot = from_slot;
+}
+
+static qat_dc_sync_req_t *
+qat_dc_buffer_slot_sync_req(qat_dc_buffer_slot_t *slot)
+{
+	qat_dc_sync_req_t *req;
+
+	if (slot == NULL)
+		return (NULL);
+
+	if (slot->sync_req == NULL) {
+		req = kmem_alloc(sizeof (*req), KM_SLEEP);
+		if (req == NULL)
+			return (NULL);
+		slot->sync_req = req;
+	}
+
+	qat_dc_sync_req_prepare(slot->sync_req, B_TRUE);
+	return (slot->sync_req);
+}
+
+static void
 qat_dc_sync_req_unretain(qat_dc_sync_req_t *req, boolean_t bump_release)
 {
 	unsigned long flags;
@@ -1000,7 +1033,8 @@ qat_dc_sync_req_free_retained(qat_dc_sync_req_t *req)
 	}
 
 	QAT_PHYS_CONTIG_FREE(req->coalesced_src);
-	kmem_free(req, sizeof (*req));
+	if (!req->from_slot)
+		kmem_free(req, sizeof (*req));
 }
 
 static void
@@ -1814,6 +1848,8 @@ qat_dc_buffer_pool_clean(Cpa16U inst)
 		QAT_PHYS_CONTIG_FREE(slot->buffer_meta_dst);
 		QAT_PHYS_CONTIG_FREE(slot->buf_list_src);
 		QAT_PHYS_CONTIG_FREE(slot->buf_list_dst);
+		if (slot->sync_req != NULL)
+			kmem_free(slot->sync_req, sizeof (*slot->sync_req));
 		QAT_PHYS_CONTIG_FREE(slot->coalesced_dst);
 		if (slot->scratch != NULL)
 			zio_data_buf_free(slot->scratch, slot->scratch_size);
@@ -2189,6 +2225,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	boolean_t in_pages_from_slot = B_FALSE;
 	boolean_t out_pages_from_slot = B_FALSE;
 	boolean_t scratch_pages_from_slot = B_FALSE;
+	boolean_t sync_req_from_slot = B_FALSE;
 	qat_dc_buffer_shape_t buffer_shape = { 0 };
 	uint64_t retained_bytes = 0;
 
@@ -2539,19 +2576,28 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		add_pages = page_num;
 	}
 
-	phase_start = gethrtime();
-	sync_req = kmem_zalloc(sizeof (*sync_req), KM_SLEEP);
-	phase_end = gethrtime();
-	if (dir == QAT_COMPRESS)
-		QAT_STAT_ADD_TIME(dc_compress_req_alloc_ns, phase_start,
-		    phase_end);
+	if (buffer_slot != NULL) {
+		phase_start = gethrtime();
+		sync_req = qat_dc_buffer_slot_sync_req(buffer_slot);
+		phase_end = gethrtime();
+		if (dir == QAT_COMPRESS)
+			QAT_STAT_ADD_TIME(dc_compress_req_alloc_ns,
+			    phase_start, phase_end);
+		sync_req_from_slot = (sync_req != NULL);
+	} else {
+		phase_start = gethrtime();
+		sync_req = kmem_alloc(sizeof (*sync_req), KM_SLEEP);
+		phase_end = gethrtime();
+		if (dir == QAT_COMPRESS)
+			QAT_STAT_ADD_TIME(dc_compress_req_alloc_ns,
+			    phase_start, phase_end);
+		if (sync_req != NULL)
+			qat_dc_sync_req_prepare(sync_req, B_FALSE);
+	}
 	if (sync_req == NULL)
 		goto fail;
-	init_completion(&sync_req->complete);
-	INIT_LIST_HEAD(&sync_req->retained_node);
-	sync_req->callback_ctx.magic = QAT_DC_CALLBACK_MAGIC;
-	sync_req->callback_ctx.type = QAT_DC_CALLBACK_SYNC;
-	sync_req->callback_ctx.u.sync = sync_req;
+	if (dir == QAT_COMPRESS && sync_req_from_slot)
+		QAT_STAT_BUMP(dc_compress_req_slot);
 	sync_req->dir = dir;
 	sync_req->state = QAT_DC_SYNC_ACTIVE;
 	sync_req->callback_status = CPA_STATUS_FAIL;
@@ -2802,7 +2848,7 @@ fail:
 	    sync_compress_submitted)
 		QAT_STAT_BUMP(dc_compress_sync_fallbacks);
 
-	if (!retain_qat_resources && sync_req != NULL) {
+	if (!retain_qat_resources && sync_req != NULL && !sync_req_from_slot) {
 		if (dir == QAT_COMPRESS)
 			free_start = gethrtime();
 		kmem_free(sync_req, sizeof (*sync_req));

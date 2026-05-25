@@ -165,6 +165,7 @@ typedef struct qat_stats {
 	kstat_named_t dc_compress_buffer_list_free_ns;
 	kstat_named_t dc_compress_req_alloc_ns;
 	kstat_named_t dc_compress_req_free_ns;
+	kstat_named_t dc_compress_req_slot;
 	/*
 	 * Experimental source-buffer coalescing counters.
 	 */

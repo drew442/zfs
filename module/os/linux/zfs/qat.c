@@ -82,6 +82,7 @@ qat_stats_t qat_stats = {
 	{ "dc_compress_buffer_list_free_ns",	KSTAT_DATA_UINT64 },
 	{ "dc_compress_req_alloc_ns",		KSTAT_DATA_UINT64 },
 	{ "dc_compress_req_free_ns",		KSTAT_DATA_UINT64 },
+	{ "dc_compress_req_slot",		KSTAT_DATA_UINT64 },
 	{ "dc_compress_coalesce_requests",	KSTAT_DATA_UINT64 },
 	{ "dc_compress_coalesce_success",	KSTAT_DATA_UINT64 },
 	{ "dc_compress_coalesce_fails",		KSTAT_DATA_UINT64 },
