@@ -987,7 +987,13 @@ qat_dc_buffer_slot_sync_req(qat_dc_buffer_slot_t *slot)
 static void
 qat_dc_async_req_prepare(qat_dc_async_t *req, boolean_t from_slot)
 {
-	memset(req, 0, sizeof (*req));
+	memset(req, 0, offsetof(qat_dc_async_t, in_pages_stack));
+	/*
+	 * The embedded stack page arrays are overwritten up to the published
+	 * page counts before use. Avoid clearing them on each slot reuse.
+	 */
+	memset(&req->src_pages, 0, sizeof (*req) -
+	    offsetof(qat_dc_async_t, src_pages));
 	req->dc_results.checksum = 1;
 	req->submit_status = CPA_STATUS_FAIL;
 	INIT_LIST_HEAD(&req->active_node);
