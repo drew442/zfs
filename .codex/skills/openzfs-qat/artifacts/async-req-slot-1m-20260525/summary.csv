@@ -1,0 +1,5 @@
+jobs,mode,median_elapsed_ms,mean_elapsed_ms,median_write_bw_mib_s,mean_cpu_s_per_gib,mean_qat_byte_share_pct,mean_fallback_share_pct,mean_async_submits,mean_async_completions,mean_req_slot,mean_req_alloc_ns_per_req,mean_req_free_ns_per_req,dc_fails_total,sha_ok_all
+4,qat,737.186,744.619,990.150,5.309,79.823,20.400,732.000,582.667,582.667,1102.313,0.000,0,true
+4,sw,754.459,757.582,967.480,11.049,0.000,na,0.000,0.000,0.000,na,na,0,true
+8,qat,938.863,944.200,1554.920,6.070,80.143,20.480,1471.333,1170.000,1170.000,1138.370,0.000,0,true
+8,sw,921.602,897.447,1584.040,12.655,0.000,na,0.000,0.000,0.000,na,na,0,true

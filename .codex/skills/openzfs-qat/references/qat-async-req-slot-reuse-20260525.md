@@ -116,3 +116,64 @@ This is a structural request-overhead reduction for async QAT requests:
 This smoke is not a performance conclusion. It validates the implementation and
 counter behavior only. A full before/after benchmark should be run with a boot
 profile that makes 1M QAT-eligible if comparing large-record performance.
+
+## 1M Benchmark
+
+The host was later rebooted into a temporary 1M QAT profile so the large-record
+row exercised QAT instead of falling back to software:
+
+- `zfs_qat_dc_profile=throughput`
+- `zfs_qat_dc_profile_recordsize=1048576`
+- `zfs_qat_dc_async=1`
+- `zfs_qat_dc_async_max_inflight=96`
+- `zfs_qat_dc_async_cap_policy=throughput`
+
+Artifacts:
+
+- `artifacts/async-req-slot-1m-20260525/zfs-qat-async-req-slot-1m-jobs4-20260525.csv`
+- `artifacts/async-req-slot-1m-20260525/zfs-qat-async-req-slot-1m-jobs8-20260525.csv`
+- `artifacts/async-req-slot-1m-20260525/summary.csv`
+
+Benchmark shape:
+
+- Source: `/nvme_scratch/source/2021-09-05/Scanned Documents/Image.tif`
+- Pool/root: `nvme_scratch/bench`
+- Record size: `1M`
+- Jobs: `4`, `8`
+- Iterations: `3`
+- Modes: `qat sw`
+- Verify mode: `sw`
+
+Results:
+
+| jobs | mode | median elapsed ms | mean elapsed ms | mean CPU s/GiB | mean QAT byte share | mean fallback share | mean async completions | mean request slot uses | request free ns/request | SHA | dc fails |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---|---:|
+| 4 | qat | 737.186 | 744.619 | 5.309 | 79.823% | 20.400% | 582.667 | 582.667 | 0.000 | yes | 0 |
+| 4 | sw | 754.459 | 757.582 | 11.049 | 0.000% | na | 0.000 | 0.000 | na | yes | 0 |
+| 8 | qat | 938.863 | 944.200 | 6.070 | 80.143% | 20.480% | 1170.000 | 1170.000 | 0.000 | yes | 0 |
+| 8 | sw | 921.602 | 897.447 | 12.655 | 0.000% | na | 0.000 | 0.000 | na | yes | 0 |
+
+The 1M result is mixed and useful:
+
+- At `jobs=4`, QAT was slightly faster than same-window software on both median
+  and mean elapsed time, while using roughly half the active CPU seconds per GiB.
+- At `jobs=8`, QAT was slower than same-window software on median and mean
+  elapsed time, but still used roughly half the active CPU seconds per GiB.
+- In all QAT rows, accepted async completions used slot-owned request objects
+  and request free cost was eliminated.
+- QAT byte share remained around 80%, so these were hybrid async rows with
+  software fallback still contributing about 20% of source bytes.
+
+After the benchmark, `/etc/modprobe.d/zfs-qat.conf` was restored to the default
+balanced profile config, initramfs was regenerated, the host was rebooted, and
+the restored state was verified:
+
+- `zfs_qat_dc_profile=balanced`
+- `zfs_qat_dc_profile_recordsize=131072`
+- `zfs_qat_dc_max_buf_size=profile`
+- `zfs_qat_dc_async=profile`
+- `zfs_qat_dc_async_max_inflight=profile`
+- `zfs_qat_dc_async_cap_policy=profile`
+- `dc_fails=0`
+- `dc_watchdog_health=1`
+- `zpool status -x`: all pools healthy
