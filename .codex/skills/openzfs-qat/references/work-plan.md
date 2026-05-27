@@ -209,6 +209,12 @@ local timing. This removes detailed request setup, submit, cleanup, allocation,
 and compression-bound timing from the default `128K` balanced compression path
 unless `zfs_qat_dc_timing_stats=1` is set for measurement.
 
+2026-05-27 update: aggregate compression request-shape counters now follow
+`zfs_qat_dc_shape_stats` instead of remaining always-on. Profile/default mode no
+longer pays source/destination/scratch/max-buffer diagnostic stat updates on
+each QAT compression request; set `zfs_qat_dc_shape_stats=1` for request-shape
+benchmark attribution.
+
 Workstream E: QAT instance caps:
 
 - Expose init-time module parameters for maximum DC and crypto instances, with defaults of `48` to preserve current behavior.

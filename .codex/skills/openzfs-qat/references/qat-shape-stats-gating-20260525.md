@@ -10,7 +10,8 @@ zfs_qat_dc_shape_stats=profile|0|1
 
 Profile currently resolves to `0`.
 
-The aggregate request-shape counters remain enabled:
+Follow-up: `references/qat-aggregate-shape-stats-gating-20260527.md` later
+gated these aggregate request-shape counters behind the same parameter:
 
 - `dc_compress_src_buffers`
 - `dc_compress_dst_buffers`

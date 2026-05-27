@@ -2738,11 +2738,12 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		QAT_STAT_INCR(comp_total_in_bytes, src_len);
 		QAT_STAT_BUMP(dc_compress_sync_submits);
 		sync_compress_submitted = B_TRUE;
-		qat_dc_record_compress_shape(buf_list_src->numBuffers,
-		    dst_coalesced ? buf_list_dst->numBuffers : dst_pages,
-		    add_pages);
-		if (shape_stats)
+		if (shape_stats) {
+			qat_dc_record_compress_shape(
+			    buf_list_src->numBuffers, dst_coalesced ?
+			    buf_list_dst->numBuffers : dst_pages, add_pages);
 			qat_dc_record_compress_buffer_shape(&buffer_shape);
+		}
 
 		cpaDcGenerateHeader(session_handle,
 		    buf_list_dst->pBuffers, &hdr_sz);
@@ -3593,11 +3594,12 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 
 	QAT_STAT_BUMP(comp_requests);
 	QAT_STAT_INCR(comp_total_in_bytes, src_len);
-	qat_dc_record_compress_shape(req->buf_list_src->numBuffers,
-	    dst_coalesced ? req->buf_list_dst->numBuffers : req->dst_pages,
-	    req->add_pages);
-	if (shape_stats)
+	if (shape_stats) {
+		qat_dc_record_compress_shape(req->buf_list_src->numBuffers,
+		    dst_coalesced ? req->buf_list_dst->numBuffers :
+		    req->dst_pages, req->add_pages);
 		qat_dc_record_compress_buffer_shape(&buffer_shape);
+	}
 
 	cpaDcGenerateHeader(session_handle, req->buf_list_dst->pBuffers,
 	    &req->hdr_sz);
