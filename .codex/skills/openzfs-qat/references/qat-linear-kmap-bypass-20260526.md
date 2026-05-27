@@ -44,6 +44,9 @@ dc_watchdog_health=1
 - `artifacts/linear-kmap-bypass-20260526/zfs-qat-linear-kmap-bypass-1m-jobs4-20260526.csv`
 - `artifacts/linear-kmap-bypass-20260526/zfs-qat-linear-kmap-bypass-1m-jobs8-20260526.csv`
 - `artifacts/linear-kmap-bypass-20260526/summary.csv`
+- `artifacts/linear-kmap-bypass-yolo-rerun-20260527/zfs-qat-linear-kmap-bypass-yolo-rerun-1m-jobs4-20260527.csv`
+- `artifacts/linear-kmap-bypass-yolo-rerun-20260527/zfs-qat-linear-kmap-bypass-yolo-rerun-1m-jobs8-20260527.csv`
+- `artifacts/linear-kmap-bypass-yolo-rerun-20260527/summary.csv`
 
 Comparison baseline:
 
@@ -54,6 +57,8 @@ CSV validation:
 
 - jobs=4 artifact: `254` fields per row
 - jobs=8 artifact: `254` fields per row
+- YOLO rerun jobs=4 artifact: `254` fields per row
+- YOLO rerun jobs=8 artifact: `254` fields per row
 
 ## Benchmark Shape
 
@@ -79,6 +84,59 @@ CSV validation:
 | page lookup cache baseline | 8 | 989.293 | 1477.160 | 7.153 | 79.823% | 44507.855 | 41463.367 | 1395.404 |
 | linear kmap bypass | 8 | 1569.092 | 941.410 | 8.103 | 81.013% | 60267.978 | 55596.652 | 2225.448 |
 | delta | 8 | +58.607% | -36.269% | +13.278% | +1.190 pp | +35.410% | +34.086% | +59.484% |
+
+## YOLO Rerun - 2026-05-27
+
+The experiment was rerun after confirming the agent environment was operating
+with unrestricted filesystem access and no approval prompts. This matters only
+for local command execution; it should not change the host-side DKMS build,
+kernel module behavior, or benchmark output. The rerun was still useful as a
+control because the prior session had local sandbox friction.
+
+Rerun host state before benchmark:
+
+```text
+zfs srcversion: 4BE8EE5B380B4BD19CD1A76
+zfs_qat_dc_profile=throughput
+zfs_qat_dc_profile_recordsize=1048576
+zfs_qat_dc_async=1
+zfs_qat_dc_async_max_inflight=96
+zfs_qat_dc_async_cap_policy=throughput
+zfs_qat_dc_shape_stats=profile
+dc_fails=0
+dc_instances=12
+dc_watchdog_health=1
+```
+
+Rerun result:
+
+| Case | Jobs | Mean elapsed ms | Mean write MiB/s | CPU active s/GiB | QAT byte share | Setup ns/request |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| page lookup cache baseline | 4 | 776.716 | 941.027 | 5.277 | 84.347% | 73320.183 |
+| YOLO rerun linear kmap bypass | 4 | 951.211 | 771.303 | 5.468 | 77.910% | 77495.763 |
+| delta | 4 | +22.466% | -18.036% | +3.611% | -6.437 pp | +5.695% |
+| page lookup cache baseline | 8 | 989.293 | 1477.160 | 7.153 | 79.823% | 44507.855 |
+| YOLO rerun linear kmap bypass | 8 | 1283.450 | 1137.610 | 6.054 | 81.057% | 41243.026 |
+| delta | 8 | +29.734% | -22.987% | -15.370% | +1.233 pp | -7.335% |
+
+The rerun confirms the original conclusion. The jobs=8 regression was smaller
+than the first attempt but still material, and jobs=4 regressed again. The
+result is not a sandbox artifact.
+
+The host was restored again after the rerun:
+
+```text
+zfs srcversion: 4F680B7A990EAE933F81B16
+zfs_qat_dc_profile=balanced
+zfs_qat_dc_profile_recordsize=131072
+zfs_qat_dc_async=profile
+zfs_qat_dc_async_max_inflight=profile
+zfs_qat_dc_async_cap_policy=profile
+zfs_qat_dc_shape_stats=profile
+dc_fails=0
+dc_instances=12
+dc_watchdog_health=1
+```
 
 ## Interpretation
 
