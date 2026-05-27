@@ -17,6 +17,9 @@ Added `zfs_qat_dc_timing_stats`, with accepted values:
 - `0`: disable detailed async compression local timing stats.
 - `1`: enable detailed async compression local timing stats for benchmarking.
 
+Follow-up note: `references/qat-sync-timing-stats-gating-20260527.md` extends
+the same parameter to synchronous compression local timing.
+
 When disabled, the async compression path skips nonessential `gethrtime()` calls
 and timing-stat atomics for:
 

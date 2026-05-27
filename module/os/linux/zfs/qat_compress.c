@@ -963,7 +963,7 @@ qat_dc_selected_hufftype(void)
 }
 
 static size_t
-qat_dc_compress_scratch_len(int src_len, int dst_len)
+qat_dc_compress_scratch_len(int src_len, int dst_len, boolean_t timing_stats)
 {
 	Cpa32U bound = 0;
 	Cpa32U qat_dst_len = 0;
@@ -975,11 +975,12 @@ qat_dc_compress_scratch_len(int src_len, int dst_len)
 	QAT_STAT_BUMP(dc_compress_bound_requests);
 	QAT_STAT_INCR(dc_compress_dst_total_bytes, dst_len);
 
-	start = gethrtime();
+	start = QAT_DC_TIME_NOW(timing_stats);
 	status = cpaDcDeflateCompressBound(dc_inst_handles[0],
 	    qat_dc_selected_hufftype(), src_len, &bound);
-	end = gethrtime();
-	QAT_STAT_ADD_TIME(dc_compress_bound_ns, start, end);
+	end = QAT_DC_TIME_NOW(timing_stats);
+	QAT_DC_STAT_ADD_TIME_IF(timing_stats, dc_compress_bound_ns, start,
+	    end);
 
 	if (status != CPA_STATUS_SUCCESS) {
 		QAT_STAT_BUMP(dc_compress_bound_fails);
@@ -2273,7 +2274,8 @@ qat_dc_fini(void)
  */
 static int
 qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
-    char *dst, int dst_len, char *add, int add_len, size_t *c_len)
+    char *dst, int dst_len, char *add, int add_len, size_t *c_len,
+    boolean_t timing_stats)
 {
 	CpaInstanceHandle dc_inst_handle;
 	CpaDcSessionHandle session_handle;
@@ -2317,7 +2319,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	qat_dc_sync_req_t *sync_req = NULL;
 	Cpa32U page_num = 0;
 	Cpa16U i;
-	hrtime_t op_start = gethrtime();
+	hrtime_t op_start;
 	hrtime_t scratch_start;
 	hrtime_t scratch_end;
 	hrtime_t phase_start;
@@ -2343,6 +2345,9 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	boolean_t shape_stats = (dir == QAT_COMPRESS &&
 	    qat_dc_effective_shape_stats());
 	uint64_t retained_bytes = 0;
+
+	op_start = (dir == QAT_COMPRESS) ? QAT_DC_TIME_NOW(timing_stats) :
+	    gethrtime();
 
 	dst_quarantine_requested = (dir == QAT_COMPRESS &&
 	    qat_dc_effective_quarantine_dst());
@@ -2418,15 +2423,15 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	}
 
 	if (add_len > 0 && !dst_coalesced && add == NULL) {
-		scratch_start = gethrtime();
+		scratch_start = QAT_DC_TIME_NOW(timing_stats);
 		add = qat_dc_buffer_slot_scratch(buffer_slot, add_len);
 		if (add == NULL) {
 			add = zio_data_buf_alloc(add_len);
 			local_add_alloc = B_TRUE;
 		}
-		scratch_end = gethrtime();
-		QAT_STAT_ADD_TIME(dc_compress_scratch_alloc_ns,
-		    scratch_start, scratch_end);
+		scratch_end = QAT_DC_TIME_NOW(timing_stats);
+		QAT_DC_STAT_ADD_TIME_IF(timing_stats,
+		    dc_compress_scratch_alloc_ns, scratch_start, scratch_end);
 		if (add == NULL)
 			goto fail;
 	}
@@ -2448,23 +2453,21 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	if (num_src_buf > QAT_DC_STACK_MAX_PAGES) {
 		in_pages_size = num_src_buf * sizeof (*in_pages);
 		if (buffer_slot != NULL) {
-			phase_start = gethrtime();
+			phase_start = QAT_DC_TIME_NOW(timing_stats);
 			in_pages = qat_dc_buffer_slot_in_pages(buffer_slot,
 			    num_src_buf);
-			phase_end = gethrtime();
-			if (dir == QAT_COMPRESS)
-				QAT_STAT_ADD_TIME(
-				    dc_compress_page_array_alloc_ns,
-				    phase_start, phase_end);
+			phase_end = QAT_DC_TIME_NOW(timing_stats);
+			QAT_DC_STAT_ADD_TIME_IF(timing_stats,
+			    dc_compress_page_array_alloc_ns, phase_start,
+			    phase_end);
 			in_pages_from_slot = (in_pages != NULL);
 		} else {
-			phase_start = gethrtime();
+			phase_start = QAT_DC_TIME_NOW(timing_stats);
 			in_pages = kmem_alloc(in_pages_size, KM_SLEEP);
-			phase_end = gethrtime();
-			if (dir == QAT_COMPRESS)
-				QAT_STAT_ADD_TIME(
-				    dc_compress_page_array_alloc_ns,
-				    phase_start, phase_end);
+			phase_end = QAT_DC_TIME_NOW(timing_stats);
+			QAT_DC_STAT_ADD_TIME_IF(timing_stats,
+			    dc_compress_page_array_alloc_ns, phase_start,
+			    phase_end);
 		}
 		if (in_pages == NULL)
 			goto fail;
@@ -2477,23 +2480,21 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	if (num_dst_buf > QAT_DC_STACK_MAX_PAGES) {
 		out_pages_size = num_dst_buf * sizeof (*out_pages);
 		if (buffer_slot != NULL) {
-			phase_start = gethrtime();
+			phase_start = QAT_DC_TIME_NOW(timing_stats);
 			out_pages = qat_dc_buffer_slot_out_pages(buffer_slot,
 			    num_dst_buf);
-			phase_end = gethrtime();
-			if (dir == QAT_COMPRESS)
-				QAT_STAT_ADD_TIME(
-				    dc_compress_page_array_alloc_ns,
-				    phase_start, phase_end);
+			phase_end = QAT_DC_TIME_NOW(timing_stats);
+			QAT_DC_STAT_ADD_TIME_IF(timing_stats,
+			    dc_compress_page_array_alloc_ns, phase_start,
+			    phase_end);
 			out_pages_from_slot = (out_pages != NULL);
 		} else {
-			phase_start = gethrtime();
+			phase_start = QAT_DC_TIME_NOW(timing_stats);
 			out_pages = kmem_alloc(out_pages_size, KM_SLEEP);
-			phase_end = gethrtime();
-			if (dir == QAT_COMPRESS)
-				QAT_STAT_ADD_TIME(
-				    dc_compress_page_array_alloc_ns,
-				    phase_start, phase_end);
+			phase_end = QAT_DC_TIME_NOW(timing_stats);
+			QAT_DC_STAT_ADD_TIME_IF(timing_stats,
+			    dc_compress_page_array_alloc_ns, phase_start,
+			    phase_end);
 		}
 		if (out_pages == NULL)
 			goto fail;
@@ -2508,23 +2509,21 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		if (num_add_buf <= QAT_DC_STACK_MAX_PAGES) {
 			scratch_pages = scratch_pages_stack;
 		} else if (buffer_slot != NULL) {
-			phase_start = gethrtime();
+			phase_start = QAT_DC_TIME_NOW(timing_stats);
 			scratch_pages = qat_dc_buffer_slot_scratch_pages(
 			    buffer_slot, num_add_buf);
-			phase_end = gethrtime();
-			if (dir == QAT_COMPRESS)
-				QAT_STAT_ADD_TIME(
-				    dc_compress_page_array_alloc_ns,
-				    phase_start, phase_end);
+			phase_end = QAT_DC_TIME_NOW(timing_stats);
+			QAT_DC_STAT_ADD_TIME_IF(timing_stats,
+			    dc_compress_page_array_alloc_ns, phase_start,
+			    phase_end);
 			scratch_pages_from_slot = (scratch_pages != NULL);
 		} else {
-			phase_start = gethrtime();
+			phase_start = QAT_DC_TIME_NOW(timing_stats);
 			scratch_pages = kmem_alloc(scratch_pages_size, KM_SLEEP);
-			phase_end = gethrtime();
-			if (dir == QAT_COMPRESS)
-				QAT_STAT_ADD_TIME(
-				    dc_compress_page_array_alloc_ns,
-				    phase_start, phase_end);
+			phase_end = QAT_DC_TIME_NOW(timing_stats);
+			QAT_DC_STAT_ADD_TIME_IF(timing_stats,
+			    dc_compress_page_array_alloc_ns, phase_start,
+			    phase_end);
 		}
 		if (scratch_pages == NULL)
 			goto fail;
@@ -2548,7 +2547,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		buf_list_src = buffer_slot->buf_list_src;
 		buf_list_dst = buffer_slot->buf_list_dst;
 	} else {
-		phase_start = gethrtime();
+		phase_start = QAT_DC_TIME_NOW(timing_stats);
 		status = cpaDcBufferListGetMetaSize(dc_inst_handle,
 		    num_src_buf, &buffer_meta_size);
 		if (status == CPA_STATUS_SUCCESS)
@@ -2568,10 +2567,9 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		if (status == CPA_STATUS_SUCCESS)
 			status = QAT_PHYS_CONTIG_ALLOC(&buf_list_dst,
 			    dst_buffer_list_mem_size);
-		phase_end = gethrtime();
-		if (dir == QAT_COMPRESS)
-			QAT_STAT_ADD_TIME(dc_compress_buffer_list_alloc_ns,
-			    phase_start, phase_end);
+		phase_end = QAT_DC_TIME_NOW(timing_stats);
+		QAT_DC_STAT_ADD_TIME_IF(timing_stats,
+		    dc_compress_buffer_list_alloc_ns, phase_start, phase_end);
 
 		if (status != CPA_STATUS_SUCCESS)
 			goto fail;
@@ -2699,20 +2697,18 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	}
 
 	if (buffer_slot != NULL) {
-		phase_start = gethrtime();
+		phase_start = QAT_DC_TIME_NOW(timing_stats);
 		sync_req = qat_dc_buffer_slot_sync_req(buffer_slot);
-		phase_end = gethrtime();
-		if (dir == QAT_COMPRESS)
-			QAT_STAT_ADD_TIME(dc_compress_req_alloc_ns,
-			    phase_start, phase_end);
+		phase_end = QAT_DC_TIME_NOW(timing_stats);
+		QAT_DC_STAT_ADD_TIME_IF(timing_stats,
+		    dc_compress_req_alloc_ns, phase_start, phase_end);
 		sync_req_from_slot = (sync_req != NULL);
 	} else {
-		phase_start = gethrtime();
+		phase_start = QAT_DC_TIME_NOW(timing_stats);
 		sync_req = kmem_alloc(sizeof (*sync_req), KM_SLEEP);
-		phase_end = gethrtime();
-		if (dir == QAT_COMPRESS)
-			QAT_STAT_ADD_TIME(dc_compress_req_alloc_ns,
-			    phase_start, phase_end);
+		phase_end = QAT_DC_TIME_NOW(timing_stats);
+		QAT_DC_STAT_ADD_TIME_IF(timing_stats,
+		    dc_compress_req_alloc_ns, phase_start, phase_end);
 		if (sync_req != NULL)
 			qat_dc_sync_req_prepare(sync_req, B_FALSE);
 	}
@@ -2752,8 +2748,9 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		    buf_list_dst->pBuffers, &hdr_sz);
 		buf_list_dst->pBuffers->pData += hdr_sz;
 		buf_list_dst->pBuffers->dataLenInBytes -= hdr_sz;
-		phase_end = gethrtime();
-		QAT_STAT_ADD_TIME(dc_compress_setup_ns, op_start, phase_end);
+		phase_end = QAT_DC_TIME_NOW(timing_stats);
+		QAT_DC_STAT_ADD_TIME_IF(timing_stats, dc_compress_setup_ns,
+		    op_start, phase_end);
 		phase_start = gethrtime();
 		sync_req->wait_start = phase_start;
 		qat_dc_inflight_enter(dir, phase_start);
@@ -2763,7 +2760,8 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		    &sync_req->dc_results, CPA_DC_FLUSH_FINAL,
 		    &sync_req->callback_ctx);
 		phase_end = gethrtime();
-		QAT_STAT_ADD_TIME(dc_compress_submit_ns, phase_start, phase_end);
+		QAT_DC_STAT_ADD_TIME_IF(timing_stats,
+		    dc_compress_submit_ns, phase_start, phase_end);
 		if (status != CPA_STATUS_SUCCESS) {
 			qat_dc_inflight_exit(dir, phase_end);
 			goto fail;
@@ -2801,11 +2799,12 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		*c_len = hdr_sz + compressed_sz + ZLIB_FOOT_SZ;
 		QAT_STAT_BUMP(dc_compress_sync_completions);
 		if (dst_coalesced) {
-			free_start = gethrtime();
+			free_start = QAT_DC_TIME_NOW(timing_stats);
 			memcpy(orig_dst, dst, *c_len);
-			free_end = gethrtime();
-			QAT_STAT_ADD_TIME(dc_compress_dst_coalesce_copy_ns,
-			    free_start, free_end);
+			free_end = QAT_DC_TIME_NOW(timing_stats);
+			QAT_DC_STAT_ADD_TIME_IF(timing_stats,
+			    dc_compress_dst_coalesce_copy_ns, free_start,
+			    free_end);
 			QAT_STAT_INCR(dc_compress_dst_coalesce_copy_bytes,
 			    *c_len);
 			if (dst_quarantine_requested) {
@@ -2866,7 +2865,8 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	}
 
 fail:
-	phase_start = gethrtime();
+	phase_start = (dir == QAT_COMPRESS) ? QAT_DC_TIME_NOW(timing_stats) :
+	    gethrtime();
 
 	if (status != CPA_STATUS_SUCCESS && status != CPA_STATUS_INCOMPRESSIBLE)
 		QAT_STAT_BUMP(dc_fails);
@@ -2885,14 +2885,15 @@ fail:
 			qat_dc_buffer_pool_release(i, buffer_slot);
 		} else {
 			if (dir == QAT_COMPRESS)
-				free_start = gethrtime();
+				free_start = QAT_DC_TIME_NOW(timing_stats);
 			QAT_PHYS_CONTIG_FREE(buffer_meta_src);
 			QAT_PHYS_CONTIG_FREE(buffer_meta_dst);
 			QAT_PHYS_CONTIG_FREE(buf_list_src);
 			QAT_PHYS_CONTIG_FREE(buf_list_dst);
 			if (dir == QAT_COMPRESS) {
-				free_end = gethrtime();
-				QAT_STAT_ADD_TIME(dc_compress_buffer_list_free_ns,
+				free_end = QAT_DC_TIME_NOW(timing_stats);
+				QAT_DC_STAT_ADD_TIME_IF(timing_stats,
+				    dc_compress_buffer_list_free_ns,
 				    free_start, free_end);
 			}
 		}
@@ -2901,11 +2902,12 @@ fail:
 	if (in_pages != in_pages_stack && in_pages != NULL &&
 	    !in_pages_from_slot) {
 		if (dir == QAT_COMPRESS)
-			free_start = gethrtime();
+			free_start = QAT_DC_TIME_NOW(timing_stats);
 		kmem_free(in_pages, in_pages_size);
 		if (dir == QAT_COMPRESS) {
-			free_end = gethrtime();
-			QAT_STAT_ADD_TIME(dc_compress_page_array_free_ns,
+			free_end = QAT_DC_TIME_NOW(timing_stats);
+			QAT_DC_STAT_ADD_TIME_IF(timing_stats,
+			    dc_compress_page_array_free_ns,
 			    free_start, free_end);
 		}
 	}
@@ -2913,11 +2915,12 @@ fail:
 	if (out_pages != out_pages_stack && out_pages != NULL &&
 	    !out_pages_from_slot) {
 		if (dir == QAT_COMPRESS)
-			free_start = gethrtime();
+			free_start = QAT_DC_TIME_NOW(timing_stats);
 		kmem_free(out_pages, out_pages_size);
 		if (dir == QAT_COMPRESS) {
-			free_end = gethrtime();
-			QAT_STAT_ADD_TIME(dc_compress_page_array_free_ns,
+			free_end = QAT_DC_TIME_NOW(timing_stats);
+			QAT_DC_STAT_ADD_TIME_IF(timing_stats,
+			    dc_compress_page_array_free_ns,
 			    free_start, free_end);
 		}
 	}
@@ -2925,43 +2928,45 @@ fail:
 	if (scratch_pages != NULL && scratch_pages != scratch_pages_stack &&
 	    !scratch_pages_from_slot) {
 		if (dir == QAT_COMPRESS)
-			free_start = gethrtime();
+			free_start = QAT_DC_TIME_NOW(timing_stats);
 		kmem_free(scratch_pages, scratch_pages_size);
 		if (dir == QAT_COMPRESS) {
-			free_end = gethrtime();
-			QAT_STAT_ADD_TIME(dc_compress_page_array_free_ns,
+			free_end = QAT_DC_TIME_NOW(timing_stats);
+			QAT_DC_STAT_ADD_TIME_IF(timing_stats,
+			    dc_compress_page_array_free_ns,
 			    free_start, free_end);
 		}
 	}
 
 	if (local_add_alloc && add != NULL) {
-		scratch_start = gethrtime();
+		scratch_start = QAT_DC_TIME_NOW(timing_stats);
 		zio_data_buf_free(add, add_len);
-		scratch_end = gethrtime();
-		QAT_STAT_ADD_TIME(dc_compress_scratch_free_ns, scratch_start,
-		    scratch_end);
+		scratch_end = QAT_DC_TIME_NOW(timing_stats);
+		QAT_DC_STAT_ADD_TIME_IF(timing_stats,
+		    dc_compress_scratch_free_ns, scratch_start, scratch_end);
 	}
 
 	if (!retain_qat_resources && coalesced_src != NULL) {
-		free_start = gethrtime();
+		free_start = QAT_DC_TIME_NOW(timing_stats);
 		QAT_PHYS_CONTIG_FREE(coalesced_src);
-		free_end = gethrtime();
-		QAT_STAT_ADD_TIME(dc_compress_coalesce_free_ns, free_start,
-		    free_end);
+		free_end = QAT_DC_TIME_NOW(timing_stats);
+		QAT_DC_STAT_ADD_TIME_IF(timing_stats,
+		    dc_compress_coalesce_free_ns, free_start, free_end);
 	}
 
 	if (!retain_qat_resources && coalesced_dst != NULL) {
-		free_start = gethrtime();
+		free_start = QAT_DC_TIME_NOW(timing_stats);
 		QAT_PHYS_CONTIG_FREE(coalesced_dst);
-		free_end = gethrtime();
-		QAT_STAT_ADD_TIME(dc_compress_dst_coalesce_free_ns, free_start,
-		    free_end);
+		free_end = QAT_DC_TIME_NOW(timing_stats);
+		QAT_DC_STAT_ADD_TIME_IF(timing_stats,
+		    dc_compress_dst_coalesce_free_ns, free_start, free_end);
 	}
 
-	phase_end = gethrtime();
+	phase_end = (dir == QAT_COMPRESS) ? QAT_DC_TIME_NOW(timing_stats) :
+	    gethrtime();
 	if (dir == QAT_COMPRESS) {
-		QAT_STAT_ADD_TIME(dc_compress_cleanup_ns, phase_start,
-		    phase_end);
+		QAT_DC_STAT_ADD_TIME_IF(timing_stats,
+		    dc_compress_cleanup_ns, phase_start, phase_end);
 	} else {
 		QAT_STAT_ADD_TIME(dc_decompress_cleanup_ns, phase_start,
 		    phase_end);
@@ -2973,12 +2978,12 @@ fail:
 
 	if (!retain_qat_resources && sync_req != NULL && !sync_req_from_slot) {
 		if (dir == QAT_COMPRESS)
-			free_start = gethrtime();
+			free_start = QAT_DC_TIME_NOW(timing_stats);
 		kmem_free(sync_req, sizeof (*sync_req));
 		if (dir == QAT_COMPRESS) {
-			free_end = gethrtime();
-			QAT_STAT_ADD_TIME(dc_compress_req_free_ns, free_start,
-			    free_end);
+			free_end = QAT_DC_TIME_NOW(timing_stats);
+			QAT_DC_STAT_ADD_TIME_IF(timing_stats,
+			    dc_compress_req_free_ns, free_start, free_end);
 		}
 	}
 
@@ -2997,20 +3002,23 @@ qat_compress(qat_compress_dir_t dir, char *src, int src_len,
 	void *add = NULL;
 	hrtime_t scratch_start;
 	hrtime_t scratch_end;
+	boolean_t timing_stats = B_FALSE;
 
 	if (dir == QAT_COMPRESS) {
-		add_len = qat_dc_compress_scratch_len(src_len, dst_len);
+		timing_stats = qat_dc_effective_timing_stats();
+		add_len = qat_dc_compress_scratch_len(src_len, dst_len,
+		    timing_stats);
 	}
 
 	ret = qat_compress_impl(dir, src, src_len, dst,
-	    dst_len, add, add_len, c_len);
+	    dst_len, add, add_len, c_len, timing_stats);
 
 	if (dir == QAT_COMPRESS && add != NULL) {
-		scratch_start = gethrtime();
+		scratch_start = QAT_DC_TIME_NOW(timing_stats);
 		zio_data_buf_free(add, add_len);
-		scratch_end = gethrtime();
-		QAT_STAT_ADD_TIME(dc_compress_scratch_free_ns, scratch_start,
-		    scratch_end);
+		scratch_end = QAT_DC_TIME_NOW(timing_stats);
+		QAT_DC_STAT_ADD_TIME_IF(timing_stats,
+		    dc_compress_scratch_free_ns, scratch_start, scratch_end);
 	}
 
 	return (ret);
@@ -3245,7 +3253,7 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	}
 	async_inflight = B_TRUE;
 
-	add_len = qat_dc_compress_scratch_len(src_len, dst_len);
+	add_len = qat_dc_compress_scratch_len(src_len, dst_len, timing_stats);
 	src_coalesced = qat_dc_try_coalesce_src(&req_src, src_len,
 	    &coalesced_src, B_FALSE);
 	dst_coalesce_requested = qat_dc_effective_coalesce_dst();
@@ -4824,7 +4832,7 @@ MODULE_PARM_DESC(zfs_qat_dc_shape_stats,
 module_param_call(zfs_qat_dc_timing_stats, param_set_qat_dc_timing_stats,
     param_get_qat_dc_timing_stats, &zfs_qat_dc_timing_stats, 0644);
 MODULE_PARM_DESC(zfs_qat_dc_timing_stats,
-    "Enable/Disable detailed async QAT compression request timing stats: "
+    "Enable/Disable detailed QAT compression request timing stats: "
     "profile, 0, or 1");
 
 module_param_call(zfs_qat_dc_quarantine_dst,

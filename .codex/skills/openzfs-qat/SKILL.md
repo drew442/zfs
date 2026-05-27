@@ -67,13 +67,15 @@ Use this skill for QAT-specific work in this fork. It is meant for design review
     raise `512K` caps to all DC instances, use `references/qat-cap512-sweep-20260527.md`.
 49. For profile-gated async local timing stats and the HDD/NVMe `512K`/`1M`
     request-overhead validation, use `references/qat-async-timing-stats-gating-20260527.md`.
-50. Confirm which layer the task touches before editing:
+50. For profile-gated sync compression timing stats and the HDD/NVMe default
+    plus throughput/1M validation, use `references/qat-sync-timing-stats-gating-20260527.md`.
+51. Confirm which layer the task touches before editing:
    - Build integration and static configuration
    - Runtime tunables and initialization
    - Compression, checksum, or encryption call sites
    - Documentation or validation workflow
-51. Preserve software fallback behavior unless the task explicitly changes policy. Current QAT paths generally attempt acceleration first and then fall back to software on failure.
-52. Treat usability and performance separately:
+52. Preserve software fallback behavior unless the task explicitly changes policy. Current QAT paths generally attempt acceleration first and then fall back to software on failure.
+53. Treat usability and performance separately:
    - Usability work usually means clearer build flags, safer defaults, less surprising runtime behavior, or better observability.
    - Performance work usually means thresholding, allocation strategy, instance selection, avoiding unnecessary copies, or reducing failed offload attempts.
 

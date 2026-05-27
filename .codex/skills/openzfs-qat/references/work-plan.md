@@ -204,6 +204,11 @@ Status: initial non-serializing reuse implemented for the 2026-05-13 pass. The c
 nonessential timestamp/stat accounting from the normal async request path while
 keeping the detailed counters available for focused benchmark runs.
 
+2026-05-27 update: the same timing gate now covers synchronous compression
+local timing. This removes detailed request setup, submit, cleanup, allocation,
+and compression-bound timing from the default `128K` balanced compression path
+unless `zfs_qat_dc_timing_stats=1` is set for measurement.
+
 Workstream E: QAT instance caps:
 
 - Expose init-time module parameters for maximum DC and crypto instances, with defaults of `48` to preserve current behavior.
