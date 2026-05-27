@@ -59,13 +59,14 @@ Use this skill for QAT-specific work in this fork. It is meant for design review
 42. For the rejected async cap precheck experiment, use `references/qat-async-precheck-20260527.md`.
 43. For the rejected combined async completion/timeout status check experiment, use `references/qat-async-status-combined-20260527.md`.
 44. For the rejected contiguous scratch flat-buffer experiment, use `references/qat-contiguous-scratch-20260527.md`.
-45. Confirm which layer the task touches before editing:
+45. For the current-code 1M async cap-policy matrix, use `references/qat-current-cap-matrix-20260527.md`.
+46. Confirm which layer the task touches before editing:
    - Build integration and static configuration
    - Runtime tunables and initialization
    - Compression, checksum, or encryption call sites
    - Documentation or validation workflow
-18. Preserve software fallback behavior unless the task explicitly changes policy. Current QAT paths generally attempt acceleration first and then fall back to software on failure.
-19. Treat usability and performance separately:
+47. Preserve software fallback behavior unless the task explicitly changes policy. Current QAT paths generally attempt acceleration first and then fall back to software on failure.
+48. Treat usability and performance separately:
    - Usability work usually means clearer build flags, safer defaults, less surprising runtime behavior, or better observability.
    - Performance work usually means thresholding, allocation strategy, instance selection, avoiding unnecessary copies, or reducing failed offload attempts.
 
