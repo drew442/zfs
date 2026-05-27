@@ -57,7 +57,8 @@ Use this skill for QAT-specific work in this fork. It is meant for design review
 40. For cached page address-space lookup during QAT buffer-list construction, use `references/qat-page-lookup-cache-20260525.md`.
 41. For the rejected linear-buffer `kmap()` bypass experiment, use `references/qat-linear-kmap-bypass-20260526.md`.
 42. For the rejected async cap precheck experiment, use `references/qat-async-precheck-20260527.md`.
-43. Confirm which layer the task touches before editing:
+43. For the rejected combined async completion/timeout status check experiment, use `references/qat-async-status-combined-20260527.md`.
+44. Confirm which layer the task touches before editing:
    - Build integration and static configuration
    - Runtime tunables and initialization
    - Compression, checksum, or encryption call sites
