@@ -61,13 +61,15 @@ Use this skill for QAT-specific work in this fork. It is meant for design review
 44. For the rejected contiguous scratch flat-buffer experiment, use `references/qat-contiguous-scratch-20260527.md`.
 45. For the current-code 1M async cap-policy matrix, use `references/qat-current-cap-matrix-20260527.md`.
 46. For the current dual-media baseline and request-overhead interpretation, use `references/qat-current-dual-media-baseline-20260527.md`.
-47. Confirm which layer the task touches before editing:
+47. For compression eligibility/fallback reason counters and the first HDD/NVMe
+    attribution run, use `references/qat-eligibility-counters-20260527.md`.
+48. Confirm which layer the task touches before editing:
    - Build integration and static configuration
    - Runtime tunables and initialization
    - Compression, checksum, or encryption call sites
    - Documentation or validation workflow
-48. Preserve software fallback behavior unless the task explicitly changes policy. Current QAT paths generally attempt acceleration first and then fall back to software on failure.
-49. Treat usability and performance separately:
+49. Preserve software fallback behavior unless the task explicitly changes policy. Current QAT paths generally attempt acceleration first and then fall back to software on failure.
+50. Treat usability and performance separately:
    - Usability work usually means clearer build flags, safer defaults, less surprising runtime behavior, or better observability.
    - Performance work usually means thresholding, allocation strategy, instance selection, avoiding unnecessary copies, or reducing failed offload attempts.
 

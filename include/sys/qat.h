@@ -100,6 +100,18 @@ typedef struct qat_stats {
 	 */
 	kstat_named_t dc_instances;
 	/*
+	 * Diagnostic QAT compression eligibility counters. These count
+	 * acceleration checks, not logical compression requests, and are only
+	 * updated when detailed shape stats are enabled.
+	 */
+	kstat_named_t dc_compress_accel_checks;
+	kstat_named_t dc_compress_accel_eligible;
+	kstat_named_t dc_compress_accel_skip_disabled;
+	kstat_named_t dc_compress_accel_skip_runtime;
+	kstat_named_t dc_compress_accel_skip_uninit;
+	kstat_named_t dc_compress_accel_skip_min;
+	kstat_named_t dc_compress_accel_skip_max;
+	/*
 	 * Number of QAT compression requests that reused preallocated
 	 * per-instance buffer-list metadata.
 	 */

@@ -284,12 +284,29 @@ qat_dc_compress_use_accel(size_t s_len)
 {
 	int min_buf_size = qat_dc_effective_min_buf_size();
 	int max_buf_size = qat_dc_effective_max_buf_size();
-
-	return (!zfs_qat_compress_disable &&
+	boolean_t use_accel = (!zfs_qat_compress_disable &&
 	    qat_dc_runtime_failed == 0 &&
 	    qat_dc_init_done &&
 	    s_len >= min_buf_size &&
 	    s_len <= max_buf_size);
+
+	if (qat_dc_effective_shape_stats()) {
+		QAT_STAT_BUMP(dc_compress_accel_checks);
+		if (zfs_qat_compress_disable)
+			QAT_STAT_BUMP(dc_compress_accel_skip_disabled);
+		else if (qat_dc_runtime_failed != 0)
+			QAT_STAT_BUMP(dc_compress_accel_skip_runtime);
+		else if (!qat_dc_init_done)
+			QAT_STAT_BUMP(dc_compress_accel_skip_uninit);
+		else if (s_len < min_buf_size)
+			QAT_STAT_BUMP(dc_compress_accel_skip_min);
+		else if (s_len > max_buf_size)
+			QAT_STAT_BUMP(dc_compress_accel_skip_max);
+		else
+			QAT_STAT_BUMP(dc_compress_accel_eligible);
+	}
+
+	return (use_accel);
 }
 
 boolean_t
