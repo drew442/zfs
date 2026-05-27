@@ -199,6 +199,11 @@ Workstream D: allocation and metadata reuse:
 
 Status: initial non-serializing reuse implemented for the 2026-05-13 pass. The compression path now has a small lock-free per-instance pool for QAT buffer-list metadata and list storage, with fallback to per-request allocation when slots are busy. Host validation showed reuse hits and misses under the smoke workload, so this reduces but does not eliminate allocation pressure.
 
+2026-05-27 update: detailed async local timing stats are now profile-gated by
+`zfs_qat_dc_timing_stats`, defaulting to off through `profile`. This removes
+nonessential timestamp/stat accounting from the normal async request path while
+keeping the detailed counters available for focused benchmark runs.
+
 Workstream E: QAT instance caps:
 
 - Expose init-time module parameters for maximum DC and crypto instances, with defaults of `48` to preserve current behavior.
@@ -232,6 +237,12 @@ Workstream F: optimization bias controls:
   winning on NVMe at jobs `4` and `8`. This makes expected compression ratio a
   first-class profile input; storage-media class should be a modifier rather
   than the primary selector.
+- Circle back to media-bias profiles with a full sweep media benchmark. The
+  sweep must assess every current QAT profile-driven setting and manual
+  tunable individually across HDD and NVMe, not only the few settings already
+  noted as possible media-bias candidates. The goal is to identify all settings
+  whose best value changes by media class before adding `rotational`, `flash`,
+  or similar profile inputs.
 - Do not assume every QAT tuning knob cleanly maps to one bias. `zfs_qat_cpa_dc_level` directly affects QAT compression effort, but larger record eligibility, allocation reuse, and software fallback thresholds may affect throughput and latency without improving ratio.
 - Initial implementation should keep explicit low-level parameters available for controlled benchmarking. Bias parameters can later set coherent defaults for those lower-level knobs once measurements prove the policies.
 

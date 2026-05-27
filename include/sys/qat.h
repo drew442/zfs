@@ -356,6 +356,7 @@ extern int zfs_qat_dc_max_instances;
 extern char *zfs_qat_dc_coalesce_src;
 extern char *zfs_qat_dc_coalesce_dst;
 extern char *zfs_qat_dc_shape_stats;
+extern char *zfs_qat_dc_timing_stats;
 extern char *zfs_qat_dc_quarantine_dst;
 extern char *zfs_qat_dc_async;
 extern char *zfs_qat_dc_async_submit_retries;
