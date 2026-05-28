@@ -221,6 +221,12 @@ reuse hit/miss, page-array stack/heap/slot, or request-slot reuse stat updates
 on each QAT compression request; set `zfs_qat_dc_shape_stats=1` for request-path
 benchmark attribution.
 
+2026-05-28 update: the phase 4 benchmark harness now reports derived
+admission-attribution fields that separate profile size-policy skips,
+runtime-disabled/uninitialized skips, async cap skips, and async failure
+fallback. Eligibility-derived attribution requires `zfs_qat_dc_shape_stats=1`;
+normal profile/default runs intentionally leave those detailed fields as `na`.
+
 Workstream E: QAT instance caps:
 
 - Expose init-time module parameters for maximum DC and crypto instances, with defaults of `48` to preserve current behavior.

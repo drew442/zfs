@@ -119,6 +119,17 @@ New `qat-phase4-benchmark.sh` runs append these derived fields:
 - `qat_completion_share_pct`: async completions divided by async submits.
 - `qat_fallback_share_pct`: async fallbacks divided by async submits.
 - `qat_cap_skip_share_pct`: async cap skips divided by async submits.
+- `qat_eligible_share_pct`: QAT compression eligibility approvals divided by
+  eligibility checks. This is only populated when the relevant shape/eligibility
+  counters are enabled.
+- `qat_profile_skip_share_pct`: minimum-size plus maximum-size eligibility
+  skips divided by eligibility checks. Use this to identify profile/admission
+  fallback, such as a balanced `128K` profile intentionally excluding `1M`
+  records.
+- `qat_runtime_skip_share_pct`: disabled, runtime-failed, and uninitialized
+  eligibility skips divided by eligibility checks.
+- `qat_async_failure_share_pct`: async submit failures plus retry/resource/other
+  async failure counters divided by async submits.
 - `qat_service_ns_per_mib`: QAT compression setup, submit, wait, and cleanup
   nanoseconds per QAT-completed MiB.
 - `qat_wait_ns_per_mib`: QAT compression wait nanoseconds per QAT-completed MiB.
@@ -167,6 +178,11 @@ workloads.
 
 - Compare QAT and software rows from the same benchmark window.
 - Treat rows with nonzero cap skips as hybrid rows.
+- Treat rows with nonzero profile-skip share as admission-policy rows, not QAT
+  engine rows.
+- If `qat_eligible_share_pct` or `qat_profile_skip_share_pct` is `na`, check
+  whether `zfs_qat_dc_shape_stats` was effectively disabled before concluding
+  that no profile/admission fallback occurred.
 - Treat `qat_share` or `qat_completion_share_pct` as an admission/completion
   metric, not a pure hardware-utilization metric.
 - Prefer `qat_byte_share_pct` over request share when deciding how much work QAT
