@@ -71,13 +71,16 @@ Use this skill for QAT-specific work in this fork. It is meant for design review
     plus throughput/1M validation, use `references/qat-sync-timing-stats-gating-20260527.md`.
 51. For profile-gated aggregate request-shape counters, use
     `references/qat-aggregate-shape-stats-gating-20260527.md`.
-52. Confirm which layer the task touches before editing:
+52. For profile-gated request-path diagnostics such as buffer-slot reuse,
+    page-array path, and request-slot reuse counters, use
+    `references/qat-request-path-stats-gating-20260528.md`.
+53. Confirm which layer the task touches before editing:
    - Build integration and static configuration
    - Runtime tunables and initialization
    - Compression, checksum, or encryption call sites
    - Documentation or validation workflow
-53. Preserve software fallback behavior unless the task explicitly changes policy. Current QAT paths generally attempt acceleration first and then fall back to software on failure.
-54. Treat usability and performance separately:
+54. Preserve software fallback behavior unless the task explicitly changes policy. Current QAT paths generally attempt acceleration first and then fall back to software on failure.
+55. Treat usability and performance separately:
    - Usability work usually means clearer build flags, safer defaults, less surprising runtime behavior, or better observability.
    - Performance work usually means thresholding, allocation strategy, instance selection, avoiding unnecessary copies, or reducing failed offload attempts.
 

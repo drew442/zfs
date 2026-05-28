@@ -2026,25 +2026,29 @@ fail:
 }
 
 static qat_dc_buffer_slot_t *
-qat_dc_buffer_pool_acquire(Cpa16U inst, Cpa32U num_src_buf, Cpa32U num_dst_buf)
+qat_dc_buffer_pool_acquire(Cpa16U inst, Cpa32U num_src_buf,
+    Cpa32U num_dst_buf, boolean_t shape_stats)
 {
 	qat_dc_buffer_pool_t *pool = &buffer_pools[inst];
 
 	if (!pool->initialized ||
 	    num_src_buf > pool->max_src_bufs ||
 	    num_dst_buf > pool->max_dst_bufs) {
-		QAT_STAT_BUMP(dc_buffer_reuse_misses);
+		if (shape_stats)
+			QAT_STAT_BUMP(dc_buffer_reuse_misses);
 		return (NULL);
 	}
 
 	for (int i = 0; i < QAT_DC_BUFFER_REUSE_SLOTS; i++) {
 		if (!test_and_set_bit(i, &pool->busy)) {
-			QAT_STAT_BUMP(dc_buffer_reuse_hits);
+			if (shape_stats)
+				QAT_STAT_BUMP(dc_buffer_reuse_hits);
 			return (&pool->slots[i]);
 		}
 	}
 
-	QAT_STAT_BUMP(dc_buffer_reuse_misses);
+	if (shape_stats)
+		QAT_STAT_BUMP(dc_buffer_reuse_misses);
 	return (NULL);
 }
 
@@ -2385,7 +2389,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	session_handle = session_handles[i];
 
 	buffer_slot = qat_dc_buffer_pool_acquire(i, num_src_buf,
-	    num_dst_buf + num_add_buf);
+	    num_dst_buf + num_add_buf, shape_stats);
 
 	if (dst_coalesce_requested) {
 		dst_coalesced = qat_dc_try_coalesce_dst(&dst, dst_len,
@@ -2418,7 +2422,8 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 				goto fail;
 
 			buffer_slot = qat_dc_buffer_pool_acquire(i,
-			    num_src_buf, num_dst_buf + num_add_buf);
+			    num_src_buf, num_dst_buf + num_add_buf,
+			    shape_stats);
 		}
 	}
 
@@ -2436,19 +2441,20 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 			goto fail;
 	}
 
-	qat_dc_record_page_array_path(dir == QAT_COMPRESS && !src_coalesced &&
-	    num_src_buf <= QAT_DC_STACK_MAX_PAGES, B_FALSE,
-	    &qat_stats.dc_compress_page_array_stack_src,
-	    &qat_stats.dc_compress_page_array_heap_src);
-	qat_dc_record_page_array_path(dir == QAT_COMPRESS && !dst_coalesced &&
-	    num_dst_buf <= QAT_DC_STACK_MAX_PAGES, B_FALSE,
-	    &qat_stats.dc_compress_page_array_stack_dst,
-	    &qat_stats.dc_compress_page_array_heap_dst);
-	qat_dc_record_page_array_path(dir == QAT_COMPRESS &&
-	    add_len > 0 && !dst_coalesced &&
-	    num_add_buf <= QAT_DC_STACK_MAX_PAGES, B_FALSE,
-	    &qat_stats.dc_compress_page_array_stack_scratch,
-	    &qat_stats.dc_compress_page_array_heap_scratch);
+	if (shape_stats) {
+		qat_dc_record_page_array_path(!src_coalesced &&
+		    num_src_buf <= QAT_DC_STACK_MAX_PAGES, B_FALSE,
+		    &qat_stats.dc_compress_page_array_stack_src,
+		    &qat_stats.dc_compress_page_array_heap_src);
+		qat_dc_record_page_array_path(!dst_coalesced &&
+		    num_dst_buf <= QAT_DC_STACK_MAX_PAGES, B_FALSE,
+		    &qat_stats.dc_compress_page_array_stack_dst,
+		    &qat_stats.dc_compress_page_array_heap_dst);
+		qat_dc_record_page_array_path(add_len > 0 && !dst_coalesced &&
+		    num_add_buf <= QAT_DC_STACK_MAX_PAGES, B_FALSE,
+		    &qat_stats.dc_compress_page_array_stack_scratch,
+		    &qat_stats.dc_compress_page_array_heap_scratch);
+	}
 
 	if (num_src_buf > QAT_DC_STACK_MAX_PAGES) {
 		in_pages_size = num_src_buf * sizeof (*in_pages);
@@ -2471,9 +2477,9 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		}
 		if (in_pages == NULL)
 			goto fail;
-		if (dir == QAT_COMPRESS && in_pages_from_slot)
+		if (shape_stats && in_pages_from_slot)
 			QAT_STAT_BUMP(dc_compress_page_array_slot_src);
-		else if (dir == QAT_COMPRESS)
+		else if (shape_stats)
 			QAT_STAT_BUMP(dc_compress_page_array_heap_src);
 	}
 
@@ -2498,9 +2504,9 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		}
 		if (out_pages == NULL)
 			goto fail;
-		if (dir == QAT_COMPRESS && out_pages_from_slot)
+		if (shape_stats && out_pages_from_slot)
 			QAT_STAT_BUMP(dc_compress_page_array_slot_dst);
-		else if (dir == QAT_COMPRESS)
+		else if (shape_stats)
 			QAT_STAT_BUMP(dc_compress_page_array_heap_dst);
 	}
 
@@ -2527,10 +2533,9 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 		}
 		if (scratch_pages == NULL)
 			goto fail;
-		if (dir == QAT_COMPRESS && scratch_pages_from_slot)
+		if (shape_stats && scratch_pages_from_slot)
 			QAT_STAT_BUMP(dc_compress_page_array_slot_scratch);
-		else if (dir == QAT_COMPRESS &&
-		    num_add_buf > QAT_DC_STACK_MAX_PAGES)
+		else if (shape_stats && num_add_buf > QAT_DC_STACK_MAX_PAGES)
 			QAT_STAT_BUMP(dc_compress_page_array_heap_scratch);
 	}
 
@@ -2714,7 +2719,7 @@ qat_compress_impl(qat_compress_dir_t dir, char *src, int src_len,
 	}
 	if (sync_req == NULL)
 		goto fail;
-	if (dir == QAT_COMPRESS && sync_req_from_slot)
+	if (shape_stats && sync_req_from_slot)
 		QAT_STAT_BUMP(dc_compress_req_slot);
 	sync_req->dir = dir;
 	sync_req->state = QAT_DC_SYNC_ACTIVE;
@@ -3276,7 +3281,7 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	session_handle = session_handles[inst];
 
 	buffer_slot = qat_dc_buffer_pool_acquire(inst, num_src_buf,
-	    num_dst_buf + num_add_buf);
+	    num_dst_buf + num_add_buf, shape_stats);
 
 	if (dst_coalesce_requested) {
 		dst_coalesced = qat_dc_try_coalesce_dst(&req_dst, dst_len,
@@ -3296,7 +3301,8 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 				goto fail_pre_req;
 
 			buffer_slot = qat_dc_buffer_pool_acquire(inst,
-			    num_src_buf, num_dst_buf + num_add_buf);
+			    num_src_buf, num_dst_buf + num_add_buf,
+			    shape_stats);
 		}
 	}
 
@@ -3318,7 +3324,7 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	}
 	if (req == NULL)
 		goto fail_pre_req;
-	if (req_from_slot)
+	if (shape_stats && req_from_slot)
 		QAT_STAT_BUMP(dc_compress_req_slot);
 	req->src = req_src;
 	req->dst = req_dst;
@@ -3350,18 +3356,20 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 			goto fail;
 	}
 
-	qat_dc_record_page_array_path(!src_coalesced &&
-	    num_src_buf <= QAT_DC_STACK_MAX_PAGES, B_FALSE,
-	    &qat_stats.dc_compress_page_array_stack_src,
-	    &qat_stats.dc_compress_page_array_heap_src);
-	qat_dc_record_page_array_path(!dst_coalesced &&
-	    num_dst_buf <= QAT_DC_STACK_MAX_PAGES, B_FALSE,
-	    &qat_stats.dc_compress_page_array_stack_dst,
-	    &qat_stats.dc_compress_page_array_heap_dst);
-	qat_dc_record_page_array_path(req->add_len > 0 && !dst_coalesced &&
-	    num_add_buf <= QAT_DC_STACK_MAX_PAGES, B_FALSE,
-	    &qat_stats.dc_compress_page_array_stack_scratch,
-	    &qat_stats.dc_compress_page_array_heap_scratch);
+	if (shape_stats) {
+		qat_dc_record_page_array_path(!src_coalesced &&
+		    num_src_buf <= QAT_DC_STACK_MAX_PAGES, B_FALSE,
+		    &qat_stats.dc_compress_page_array_stack_src,
+		    &qat_stats.dc_compress_page_array_heap_src);
+		qat_dc_record_page_array_path(!dst_coalesced &&
+		    num_dst_buf <= QAT_DC_STACK_MAX_PAGES, B_FALSE,
+		    &qat_stats.dc_compress_page_array_stack_dst,
+		    &qat_stats.dc_compress_page_array_heap_dst);
+		qat_dc_record_page_array_path(req->add_len > 0 &&
+		    !dst_coalesced && num_add_buf <= QAT_DC_STACK_MAX_PAGES,
+		    B_FALSE, &qat_stats.dc_compress_page_array_stack_scratch,
+		    &qat_stats.dc_compress_page_array_heap_scratch);
+	}
 
 	src_buffer_list_mem_size = sizeof (CpaBufferList) +
 	    (num_src_buf * sizeof (CpaFlatBuffer));
@@ -3407,21 +3415,23 @@ qat_dc_compress_async_submit(char *src, int src_len, char *dst, int dst_len,
 	if (req->in_pages == NULL || req->out_pages == NULL ||
 	    (num_add_buf > 0 && req->scratch_pages == NULL))
 		goto fail;
-	if (!src_coalesced && num_src_buf > QAT_DC_STACK_MAX_PAGES) {
+	if (shape_stats && !src_coalesced &&
+	    num_src_buf > QAT_DC_STACK_MAX_PAGES) {
 		if (req->in_pages_from_slot) {
 			QAT_STAT_BUMP(dc_compress_page_array_slot_src);
 		} else {
 			QAT_STAT_BUMP(dc_compress_page_array_heap_src);
 		}
 	}
-	if (!dst_coalesced && num_dst_buf > QAT_DC_STACK_MAX_PAGES) {
+	if (shape_stats && !dst_coalesced &&
+	    num_dst_buf > QAT_DC_STACK_MAX_PAGES) {
 		if (req->out_pages_from_slot) {
 			QAT_STAT_BUMP(dc_compress_page_array_slot_dst);
 		} else {
 			QAT_STAT_BUMP(dc_compress_page_array_heap_dst);
 		}
 	}
-	if (req->add_len > 0 && !dst_coalesced) {
+	if (shape_stats && req->add_len > 0 && !dst_coalesced) {
 		if (req->scratch_pages_from_slot) {
 			QAT_STAT_BUMP(dc_compress_page_array_slot_scratch);
 		} else if (num_add_buf > QAT_DC_STACK_MAX_PAGES) {

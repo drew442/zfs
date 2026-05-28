@@ -113,3 +113,7 @@ a claimed universal throughput improvement.
 Benchmark consumers must explicitly set `zfs_qat_dc_shape_stats=1` when they
 need `qat_src_buffers_per_req`, `qat_dst_total_buffers_per_req`, or related
 shape fields for attribution.
+
+Follow-up: `references/qat-request-path-stats-gating-20260528.md` applies the
+same profile gate to buffer reuse, page-array path, and request-slot reuse
+diagnostic counters.

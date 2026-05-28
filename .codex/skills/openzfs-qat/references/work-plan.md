@@ -215,6 +215,12 @@ longer pays source/destination/scratch/max-buffer diagnostic stat updates on
 each QAT compression request; set `zfs_qat_dc_shape_stats=1` for request-shape
 benchmark attribution.
 
+2026-05-28 update: compression request-path diagnostic counters now follow
+`zfs_qat_dc_shape_stats` as well. Profile/default mode no longer pays buffer
+reuse hit/miss, page-array stack/heap/slot, or request-slot reuse stat updates
+on each QAT compression request; set `zfs_qat_dc_shape_stats=1` for request-path
+benchmark attribution.
+
 Workstream E: QAT instance caps:
 
 - Expose init-time module parameters for maximum DC and crypto instances, with defaults of `48` to preserve current behavior.
